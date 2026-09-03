@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,30 +17,109 @@ import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
 import {colors} from '../../constants/colors';
 import {spacing} from '../../constants/spacing';
+import {useAuth} from '../../hooks/useAuth';
 import {AuthStackParamList} from '../../navigation/navigationTypes';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 const LoginScreen = ({navigation}: Props) => {
+  const {login} = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = () => {
-    console.log('Login pressed', {
-      email,
-      password,
-    });
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const validateForm = () => {
+    let isValid = true;
+
+    setEmailError('');
+    setPasswordError('');
+
+    if (!email.trim()) {
+      setEmailError('Email is required.');
+      isValid = false;
+    } else if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      setEmailError('Enter a valid email address.');
+      isValid = false;
+    }
+
+    if (!password) {
+      setPasswordError('Password is required.');
+      isValid = false;
+    }
+
+    return isValid;
+  };
+
+  const handleLogin = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await login(email, password);
+
+      // No navigation call needed.
+      // AuthContext updates the user,
+      // then AppNavigator switches to MainNavigator.
+    } catch (error: unknown) {
+      console.error('Login error:', error);
+
+      let message =
+        'Unable to sign in. Please check your details and try again.';
+
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error
+      ) {
+        const firebaseError = error as {code?: string};
+
+        switch (firebaseError.code) {
+          case 'auth/invalid-email':
+            message = 'The email address is invalid.';
+            break;
+
+          case 'auth/user-not-found':
+            message = 'No account was found with this email address.';
+            break;
+
+          case 'auth/wrong-password':
+            message = 'The password is incorrect.';
+            break;
+
+          case 'auth/invalid-credential':
+            message = 'The email or password is incorrect.';
+            break;
+
+          case 'auth/too-many-requests':
+            message =
+              'Too many failed login attempts. Please try again later.';
+            break;
+
+          case 'auth/network-request-failed':
+            message =
+              'Network error. Check your internet connection and try again.';
+            break;
+        }
+      }
+
+      Alert.alert('Sign In Failed', message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={
-          Platform.OS === 'ios'
-            ? 'padding'
-            : undefined
-        }>
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled">
@@ -56,9 +136,7 @@ const LoginScreen = ({navigation}: Props) => {
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>
-              Welcome back
-            </Text>
+            <Text style={styles.cardTitle}>Welcome back</Text>
 
             <Text style={styles.cardSubtitle}>
               Sign in to continue your learning.
@@ -70,7 +148,11 @@ const LoginScreen = ({navigation}: Props) => {
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={value => {
+                setEmail(value);
+                setEmailError('');
+              }}
+              error={emailError}
             />
 
             <AppInput
@@ -78,12 +160,17 @@ const LoginScreen = ({navigation}: Props) => {
               placeholder="Enter your password"
               secureTextEntry
               value={password}
-              onChangeText={setPassword}
+              onChangeText={value => {
+                setPassword(value);
+                setPasswordError('');
+              }}
+              error={passwordError}
             />
 
             <AppButton
-              title="Sign In"
+              title={loading ? 'Signing In...' : 'Sign In'}
               onPress={handleLogin}
+              disabled={loading}
             />
 
             <View style={styles.registerRow}>
@@ -92,12 +179,9 @@ const LoginScreen = ({navigation}: Props) => {
               </Text>
 
               <Pressable
-                onPress={() =>
-                  navigation.navigate('Register')
-                }>
-                <Text style={styles.registerLink}>
-                  Register
-                </Text>
+                disabled={loading}
+                onPress={() => navigation.navigate('Register')}>
+                <Text style={styles.registerLink}>Register</Text>
               </Pressable>
             </View>
           </View>
