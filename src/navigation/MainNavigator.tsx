@@ -1,10 +1,12 @@
 import React from 'react';
+
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
 import HomeScreen from '../screens/home/HomeScreen';
 import {MainStackParamList} from './navigationTypes';
 
-const Stack = createNativeStackNavigator<MainStackParamList>();
+const Stack =
+  createNativeStackNavigator<MainStackParamList>();
 
 const MainNavigator = () => {
   return (
@@ -12,7 +14,9 @@ const MainNavigator = () => {
       <Stack.Screen
         name="Home"
         component={HomeScreen}
-        options={{title: 'StudyMate'}}
+        options={{
+          title: 'StudyMate',
+        }}
       />
     </Stack.Navigator>
   );
