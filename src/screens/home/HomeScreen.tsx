@@ -1,18 +1,34 @@
-import React, {useState} from 'react';
+import React from 'react';
+
 import {
-  Alert,
-  StyleSheet,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
   Text,
   View,
 } from 'react-native';
 
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 
-import AppButton from '../../components/common/AppButton';
-import {colors} from '../../constants/colors';
-import {spacing} from '../../constants/spacing';
+import {
+  BookOpen,
+  BrainCircuit,
+  FilePlus2,
+  LibraryBig,
+  MessageCircleMore,
+  Sparkles,
+} from 'lucide-react-native';
+
+import AccountMenu from '../../components/home/AccountMenu';
+import HomeStatCard from '../../components/home/HomeStatCard';
+import QuickActionCard from '../../components/home/QuickActionCard';
+
 import {useAuth} from '../../hooks/useAuth';
+import {useSubjects} from '../../hooks/useSubjects';
+
 import {MainStackParamList} from '../../navigation/navigationTypes';
+
+import {homeStyles as styles} from './styles/homeStyles';
 
 type Props = NativeStackScreenProps<
   MainStackParamList,
@@ -20,141 +36,265 @@ type Props = NativeStackScreenProps<
 >;
 
 const HomeScreen = ({navigation}: Props) => {
-  const {user, logout} = useAuth();
+  const {user} = useAuth();
 
-  const [loading, setLoading] = useState(false);
+  const {
+    subjects,
+  } = useSubjects();
 
-  const handleLogout = async () => {
-    try {
-      setLoading(true);
+  const displayName =
+    user?.displayName?.trim() ||
+    user?.email?.split('@')[0] ||
+    'Student';
 
-      await logout();
+  const firstName =
+    displayName.split(' ')[0];
 
-      /*
-       * No manual navigation is required here.
-       *
-       * Firebase Authentication updates AuthContext,
-       * and AppNavigator automatically switches from
-       * MainNavigator to AuthNavigator.
-       */
-    } catch (error) {
-      console.error('Logout error:', error);
+  const subjectCount =
+    subjects?.length ?? 0;
 
-      Alert.alert(
-        'Logout Failed',
-        'Unable to sign out. Please try again.',
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubjects = () => {
-    navigation.navigate('Subjects');
-  };
+  /*
+   * Materials are not implemented yet.
+   * We will replace this with real repository data later.
+   */
+  const materialCount = 0;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>
-        LearnLoop AI
-      </Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}>
 
-      <Text style={styles.tagline}>
-        From Course Material to Targeted Revision
-      </Text>
+        {/* ===================================================
+            HEADER
+        ==================================================== */}
 
-      <Text style={styles.welcome}>
-        Welcome
-        {user?.displayName
-          ? `, ${user.displayName}`
-          : ''}
-        .
-      </Text>
+        <View style={styles.header}>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.greeting}>
+              Hi, {firstName} 👋
+            </Text>
 
-      <Text style={styles.email}>
-        {user?.email}
-      </Text>
+            <Text style={styles.subtitle}>
+              Ready to make some progress today?
+            </Text>
+          </View>
 
-      <Text style={styles.subtitle}>
-        Organize your subjects, add learning materials,
-        and turn them into smarter revision activities.
-      </Text>
+          <AccountMenu
+            displayName={displayName}
+          />
+        </View>
 
-      <View style={styles.mainActionContainer}>
-        <AppButton
-          title="My Subjects"
-          onPress={handleSubjects}
-        />
-      </View>
+        {/* ===================================================
+            AI HERO
+        ==================================================== */}
 
-      <View style={styles.logoutContainer}>
-        <AppButton
-          title={
-            loading
-              ? 'Signing Out...'
-              : 'Sign Out'
+        <View style={styles.heroCard}>
+
+          <View style={styles.heroTopRow}>
+            <View style={styles.aiBadge}>
+              <Sparkles
+                size={14}
+                color="#FFFFFF"
+              />
+
+              <Text style={styles.aiBadgeText}>
+                LEARNLOOP AI
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.heroTitle}>
+            Learn smarter,
+            {'\n'}
+            not harder.
+          </Text>
+
+          <Text style={styles.heroDescription}>
+            Organize your materials and transform them
+            into summaries, flashcards and quizzes.
+          </Text>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              navigation.navigate('Subjects')
+            }
+            style={({pressed}) => [
+              styles.heroButton,
+              pressed && styles.heroButtonPressed,
+            ]}>
+
+            <BookOpen
+              size={18}
+              color="#4F46E5"
+            />
+
+            <Text style={styles.heroButtonText}>
+              Explore subjects
+            </Text>
+
+          </Pressable>
+
+          <View style={styles.heroDecorationOne} />
+          <View style={styles.heroDecorationTwo} />
+
+        </View>
+
+        {/* ===================================================
+            OVERVIEW
+        ==================================================== */}
+
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>
+              Your workspace
+            </Text>
+
+            <Text style={styles.sectionSubtitle}>
+              Everything you're learning in one place.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.statsRow}>
+          <HomeStatCard
+            value={subjectCount}
+            label="Subjects"
+            icon={LibraryBig}
+            iconColor="#4F46E5"
+            iconBackground="#EEF2FF"
+          />
+
+          <HomeStatCard
+            value={materialCount}
+            label="Materials"
+            icon={BookOpen}
+            iconColor="#0284C7"
+            iconBackground="#E0F2FE"
+          />
+        </View>
+
+        {/* ===================================================
+            SUBJECTS
+        ==================================================== */}
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() =>
+            navigation.navigate('Subjects')
           }
-          onPress={handleLogout}
-          disabled={loading}
-        />
-      </View>
-    </View>
+          style={({pressed}) => [
+            styles.subjectBanner,
+            pressed && styles.cardPressed,
+          ]}>
+
+          <View style={styles.subjectBannerIcon}>
+            <LibraryBig
+              size={24}
+              color="#4F46E5"
+            />
+          </View>
+
+          <View style={styles.subjectBannerContent}>
+            <Text style={styles.subjectBannerTitle}>
+              My Subjects
+            </Text>
+
+            <Text style={styles.subjectBannerDescription}>
+              Organize learning materials into subjects.
+            </Text>
+          </View>
+
+          <View style={styles.subjectArrow}>
+            <Text style={styles.subjectArrowText}>
+              ›
+            </Text>
+          </View>
+
+        </Pressable>
+
+        {/* ===================================================
+            QUICK ACTIONS
+        ==================================================== */}
+
+        <View style={styles.quickHeader}>
+          <Text style={styles.sectionTitle}>
+            Quick actions
+          </Text>
+        </View>
+
+        <View style={styles.quickGrid}>
+
+          <QuickActionCard
+            title="Add subject"
+            description="Create a new learning space"
+            icon={FilePlus2}
+            iconColor="#7C3AED"
+            iconBackground="#F3E8FF"
+            onPress={() =>
+              navigation.navigate('Subjects')
+            }
+          />
+
+          <QuickActionCard
+            title="Add material"
+            description="Text, PDF, image or camera"
+            icon={BookOpen}
+            iconColor="#0284C7"
+            iconBackground="#E0F2FE"
+            onPress={() =>
+              navigation.navigate('Subjects')
+            }
+          />
+
+          <QuickActionCard
+            title="Study tools"
+            description="Flashcards and quizzes"
+            icon={BrainCircuit}
+            iconColor="#16A34A"
+            iconBackground="#DCFCE7"
+            disabled
+          />
+
+          <QuickActionCard
+            title="Ask AI"
+            description="Chat with your material"
+            icon={MessageCircleMore}
+            iconColor="#D97706"
+            iconBackground="#FEF3C7"
+            disabled
+          />
+
+        </View>
+
+        {/* ===================================================
+            COMING NEXT
+        ==================================================== */}
+
+        <View style={styles.comingSoonCard}>
+          <View style={styles.comingSoonIcon}>
+            <Sparkles
+              size={22}
+              color="#7C3AED"
+            />
+          </View>
+
+          <View style={styles.comingSoonContent}>
+            <Text style={styles.comingSoonTitle}>
+              AI study tools are coming next
+            </Text>
+
+            <Text style={styles.comingSoonDescription}>
+              Add materials to generate summaries,
+              flashcards and quizzes.
+            </Text>
+          </View>
+        </View>
+
+      </ScrollView>
+    </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: spacing.lg,
-    backgroundColor: colors.background,
-  },
-
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-
-  tagline: {
-    marginTop: spacing.xs,
-    fontSize: 14,
-    color: colors.primary,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-
-  welcome: {
-    marginTop: spacing.xl,
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-
-  email: {
-    marginTop: spacing.xs,
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-
-  subtitle: {
-    marginTop: spacing.md,
-    fontSize: 16,
-    lineHeight: 23,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-
-  mainActionContainer: {
-    marginTop: spacing.xl,
-  },
-
-  logoutContainer: {
-    marginTop: spacing.md,
-  },
-});
 
 export default HomeScreen;
