@@ -3,7 +3,9 @@ export type AuthStackParamList = {
   Register: undefined;
 };
 
-export type MainStackParamList = {
+export type MainTabParamList = {
   Home: undefined;
   Subjects: undefined;
+  Quiz: undefined;
+  Profile: undefined;
 };
