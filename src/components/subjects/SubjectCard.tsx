@@ -8,14 +8,14 @@ import {
 } from 'react-native';
 
 import {
-  ChevronRight,
+  EllipsisVertical,
   FolderOpen,
 } from 'lucide-react-native';
 
-import {Subject} from '../../domain/models/Subject';
-
 import {colors} from '../../constants/colors';
 import {spacing} from '../../constants/spacing';
+
+import {Subject} from '../../domain/models/Subject';
 
 interface SubjectAccent {
   background: string;
@@ -24,14 +24,24 @@ interface SubjectAccent {
 
 interface SubjectCardProps {
   subject: Subject;
+
   accent: SubjectAccent;
+
   onPress?: () => void;
+
+  onOptionsPress: (
+    subject: Subject,
+  ) => void;
+
+  busy?: boolean;
 }
 
 const SubjectCard = ({
   subject,
   accent,
   onPress,
+  onOptionsPress,
+  busy = false,
 }: SubjectCardProps) => {
   const getInitials = () => {
     const words = subject.name
@@ -57,27 +67,54 @@ const SubjectCard = ({
     subject.description?.trim() ||
     'Organize your learning materials in this subject.';
 
-  const cardContent = (
-    <>
+  return (
+    <Pressable
+      disabled={!onPress || busy}
+      accessibilityRole={
+        onPress ? 'button' : undefined
+      }
+      accessibilityLabel={
+        onPress
+          ? `Open ${subject.name}`
+          : undefined
+      }
+      onPress={onPress}
+      style={({pressed}) => [
+        styles.card,
+        pressed &&
+          !!onPress &&
+          styles.cardPressed,
+        busy && styles.busyCard,
+      ]}>
+
+      {/* Subject icon */}
+
       <View
         style={[
           styles.iconContainer,
           {
-            backgroundColor: accent.background,
+            backgroundColor:
+              accent.background,
           },
         ]}>
+
         <Text
           style={[
             styles.initials,
             {
-              color: accent.foreground,
+              color:
+                accent.foreground,
             },
           ]}>
           {getInitials()}
         </Text>
+
       </View>
 
+      {/* Subject details */}
+
       <View style={styles.content}>
+
         <Text
           style={styles.name}
           numberOfLines={1}>
@@ -101,44 +138,42 @@ const SubjectCard = ({
             style={[
               styles.typeText,
               {
-                color: accent.foreground,
+                color:
+                  accent.foreground,
               },
             ]}>
             Learning subject
           </Text>
         </View>
+
       </View>
 
-      {onPress && (
-        <View style={styles.arrowContainer}>
-          <ChevronRight
-            size={20}
-            color={colors.textMuted}
-            strokeWidth={2}
-          />
-        </View>
-      )}
-    </>
-  );
+      {/* Options */}
 
-  if (!onPress) {
-    return (
-      <View style={styles.card}>
-        {cardContent}
-      </View>
-    );
-  }
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Options for ${subject.name}`}
+        disabled={busy}
+        hitSlop={10}
+        onPress={event => {
+          event.stopPropagation();
 
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Open ${subject.name}`}
-      onPress={onPress}
-      style={({pressed}) => [
-        styles.card,
-        pressed && styles.pressed,
-      ]}>
-      {cardContent}
+          onOptionsPress(subject);
+        }}
+        style={({pressed}) => [
+          styles.optionsButton,
+          pressed &&
+            styles.optionsButtonPressed,
+        ]}>
+
+        <EllipsisVertical
+          size={21}
+          color={colors.textSecondary}
+          strokeWidth={2}
+        />
+
+      </Pressable>
+
     </Pressable>
   );
 };
@@ -160,17 +195,20 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
 
     shadowColor: '#0F172A',
+
     shadowOffset: {
       width: 0,
       height: 3,
     },
+
     shadowOpacity: 0.04,
+
     shadowRadius: 8,
 
     elevation: 1,
   },
 
-  pressed: {
+  cardPressed: {
     opacity: 0.82,
 
     transform: [
@@ -178,6 +216,10 @@ const styles = StyleSheet.create({
         scale: 0.99,
       },
     ],
+  },
+
+  busyCard: {
+    opacity: 0.6,
   },
 
   iconContainer: {
@@ -203,6 +245,7 @@ const styles = StyleSheet.create({
 
   name: {
     fontSize: 16,
+
     fontWeight: '700',
 
     color: colors.textPrimary,
@@ -228,21 +271,33 @@ const styles = StyleSheet.create({
 
   typeText: {
     fontSize: 11,
+
     fontWeight: '600',
   },
 
-  arrowContainer: {
-    width: 34,
-    height: 34,
+  optionsButton: {
+    width: 40,
+    height: 40,
 
     marginLeft: spacing.sm,
 
-    borderRadius: 17,
+    borderRadius: 12,
 
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor:
+      colors.surfaceSecondary,
 
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  optionsButtonPressed: {
+    opacity: 0.7,
+
+    transform: [
+      {
+        scale: 0.95,
+      },
+    ],
   },
 });
 

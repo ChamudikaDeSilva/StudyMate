@@ -692,4 +692,142 @@ export const subjectStyles = StyleSheet.create({
     backgroundColor:
       colors.surfaceSecondary,
   },
+
+  // =========================================================
+  // Subject actions bottom sheet
+  // =========================================================
+
+  actionModalOverlay: {
+    flex: 1,
+
+    backgroundColor:
+      'rgba(15, 23, 42, 0.45)',
+
+    justifyContent: 'flex-end',
+  },
+
+  actionSheet: {
+    backgroundColor: colors.surface,
+
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
+  },
+
+  actionSheetHandle: {
+    width: 42,
+    height: 5,
+
+    alignSelf: 'center',
+
+    borderRadius: 3,
+
+    backgroundColor: colors.border,
+
+    marginBottom: spacing.lg,
+  },
+
+  actionSheetTitle: {
+    fontSize: 19,
+
+    fontWeight: '700',
+
+    color: colors.textPrimary,
+  },
+
+  actionSheetSubtitle: {
+    marginTop: 4,
+
+    fontSize: 13,
+
+    color: colors.textSecondary,
+  },
+
+  actionDivider: {
+    height: 1,
+
+    backgroundColor: colors.border,
+
+    marginVertical: spacing.md,
+  },
+
+  actionItem: {
+    minHeight: 72,
+
+    flexDirection: 'row',
+    alignItems: 'center',
+
+    borderRadius: 16,
+
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+
+  actionItemPressed: {
+    backgroundColor: '#EEF2FF',
+  },
+
+  deleteActionPressed: {
+    backgroundColor: '#FEF2F2',
+  },
+
+  editActionIcon: {
+    width: 44,
+    height: 44,
+
+    borderRadius: 13,
+
+    backgroundColor: '#EEF2FF',
+
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    marginRight: spacing.md,
+  },
+
+  deleteActionIcon: {
+    width: 44,
+    height: 44,
+
+    borderRadius: 13,
+
+    backgroundColor: '#FEF2F2',
+
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    marginRight: spacing.md,
+  },
+
+  actionItemContent: {
+    flex: 1,
+  },
+
+  actionItemTitle: {
+    fontSize: 15,
+
+    fontWeight: '700',
+
+    color: colors.textPrimary,
+  },
+
+  deleteActionTitle: {
+    fontSize: 15,
+
+    fontWeight: '700',
+
+    color: '#DC2626',
+  },
+
+  actionItemDescription: {
+    marginTop: 3,
+
+    fontSize: 12,
+    lineHeight: 17,
+
+    color: colors.textSecondary,
+  },
 });
