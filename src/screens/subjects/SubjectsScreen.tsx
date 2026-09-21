@@ -4,6 +4,10 @@ import React, {
 } from 'react';
 
 import {
+  NativeStackScreenProps,
+} from '@react-navigation/native-stack';
+
+import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
@@ -36,6 +40,24 @@ import {Subject} from '../../domain/models/Subject';
 import {useAuth} from '../../hooks/useAuth';
 import {useSubjects} from '../../hooks/useSubjects';
 
+import {
+  SubjectsStackParamList,
+} from '../../navigation/navigationTypes';
+
+// =========================================================
+// Navigation props
+// =========================================================
+
+type Props =
+  NativeStackScreenProps<
+    SubjectsStackParamList,
+    'SubjectsHome'
+  >;
+
+// =========================================================
+// Subject colour palette
+// =========================================================
+
 const subjectPalette = [
   {
     background: '#EEF2FF',
@@ -63,8 +85,11 @@ const subjectPalette = [
   },
 ];
 
-const SubjectsScreen = () => {
-  const {user} = useAuth();
+const SubjectsScreen = ({
+  navigation,
+}: Props) => {
+  const {user} =
+    useAuth();
 
   const {
     subjects,
@@ -83,6 +108,10 @@ const SubjectsScreen = () => {
     searchText,
     setSearchText,
   ] = useState('');
+
+  // =========================================================
+  // Create / Edit form
+  // =========================================================
 
   const [
     subjectFormVisible,
@@ -105,6 +134,10 @@ const SubjectsScreen = () => {
     description,
     setDescription,
   ] = useState('');
+
+  // =========================================================
+  // Subject actions
+  // =========================================================
 
   const [
     selectedSubject,
@@ -163,7 +196,7 @@ const SubjectsScreen = () => {
     ]);
 
   // =========================================================
-  // Create
+  // Create subject
   // =========================================================
 
   const openCreateSubject =
@@ -179,7 +212,7 @@ const SubjectsScreen = () => {
     };
 
   // =========================================================
-  // Options
+  // Subject actions
   // =========================================================
 
   const openSubjectActions = (
@@ -204,7 +237,7 @@ const SubjectsScreen = () => {
     };
 
   // =========================================================
-  // Edit
+  // Edit subject
   // =========================================================
 
   const openEditSubject = (
@@ -229,6 +262,11 @@ const SubjectsScreen = () => {
         '',
     );
 
+    /*
+     * Small delay avoids Android
+     * closing one Modal and opening
+     * another in the same frame.
+     */
     setTimeout(() => {
       setSubjectFormVisible(
         true,
@@ -261,7 +299,7 @@ const SubjectsScreen = () => {
     };
 
   // =========================================================
-  // Save
+  // Save subject
   // =========================================================
 
   const handleSaveSubject =
@@ -318,7 +356,7 @@ const SubjectsScreen = () => {
     };
 
   // =========================================================
-  // Delete
+  // Delete subject
   // =========================================================
 
   const confirmDeleteSubject = (
@@ -372,6 +410,10 @@ const SubjectsScreen = () => {
     }, 150);
   };
 
+  // =========================================================
+  // State helpers
+  // =========================================================
+
   const isEditing =
     editingSubject !== null;
 
@@ -387,6 +429,10 @@ const SubjectsScreen = () => {
     !loading &&
     !!error &&
     subjects.length === 0;
+
+  // =========================================================
+  // UI
+  // =========================================================
 
   return (
     <SafeAreaView
@@ -554,8 +600,7 @@ const SubjectsScreen = () => {
                     text-indigo-100
                   ">
 
-                  {subjects.length ===
-                  1
+                  {subjects.length === 1
                     ? 'subject ready for your learning materials'
                     : 'subjects ready for your learning materials'}
 
@@ -957,7 +1002,7 @@ const SubjectsScreen = () => {
             ) : (
 
               /* =========================================
-                  LIST
+                  SUBJECT LIST
               ========================================== */
 
               <View>
@@ -993,6 +1038,24 @@ const SubjectsScreen = () => {
                         busy={
                           busy
                         }
+
+                        /*
+                         * Open the selected
+                         * subject's Materials.
+                         */
+                        onPress={() =>
+                          navigation.navigate(
+                            'SubjectMaterials',
+                            {
+                              subjectId:
+                                subject.id,
+
+                              subjectName:
+                                subject.name,
+                            },
+                          )
+                        }
+
                         onOptionsPress={
                           openSubjectActions
                         }
@@ -1045,9 +1108,9 @@ const SubjectsScreen = () => {
 
       </View>
 
-      {/* ===============================================
+      {/* =====================================================
           SUBJECT ACTIONS
-      ================================================ */}
+      ====================================================== */}
 
       <Modal
         transparent
@@ -1122,6 +1185,8 @@ const SubjectsScreen = () => {
               "
             />
 
+            {/* Edit */}
+
             <Pressable
               accessibilityRole="button"
               onPress={() => {
@@ -1186,6 +1251,8 @@ const SubjectsScreen = () => {
               </View>
 
             </Pressable>
+
+            {/* Delete */}
 
             <Pressable
               accessibilityRole="button"
@@ -1258,9 +1325,9 @@ const SubjectsScreen = () => {
 
       </Modal>
 
-      {/* ===============================================
-          CREATE / EDIT
-      ================================================ */}
+      {/* =====================================================
+          CREATE / EDIT FORM
+      ====================================================== */}
 
       <Modal
         transparent
