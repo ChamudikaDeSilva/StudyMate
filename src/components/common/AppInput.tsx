@@ -1,16 +1,14 @@
 import React from 'react';
+
 import {
-  StyleSheet,
   Text,
   TextInput,
   TextInputProps,
   View,
 } from 'react-native';
 
-import {colors} from '../../constants/colors';
-import {spacing} from '../../constants/spacing';
-
-interface AppInputProps extends TextInputProps {
+interface AppInputProps
+  extends TextInputProps {
   label: string;
   error?: string;
 }
@@ -21,53 +19,54 @@ const AppInput = ({
   ...textInputProps
 }: AppInputProps) => {
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+    <View className="mb-4">
 
+      {/* Label */}
+      <Text
+        className="
+          mb-2
+          text-sm
+          font-semibold
+          text-slate-800
+        ">
+        {label}
+      </Text>
+
+      {/* Input */}
       <TextInput
         {...textInputProps}
-        placeholderTextColor={colors.textSecondary}
-        style={[
-          styles.input,
-          error ? styles.inputError : undefined,
-        ]}
+        placeholderTextColor="#64748B"
+        className={`
+          min-h-[52px]
+          rounded-xl
+          border
+          bg-white
+          px-4
+          py-3
+          text-base
+          text-slate-900
+          ${
+            error
+              ? 'border-red-500'
+              : 'border-slate-200'
+          }
+        `}
       />
 
+      {/* Error */}
       {error ? (
-        <Text style={styles.error}>{error}</Text>
+        <Text
+          className="
+            mt-1
+            text-xs
+            text-red-500
+          ">
+          {error}
+        </Text>
       ) : null}
+
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.md,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 13,
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  inputError: {
-    borderColor: colors.danger,
-  },
-  error: {
-    color: colors.danger,
-    marginTop: spacing.xs,
-    fontSize: 12,
-  },
-});
 
 export default AppInput;

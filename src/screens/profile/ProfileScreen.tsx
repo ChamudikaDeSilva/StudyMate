@@ -1,14 +1,13 @@
 import React from 'react';
+
 import {
   SafeAreaView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
 
 import AccountMenu from '../../components/home/AccountMenu';
 
-import {colors} from '../../constants/colors';
 import {useAuth} from '../../hooks/useAuth';
 
 const ProfileScreen = () => {
@@ -19,74 +18,108 @@ const ProfileScreen = () => {
     user?.email?.split('@')[0] ||
     'Student';
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+  const profileInitial =
+    displayName
+      .charAt(0)
+      .toUpperCase() || 'U';
 
-        <View style={styles.header}>
-          <Text style={styles.title}>
+  return (
+    <SafeAreaView
+      className="
+        flex-1
+        bg-slate-50
+      ">
+
+      <View
+        className="
+          flex-1
+          px-6
+          pt-6
+        ">
+
+        <View
+          className="
+            flex-row
+            items-center
+            justify-between
+          ">
+
+          <Text
+            className="
+              text-[26px]
+              font-bold
+              text-slate-900
+            ">
             Profile
           </Text>
 
           <AccountMenu
-            displayName={displayName}
+            displayName={
+              displayName
+            }
           />
+
         </View>
 
-        <Text style={styles.name}>
-          {displayName}
-        </Text>
+        <View
+          className="
+            mt-10
+            items-center
+            rounded-3xl
+            border
+            border-slate-200
+            bg-white
+            p-6
+          ">
 
-        {!!user?.email && (
-          <Text style={styles.email}>
-            {user.email}
+          <View
+            className="
+              h-20
+              w-20
+              items-center
+              justify-center
+              rounded-full
+              bg-indigo-100
+            ">
+
+            <Text
+              className="
+                text-3xl
+                font-bold
+                text-indigo-600
+              ">
+              {profileInitial}
+            </Text>
+
+          </View>
+
+          <Text
+            className="
+              mt-5
+              text-xl
+              font-bold
+              text-slate-900
+            ">
+            {displayName}
           </Text>
-        )}
+
+          {!!user?.email && (
+            <Text
+              className="
+                mt-1
+                text-sm
+                text-slate-500
+              ">
+              {user.email}
+            </Text>
+          )}
+
+        </View>
 
       </View>
+
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
-  container: {
-    flex: 1,
-    padding: 24,
-  },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-
-  name: {
-    marginTop: 40,
-
-    fontSize: 20,
-    fontWeight: '700',
-
-    color: colors.textPrimary,
-  },
-
-  email: {
-    marginTop: 6,
-
-    fontSize: 14,
-
-    color: colors.textSecondary,
-  },
-});
 
 export default ProfileScreen;

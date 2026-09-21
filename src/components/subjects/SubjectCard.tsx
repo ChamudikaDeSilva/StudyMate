@@ -2,7 +2,6 @@ import React from 'react';
 
 import {
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -11,9 +10,6 @@ import {
   EllipsisVertical,
   FolderOpen,
 } from 'lucide-react-native';
-
-import {colors} from '../../constants/colors';
-import {spacing} from '../../constants/spacing';
 
 import {Subject} from '../../domain/models/Subject';
 
@@ -44,10 +40,11 @@ const SubjectCard = ({
   busy = false,
 }: SubjectCardProps) => {
   const getInitials = () => {
-    const words = subject.name
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
+    const words =
+      subject.name
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
 
     if (words.length === 0) {
       return 'S';
@@ -69,9 +66,14 @@ const SubjectCard = ({
 
   return (
     <Pressable
-      disabled={!onPress || busy}
+      disabled={
+        !onPress ||
+        busy
+      }
       accessibilityRole={
-        onPress ? 'button' : undefined
+        onPress
+          ? 'button'
+          : undefined
       }
       accessibilityLabel={
         onPress
@@ -79,71 +81,108 @@ const SubjectCard = ({
           : undefined
       }
       onPress={onPress}
-      style={({pressed}) => [
-        styles.card,
-        pressed &&
-          !!onPress &&
-          styles.cardPressed,
-        busy && styles.busyCard,
-      ]}>
+      className={`
+        mb-4
+        flex-row
+        items-center
+        rounded-[20px]
+        border
+        border-slate-200
+        bg-white
+        p-4
 
-      {/* Subject icon */}
+        ${
+          busy
+            ? 'opacity-60'
+            : onPress
+              ? 'active:scale-[0.99] active:opacity-80'
+              : ''
+        }
+      `}>
+
+      {/* Icon */}
 
       <View
-        style={[
-          styles.iconContainer,
-          {
-            backgroundColor:
-              accent.background,
-          },
-        ]}>
+        className="
+          mr-4
+          h-[58px]
+          w-[58px]
+          items-center
+          justify-center
+          rounded-[17px]
+        "
+        style={{
+          backgroundColor:
+            accent.background,
+        }}>
 
         <Text
-          style={[
-            styles.initials,
-            {
-              color:
-                accent.foreground,
-            },
-          ]}>
+          className="
+            text-lg
+            font-extrabold
+          "
+          style={{
+            color:
+              accent.foreground,
+          }}>
           {getInitials()}
         </Text>
 
       </View>
 
-      {/* Subject details */}
+      {/* Content */}
 
-      <View style={styles.content}>
+      <View className="flex-1">
 
         <Text
-          style={styles.name}
+          className="
+            text-base
+            font-bold
+            text-slate-900
+          "
           numberOfLines={1}>
           {subject.name}
         </Text>
 
         <Text
-          style={styles.description}
+          className="
+            mt-1
+            text-xs
+            leading-[18px]
+            text-slate-500
+          "
           numberOfLines={2}>
           {description}
         </Text>
 
-        <View style={styles.typeRow}>
+        <View
+          className="
+            mt-2
+            flex-row
+            items-center
+          ">
+
           <FolderOpen
             size={14}
-            color={accent.foreground}
+            color={
+              accent.foreground
+            }
             strokeWidth={2}
           />
 
           <Text
-            style={[
-              styles.typeText,
-              {
-                color:
-                  accent.foreground,
-              },
-            ]}>
+            className="
+              ml-1
+              text-[11px]
+              font-semibold
+            "
+            style={{
+              color:
+                accent.foreground,
+            }}>
             Learning subject
           </Text>
+
         </View>
 
       </View>
@@ -152,23 +191,33 @@ const SubjectCard = ({
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Options for ${subject.name}`}
+        accessibilityLabel={
+          `Options for ${subject.name}`
+        }
         disabled={busy}
         hitSlop={10}
         onPress={event => {
           event.stopPropagation();
 
-          onOptionsPress(subject);
+          onOptionsPress(
+            subject,
+          );
         }}
-        style={({pressed}) => [
-          styles.optionsButton,
-          pressed &&
-            styles.optionsButtonPressed,
-        ]}>
+        className="
+          ml-2
+          h-10
+          w-10
+          items-center
+          justify-center
+          rounded-xl
+          bg-slate-100
+          active:scale-95
+          active:opacity-70
+        ">
 
         <EllipsisVertical
           size={21}
-          color={colors.textSecondary}
+          color="#64748B"
           strokeWidth={2}
         />
 
@@ -177,128 +226,5 @@ const SubjectCard = ({
     </Pressable>
   );
 };
-
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-
-    backgroundColor: colors.surface,
-
-    borderRadius: 20,
-
-    padding: spacing.md,
-
-    marginBottom: spacing.md,
-
-    borderWidth: 1,
-    borderColor: colors.border,
-
-    shadowColor: '#0F172A',
-
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-
-    shadowOpacity: 0.04,
-
-    shadowRadius: 8,
-
-    elevation: 1,
-  },
-
-  cardPressed: {
-    opacity: 0.82,
-
-    transform: [
-      {
-        scale: 0.99,
-      },
-    ],
-  },
-
-  busyCard: {
-    opacity: 0.6,
-  },
-
-  iconContainer: {
-    width: 58,
-    height: 58,
-
-    borderRadius: 17,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    marginRight: spacing.md,
-  },
-
-  initials: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-
-  content: {
-    flex: 1,
-  },
-
-  name: {
-    fontSize: 16,
-
-    fontWeight: '700',
-
-    color: colors.textPrimary,
-  },
-
-  description: {
-    marginTop: 4,
-
-    fontSize: 12,
-    lineHeight: 18,
-
-    color: colors.textSecondary,
-  },
-
-  typeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-
-    gap: 5,
-
-    marginTop: 8,
-  },
-
-  typeText: {
-    fontSize: 11,
-
-    fontWeight: '600',
-  },
-
-  optionsButton: {
-    width: 40,
-    height: 40,
-
-    marginLeft: spacing.sm,
-
-    borderRadius: 12,
-
-    backgroundColor:
-      colors.surfaceSecondary,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  optionsButtonPressed: {
-    opacity: 0.7,
-
-    transform: [
-      {
-        scale: 0.95,
-      },
-    ],
-  },
-});
 
 export default SubjectCard;
