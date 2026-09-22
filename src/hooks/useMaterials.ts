@@ -10,7 +10,13 @@ import {
   MaterialSourceType,
 } from '../domain/models/Material';
 
-import {MaterialRepositoryImpl} from '../data/repositories/MaterialRepositoryImpl';
+import {
+  MaterialRepositoryImpl,
+} from '../data/repositories/MaterialRepositoryImpl';
+
+import {
+  MaterialStorageService,
+} from '../services/storage/MaterialStorageService';
 
 import {useAuth} from './useAuth';
 
@@ -24,6 +30,13 @@ export const useMaterials = (
     useMemo(
       () =>
         new MaterialRepositoryImpl(),
+      [],
+    );
+
+  const storageService =
+    useMemo(
+      () =>
+        new MaterialStorageService(),
       [],
     );
 
@@ -89,10 +102,11 @@ export const useMaterials = (
           setError(null);
 
           const result =
-            await repository.getMaterials(
-              user.uid,
-              subjectId,
-            );
+            await repository
+              .getMaterials(
+                user.uid,
+                subjectId,
+              );
 
           setMaterials(
             result,
@@ -156,29 +170,30 @@ export const useMaterials = (
         setError(null);
 
         const newMaterial =
-          await repository.createMaterial({
-            userId:
-              user.uid,
+          await repository
+            .createMaterial({
+              userId:
+                user.uid,
 
-            subjectId,
+              subjectId,
 
-            title:
-              trimmedTitle,
+              title:
+                trimmedTitle,
 
-            sourceType,
+              sourceType,
 
-            content:
-              content?.trim() ||
-              undefined,
+              content:
+                content?.trim() ||
+                undefined,
 
-            fileName:
-              fileName ||
-              undefined,
+              fileName:
+                fileName?.trim() ||
+                undefined,
 
-            fileUrl:
-              fileUrl ||
-              undefined,
-          });
+              fileUrl:
+                fileUrl?.trim() ||
+                undefined,
+            });
 
         setMaterials(
           currentMaterials => [
@@ -238,38 +253,36 @@ export const useMaterials = (
 
         setError(null);
 
-        await repository.updateMaterial(
-          materialId,
-          {
-            title:
-              trimmedTitle,
+        await repository
+          .updateMaterial(
+            materialId,
+            {
+              title:
+                trimmedTitle,
 
-            content:
-              content !== undefined
-                ? content.trim()
-                : undefined,
+              content:
+                content !==
+                undefined
+                  ? content.trim()
+                  : undefined,
 
-            fileName:
-              fileName !== undefined
-                ? fileName
-                : undefined,
+              fileName:
+                fileName !==
+                undefined
+                  ? fileName.trim()
+                  : undefined,
 
-            fileUrl:
-              fileUrl !== undefined
-                ? fileUrl
-                : undefined,
-          },
-        );
+              fileUrl:
+                fileUrl !==
+                undefined
+                  ? fileUrl.trim()
+                  : undefined,
+            },
+          );
 
         const updatedAt =
           Date.now();
 
-        /*
-         * Update local state without
-         * destroying existing optional
-         * values when a new value was
-         * not supplied.
-         */
         setMaterials(
           currentMaterials =>
             currentMaterials.map(
@@ -291,13 +304,13 @@ export const useMaterials = (
                       fileName:
                         fileName !==
                         undefined
-                          ? fileName
+                          ? fileName.trim()
                           : material.fileName,
 
                       fileUrl:
                         fileUrl !==
                         undefined
-                          ? fileUrl
+                          ? fileUrl.trim()
                           : material.fileUrl,
 
                       updatedAt,
@@ -340,6 +353,13 @@ export const useMaterials = (
         );
       }
 
+      const materialToDelete =
+        materials.find(
+          material =>
+            material.id ===
+            materialId,
+        );
+
       try {
         setDeletingMaterialId(
           materialId,
@@ -347,9 +367,19 @@ export const useMaterials = (
 
         setError(null);
 
-        await repository.deleteMaterial(
-          materialId,
-        );
+        /*
+         * Delete Firestore record first.
+         *
+         * If the database deletion
+         * succeeds, the material should
+         * disappear from the application
+         * even if Storage cleanup later
+         * encounters a problem.
+         */
+        await repository
+          .deleteMaterial(
+            materialId,
+          );
 
         setMaterials(
           currentMaterials =>
@@ -359,6 +389,42 @@ export const useMaterials = (
                 materialId,
             ),
         );
+
+        /*
+         * Text materials do not have
+         * physical files.
+         *
+         * PDF, image and camera
+         * materials can have fileUrl,
+         * so clean up Firebase Storage.
+         */
+        if (
+          materialToDelete
+            ?.fileUrl
+        ) {
+          try {
+            await storageService
+              .deleteFile(
+                materialToDelete
+                  .fileUrl,
+              );
+          } catch (
+            storageError
+          ) {
+            /*
+             * Firestore deletion already
+             * succeeded, so do not tell
+             * the UI that the whole
+             * deletion failed.
+             *
+             * Log the cleanup problem.
+             */
+            console.error(
+              'Failed to delete material file from Storage:',
+              storageError,
+            );
+          }
+        }
       } catch (err) {
         console.error(
           'Failed to delete material:',

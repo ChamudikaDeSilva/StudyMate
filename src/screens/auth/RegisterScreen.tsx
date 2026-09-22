@@ -1,7 +1,10 @@
-import React, {useState} from 'react';
+import React, {
+  useState,
+} from 'react';
 
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,14 +14,22 @@ import {
   View,
 } from 'react-native';
 
-import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import {
+  ArrowLeft,
+} from 'lucide-react-native';
+
+import {
+  NativeStackScreenProps,
+} from '@react-navigation/native-stack';
 
 import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
 
 import {useAuth} from '../../hooks/useAuth';
 
-import {AuthStackParamList} from '../../navigation/navigationTypes';
+import {
+  AuthStackParamList,
+} from '../../navigation/navigationTypes';
 
 type Props =
   NativeStackScreenProps<
@@ -29,13 +40,18 @@ type Props =
 const RegisterScreen = ({
   navigation,
 }: Props) => {
-  const {register} = useAuth();
+  const {register} =
+    useAuth();
 
-  const [name, setName] =
-    useState('');
+  const [
+    name,
+    setName,
+  ] = useState('');
 
-  const [email, setEmail] =
-    useState('');
+  const [
+    email,
+    setEmail,
+  ] = useState('');
 
   const [
     password,
@@ -164,14 +180,6 @@ const RegisterScreen = ({
           email,
           password,
         );
-
-        /*
-         * No manual navigation is required.
-         *
-         * Firebase updates authentication state.
-         * AuthContext receives the logged-in user.
-         * AppNavigator switches to MainNavigator.
-         */
       } catch (
         error: unknown
       ) {
@@ -233,7 +241,11 @@ const RegisterScreen = ({
   // =========================================================
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50">
+    <SafeAreaView
+      className="
+        flex-1
+        bg-slate-50
+      ">
 
       <KeyboardAvoidingView
         className="flex-1"
@@ -252,22 +264,99 @@ const RegisterScreen = ({
 
           <View
             className="
-              flex-1
-              justify-center
               px-6
-              py-10
+              pb-10
+              pt-6
             ">
 
-            {/* ==============================================
-                HEADER
-            =============================================== */}
+            {/* ==========================================
+                TOP BAR
+            =========================================== */}
 
-            <View className="mb-7">
+            <View
+              className="
+                mb-10
+                flex-row
+                items-center
+                justify-between
+              ">
+
+              <Pressable
+                accessibilityRole="button"
+                disabled={loading}
+                onPress={() =>
+                  navigation.goBack()
+                }
+                className="
+                  h-11
+                  w-11
+                  items-center
+                  justify-center
+                  rounded-xl
+                  border
+                  border-slate-200
+                  bg-white
+                "
+                style={({
+                  pressed,
+                }) => ({
+                  opacity:
+                    loading
+                      ? 0.5
+                      : pressed
+                        ? 0.7
+                        : 1,
+                })}>
+
+                <ArrowLeft
+                  size={21}
+                  color="#0F172A"
+                />
+
+              </Pressable>
+
+              <View
+                className="
+                  flex-row
+                  items-center
+                ">
+
+                <Image
+                  source={require(
+                    '../../assets/images/learnloop-logo.png'
+                  )}
+                  className="
+                    h-8
+                    w-8
+                  "
+                  resizeMode="contain"
+                />
+
+                <Text
+                  className="
+                    ml-2
+                    text-sm
+                    font-bold
+                    text-slate-900
+                  ">
+                  LearnLoop AI
+                </Text>
+
+              </View>
+
+            </View>
+
+            {/* ==========================================
+                HEADING
+            =========================================== */}
+
+            <View className="mb-8">
 
               <Text
                 className="
-                  text-3xl
+                  text-[30px]
                   font-bold
+                  leading-[37px]
                   tracking-tight
                   text-slate-900
                 ">
@@ -276,32 +365,35 @@ const RegisterScreen = ({
 
               <Text
                 className="
-                  mt-2
-                  text-base
+                  mt-3
+                  max-w-[320px]
+                  text-sm
                   leading-6
                   text-slate-500
                 ">
-                Start building your
-                personal study space.
+                Set up your LearnLoop
+                workspace and start
+                organizing your study
+                materials.
               </Text>
 
             </View>
 
-            {/* ==============================================
-                FORM CARD
-            =============================================== */}
+            {/* ==========================================
+                FORM
+            =========================================== */}
 
             <View
               className="
-                rounded-3xl
+                rounded-[26px]
                 border
-                border-slate-100
+                border-slate-200
                 bg-white
                 p-6
               ">
 
               <AppInput
-                label="Name"
+                label="Your name"
                 placeholder="Enter your name"
                 value={name}
                 onChangeText={value => {
@@ -309,12 +401,14 @@ const RegisterScreen = ({
 
                   setNameError('');
                 }}
-                error={nameError}
+                error={
+                  nameError
+                }
               />
 
               <AppInput
-                label="Email"
-                placeholder="Enter your email"
+                label="Email address"
+                placeholder="you@example.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -324,18 +418,26 @@ const RegisterScreen = ({
 
                   setEmailError('');
                 }}
-                error={emailError}
+                error={
+                  emailError
+                }
               />
 
               <AppInput
                 label="Password"
-                placeholder="Create a password"
+                placeholder="Minimum 6 characters"
                 secureTextEntry
-                value={password}
+                value={
+                  password
+                }
                 onChangeText={value => {
-                  setPassword(value);
+                  setPassword(
+                    value,
+                  );
 
-                  setPasswordError('');
+                  setPasswordError(
+                    '',
+                  );
                 }}
                 error={
                   passwordError
@@ -343,8 +445,8 @@ const RegisterScreen = ({
               />
 
               <AppInput
-                label="Confirm Password"
-                placeholder="Confirm your password"
+                label="Confirm password"
+                placeholder="Enter password again"
                 secureTextEntry
                 value={
                   confirmPassword
@@ -372,51 +474,64 @@ const RegisterScreen = ({
                 onPress={
                   handleRegister
                 }
-                disabled={loading}
+                disabled={
+                  loading
+                }
               />
 
-              {/* ============================================
-                  SIGN IN LINK
-              ============================================= */}
+            </View>
 
-              <View
+            {/* ==========================================
+                SIGN IN
+            =========================================== */}
+
+            <View
+              className="
+                mt-8
+                flex-row
+                items-center
+                justify-center
+              ">
+
+              <Text
                 className="
-                  mt-6
-                  flex-row
-                  items-center
-                  justify-center
+                  text-sm
+                  text-slate-500
                 ">
+                Already have an account?
+              </Text>
 
-                <Text className="text-sm text-slate-500">
-                  Already have an
-                  account?
+              <Pressable
+                accessibilityRole="button"
+                disabled={loading}
+                onPress={() =>
+                  navigation.goBack()
+                }
+                className="
+                  ml-1
+                  py-1
+                "
+                style={({
+                  pressed,
+                }) => ({
+                  opacity:
+                    loading
+                      ? 0.5
+                      : pressed
+                        ? 0.65
+                        : 1,
+                })}>
+
+                <Text
+                  className="
+                    text-sm
+                    font-bold
+                    text-indigo-600
+                  ">
+                  Sign in
                 </Text>
 
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={loading}
-                  onPress={() =>
-                    navigation.goBack()
-                  }
-                  className="
-                    ml-1
-                    py-1
-                    active:opacity-60
-                    disabled:opacity-50
-                  ">
-
-                  <Text
-                    className="
-                      text-sm
-                      font-semibold
-                      text-indigo-600
-                    ">
-                    Sign In
-                  </Text>
-
-                </Pressable>
-
-              </View>
+              </Pressable>
 
             </View>
 
