@@ -1,29 +1,31 @@
-import React, {
-  useState,
-} from 'react';
+import React, {useState} from 'react';
 
 import {
+  ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
 import {
   ArrowLeft,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  Mail,
+  Sparkles,
+  UserRound,
 } from 'lucide-react-native';
 
 import {
   NativeStackScreenProps,
 } from '@react-navigation/native-stack';
-
-import AppButton from '../../components/common/AppButton';
-import AppInput from '../../components/common/AppInput';
 
 import {useAuth} from '../../hooks/useAuth';
 
@@ -31,32 +33,27 @@ import {
   AuthStackParamList,
 } from '../../navigation/navigationTypes';
 
+
 type Props =
   NativeStackScreenProps<
     AuthStackParamList,
     'Register'
   >;
 
+
 const RegisterScreen = ({
   navigation,
 }: Props) => {
-  const {register} =
-    useAuth();
+  const {register} = useAuth();
 
-  const [
-    name,
-    setName,
-  ] = useState('');
+  const [name, setName] =
+    useState('');
 
-  const [
-    email,
-    setEmail,
-  ] = useState('');
+  const [email, setEmail] =
+    useState('');
 
-  const [
-    password,
-    setPassword,
-  ] = useState('');
+  const [password, setPassword] =
+    useState('');
 
   const [
     confirmPassword,
@@ -64,188 +61,122 @@ const RegisterScreen = ({
   ] = useState('');
 
   const [
-    nameError,
-    setNameError,
-  ] = useState('');
-
-  const [
-    emailError,
-    setEmailError,
-  ] = useState('');
-
-  const [
-    passwordError,
-    setPasswordError,
-  ] = useState('');
-
-  const [
-    confirmPasswordError,
-    setConfirmPasswordError,
-  ] = useState('');
-
-  const [
-    loading,
-    setLoading,
+    showPassword,
+    setShowPassword,
   ] = useState(false);
 
-  // =========================================================
-  // Validation
-  // =========================================================
+  const [
+    showConfirmPassword,
+    setShowConfirmPassword,
+  ] = useState(false);
 
-  const validateForm = () => {
-    let isValid = true;
+  const [
+    submitting,
+    setSubmitting,
+  ] = useState(false);
 
-    setNameError('');
-    setEmailError('');
-    setPasswordError('');
-    setConfirmPasswordError('');
 
-    if (!name.trim()) {
-      setNameError(
-        'Name is required.',
-      );
+  const handleRegister = async () => {
+    const normalizedName =
+      name.trim();
 
-      isValid = false;
-    }
+    const normalizedEmail =
+      email
+        .trim()
+        .toLowerCase();
 
-    if (!email.trim()) {
-      setEmailError(
-        'Email is required.',
-      );
 
-      isValid = false;
-    } else if (
-      !/^\S+@\S+\.\S+$/.test(
-        email.trim(),
-      )
+    if (
+      normalizedName.length < 2
     ) {
-      setEmailError(
-        'Enter a valid email address.',
+      Alert.alert(
+        'Name Required',
+        'Please enter your name.',
       );
 
-      isValid = false;
+      return;
     }
 
-    if (!password) {
-      setPasswordError(
-        'Password is required.',
+
+    if (!normalizedEmail) {
+      Alert.alert(
+        'Email Required',
+        'Please enter your email address.',
       );
 
-      isValid = false;
-    } else if (
-      password.length < 6
-    ) {
-      setPasswordError(
-        'Password must contain at least 6 characters.',
-      );
-
-      isValid = false;
+      return;
     }
 
-    if (!confirmPassword) {
-      setConfirmPasswordError(
-        'Please confirm your password.',
+
+    if (password.length < 8) {
+      Alert.alert(
+        'Password Too Short',
+        'Your password must contain at least 8 characters.',
       );
 
-      isValid = false;
-    } else if (
+      return;
+    }
+
+
+    if (
       password !==
       confirmPassword
     ) {
-      setConfirmPasswordError(
-        'Passwords do not match.',
+      Alert.alert(
+        'Passwords Do Not Match',
+        'Please make sure both passwords are the same.',
       );
 
-      isValid = false;
+      return;
     }
 
-    return isValid;
+
+    try {
+      setSubmitting(true);
+
+
+      await register(
+        normalizedName,
+        normalizedEmail,
+        password,
+      );
+
+
+      /*
+       * register() creates the account
+       * and automatically logs the user in.
+       *
+       * AuthContext updates the user.
+       * AppNavigator then switches
+       * automatically to MainNavigator.
+       *
+       * No manual navigation is required.
+       */
+
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : (
+              'Unable to create your '
+              + 'account. Please try again.'
+            );
+
+
+      Alert.alert(
+        'Registration Failed',
+        message,
+      );
+
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  // =========================================================
-  // Register
-  // =========================================================
-
-  const handleRegister =
-    async () => {
-      if (!validateForm()) {
-        return;
-      }
-
-      try {
-        setLoading(true);
-
-        await register(
-          name,
-          email,
-          password,
-        );
-      } catch (
-        error: unknown
-      ) {
-        console.error(
-          'Registration error:',
-          error,
-        );
-
-        let message =
-          'Unable to create your account. Please try again.';
-
-        if (
-          typeof error ===
-            'object' &&
-          error !== null &&
-          'code' in error
-        ) {
-          const firebaseError =
-            error as {
-              code?: string;
-            };
-
-          switch (
-            firebaseError.code
-          ) {
-            case 'auth/email-already-in-use':
-              message =
-                'An account already exists with this email address.';
-              break;
-
-            case 'auth/invalid-email':
-              message =
-                'The email address is invalid.';
-              break;
-
-            case 'auth/weak-password':
-              message =
-                'Please choose a stronger password.';
-              break;
-
-            case 'auth/network-request-failed':
-              message =
-                'Network error. Check your internet connection and try again.';
-              break;
-          }
-        }
-
-        Alert.alert(
-          'Registration Failed',
-          message,
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-  // =========================================================
-  // UI
-  // =========================================================
 
   return (
     <SafeAreaView
-      className="
-        flex-1
-        bg-slate-50
-      ">
+      className="flex-1 bg-slate-50">
 
       <KeyboardAvoidingView
         className="flex-1"
@@ -257,6 +188,9 @@ const RegisterScreen = ({
 
         <ScrollView
           className="flex-1"
+          contentContainerStyle={{
+            flexGrow: 1,
+          }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={
             false
@@ -264,48 +198,44 @@ const RegisterScreen = ({
 
           <View
             className="
+              flex-1
               px-6
-              pb-10
+              pb-8
               pt-6
             ">
 
-            {/* ==========================================
+            {/* =========================================
                 TOP BAR
-            =========================================== */}
+            ========================================= */}
 
             <View
               className="
-                mb-10
+                mb-8
                 flex-row
                 items-center
                 justify-between
               ">
 
               <Pressable
-                accessibilityRole="button"
-                disabled={loading}
-                onPress={() =>
-                  navigation.goBack()
-                }
                 className="
                   h-11
                   w-11
                   items-center
                   justify-center
-                  rounded-xl
+                  rounded-2xl
                   border
                   border-slate-200
                   bg-white
                 "
-                style={({
-                  pressed,
-                }) => ({
+                disabled={submitting}
+                onPress={() =>
+                  navigation.goBack()
+                }
+                style={({pressed}) => ({
                   opacity:
-                    loading
-                      ? 0.5
-                      : pressed
-                        ? 0.7
-                        : 1,
+                    pressed
+                      ? 0.65
+                      : 1,
                 })}>
 
                 <ArrowLeft
@@ -315,27 +245,35 @@ const RegisterScreen = ({
 
               </Pressable>
 
+
               <View
                 className="
                   flex-row
                   items-center
                 ">
 
-                <Image
-                  source={require(
-                    '../../assets/images/learnloop-logo.png'
-                  )}
+                <View
                   className="
-                    h-8
-                    w-8
-                  "
-                  resizeMode="contain"
-                />
+                    h-9
+                    w-9
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-indigo-600
+                  ">
+
+                  <Sparkles
+                    size={18}
+                    color="#FFFFFF"
+                  />
+
+                </View>
+
 
                 <Text
                   className="
                     ml-2
-                    text-sm
+                    text-base
                     font-bold
                     text-slate-900
                   ">
@@ -346,148 +284,390 @@ const RegisterScreen = ({
 
             </View>
 
-            {/* ==========================================
-                HEADING
-            =========================================== */}
 
-            <View className="mb-8">
+            {/* =========================================
+                HEADING
+            ========================================= */}
+
+            <View className="mb-7">
 
               <Text
                 className="
-                  text-[30px]
+                  text-4xl
                   font-bold
-                  leading-[37px]
-                  tracking-tight
-                  text-slate-900
+                  leading-[44px]
+                  text-slate-950
                 ">
-                Create your account
+                Create your
+                {'\n'}
+                learning space
               </Text>
+
 
               <Text
                 className="
                   mt-3
-                  max-w-[320px]
-                  text-sm
+                  text-base
                   leading-6
                   text-slate-500
                 ">
-                Set up your LearnLoop
-                workspace and start
-                organizing your study
-                materials.
+                Create an account to
+                organize subjects and turn
+                your study materials into
+                smarter learning resources.
               </Text>
 
             </View>
 
-            {/* ==========================================
-                FORM
-            =========================================== */}
+
+            {/* =========================================
+                FORM CARD
+            ========================================= */}
 
             <View
               className="
-                rounded-[26px]
+                rounded-[28px]
                 border
                 border-slate-200
                 bg-white
-                p-6
+                p-5
               ">
 
-              <AppInput
-                label="Your name"
-                placeholder="Enter your name"
-                value={name}
-                onChangeText={value => {
-                  setName(value);
+              {/* Name */}
 
-                  setNameError('');
-                }}
-                error={
-                  nameError
-                }
-              />
+              <Text
+                className="
+                  mb-2
+                  text-sm
+                  font-semibold
+                  text-slate-700
+                ">
+                Full Name
+              </Text>
 
-              <AppInput
-                label="Email address"
-                placeholder="you@example.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                value={email}
-                onChangeText={value => {
-                  setEmail(value);
 
-                  setEmailError('');
-                }}
-                error={
-                  emailError
-                }
-              />
+              <View
+                className="
+                  mb-5
+                  flex-row
+                  items-center
+                  rounded-2xl
+                  border
+                  border-slate-200
+                  bg-slate-50
+                  px-4
+                ">
 
-              <AppInput
-                label="Password"
-                placeholder="Minimum 6 characters"
-                secureTextEntry
-                value={
-                  password
-                }
-                onChangeText={value => {
-                  setPassword(
-                    value,
-                  );
+                <UserRound
+                  size={19}
+                  color="#64748B"
+                />
 
-                  setPasswordError(
-                    '',
-                  );
-                }}
-                error={
-                  passwordError
-                }
-              />
 
-              <AppInput
-                label="Confirm password"
-                placeholder="Enter password again"
-                secureTextEntry
-                value={
-                  confirmPassword
-                }
-                onChangeText={value => {
-                  setConfirmPassword(
-                    value,
-                  );
+                <TextInput
+                  className="
+                    ml-3
+                    flex-1
+                    py-4
+                    text-base
+                    text-slate-900
+                  "
+                  value={name}
+                  onChangeText={
+                    setName
+                  }
+                  placeholder="Your full name"
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  editable={!submitting}
+                  returnKeyType="next"
+                />
 
-                  setConfirmPasswordError(
-                    '',
-                  );
-                }}
-                error={
-                  confirmPasswordError
-                }
-              />
+              </View>
 
-              <AppButton
-                title={
-                  loading
-                    ? 'Creating Account...'
-                    : 'Create Account'
-                }
-                onPress={
-                  handleRegister
-                }
-                disabled={
-                  loading
-                }
-              />
+
+              {/* Email */}
+
+              <Text
+                className="
+                  mb-2
+                  text-sm
+                  font-semibold
+                  text-slate-700
+                ">
+                Email Address
+              </Text>
+
+
+              <View
+                className="
+                  mb-5
+                  flex-row
+                  items-center
+                  rounded-2xl
+                  border
+                  border-slate-200
+                  bg-slate-50
+                  px-4
+                ">
+
+                <Mail
+                  size={19}
+                  color="#64748B"
+                />
+
+
+                <TextInput
+                  className="
+                    ml-3
+                    flex-1
+                    py-4
+                    text-base
+                    text-slate-900
+                  "
+                  value={email}
+                  onChangeText={
+                    setEmail
+                  }
+                  placeholder="you@example.com"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!submitting}
+                  returnKeyType="next"
+                />
+
+              </View>
+
+
+              {/* Password */}
+
+              <Text
+                className="
+                  mb-2
+                  text-sm
+                  font-semibold
+                  text-slate-700
+                ">
+                Password
+              </Text>
+
+
+              <View
+                className="
+                  mb-2
+                  flex-row
+                  items-center
+                  rounded-2xl
+                  border
+                  border-slate-200
+                  bg-slate-50
+                  px-4
+                ">
+
+                <LockKeyhole
+                  size={19}
+                  color="#64748B"
+                />
+
+
+                <TextInput
+                  className="
+                    ml-3
+                    flex-1
+                    py-4
+                    text-base
+                    text-slate-900
+                  "
+                  value={password}
+                  onChangeText={
+                    setPassword
+                  }
+                  placeholder="Minimum 8 characters"
+                  placeholderTextColor="#94A3B8"
+                  secureTextEntry={
+                    !showPassword
+                  }
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!submitting}
+                  returnKeyType="next"
+                />
+
+
+                <Pressable
+                  onPress={() =>
+                    setShowPassword(
+                      current =>
+                        !current,
+                    )
+                  }
+                  hitSlop={10}>
+
+                  {showPassword ? (
+                    <EyeOff
+                      size={20}
+                      color="#64748B"
+                    />
+                  ) : (
+                    <Eye
+                      size={20}
+                      color="#64748B"
+                    />
+                  )}
+
+                </Pressable>
+
+              </View>
+
+
+              <Text
+                className="
+                  mb-5
+                  text-xs
+                  text-slate-400
+                ">
+                Use at least 8 characters.
+              </Text>
+
+
+              {/* Confirm Password */}
+
+              <Text
+                className="
+                  mb-2
+                  text-sm
+                  font-semibold
+                  text-slate-700
+                ">
+                Confirm Password
+              </Text>
+
+
+              <View
+                className="
+                  flex-row
+                  items-center
+                  rounded-2xl
+                  border
+                  border-slate-200
+                  bg-slate-50
+                  px-4
+                ">
+
+                <LockKeyhole
+                  size={19}
+                  color="#64748B"
+                />
+
+
+                <TextInput
+                  className="
+                    ml-3
+                    flex-1
+                    py-4
+                    text-base
+                    text-slate-900
+                  "
+                  value={
+                    confirmPassword
+                  }
+                  onChangeText={
+                    setConfirmPassword
+                  }
+                  placeholder="Re-enter password"
+                  placeholderTextColor="#94A3B8"
+                  secureTextEntry={
+                    !showConfirmPassword
+                  }
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!submitting}
+                  returnKeyType="done"
+                  onSubmitEditing={
+                    handleRegister
+                  }
+                />
+
+
+                <Pressable
+                  onPress={() =>
+                    setShowConfirmPassword(
+                      current =>
+                        !current,
+                    )
+                  }
+                  hitSlop={10}>
+
+                  {showConfirmPassword ? (
+                    <EyeOff
+                      size={20}
+                      color="#64748B"
+                    />
+                  ) : (
+                    <Eye
+                      size={20}
+                      color="#64748B"
+                    />
+                  )}
+
+                </Pressable>
+
+              </View>
+
+
+              {/* Create Account */}
+
+              <Pressable
+                className="
+                  mt-6
+                  h-14
+                  flex-row
+                  items-center
+                  justify-center
+                  rounded-2xl
+                  bg-indigo-600
+                "
+                disabled={submitting}
+                onPress={handleRegister}
+                style={({pressed}) => ({
+                  opacity:
+                    submitting
+                      ? 0.6
+                      : pressed
+                        ? 0.85
+                        : 1,
+                })}>
+
+                {submitting ? (
+                  <ActivityIndicator
+                    color="#FFFFFF"
+                  />
+                ) : (
+                  <Text
+                    className="
+                      text-base
+                      font-bold
+                      text-white
+                    ">
+                    Create Account
+                  </Text>
+                )}
+
+              </Pressable>
 
             </View>
 
-            {/* ==========================================
-                SIGN IN
-            =========================================== */}
+
+            {/* =========================================
+                LOGIN LINK
+            ========================================= */}
 
             <View
               className="
-                mt-8
+                mt-7
                 flex-row
                 items-center
                 justify-center
@@ -501,26 +681,13 @@ const RegisterScreen = ({
                 Already have an account?
               </Text>
 
+
               <Pressable
-                accessibilityRole="button"
-                disabled={loading}
+                className="ml-1.5"
+                disabled={submitting}
                 onPress={() =>
                   navigation.goBack()
-                }
-                className="
-                  ml-1
-                  py-1
-                "
-                style={({
-                  pressed,
-                }) => ({
-                  opacity:
-                    loading
-                      ? 0.5
-                      : pressed
-                        ? 0.65
-                        : 1,
-                })}>
+                }>
 
                 <Text
                   className="
@@ -544,5 +711,6 @@ const RegisterScreen = ({
     </SafeAreaView>
   );
 };
+
 
 export default RegisterScreen;

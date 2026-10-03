@@ -19,6 +19,8 @@ import {
 
 import {
   ArrowLeft,
+  Eye,
+  FileImage,
   FileText,
   Pencil,
   Save,
@@ -30,11 +32,14 @@ import {
   NativeStackScreenProps,
 } from '@react-navigation/native-stack';
 
-import {useMaterials} from '../../hooks/useMaterials';
+import {
+  useMaterials,
+} from '../../hooks/useMaterials';
 
 import {
   SubjectsStackParamList,
 } from '../../navigation/navigationTypes';
+
 
 type Props =
   NativeStackScreenProps<
@@ -42,28 +47,41 @@ type Props =
     'MaterialDetails'
   >;
 
+
 const MaterialDetailsScreen = ({
   navigation,
   route,
 }: Props) => {
+
   const {
     materialId,
     subjectId,
     subjectName,
   } = route.params;
 
+
   const {
     materials,
+
     loading,
+
     updatingMaterialId,
+
     deletingMaterialId,
+
     error,
+
     loadMaterials,
+
     updateMaterial,
+
+    updateImageTitle,
+
     deleteMaterial,
   } = useMaterials(
     subjectId,
   );
+
 
   const material =
     useMemo(
@@ -79,282 +97,424 @@ const MaterialDetailsScreen = ({
       ],
     );
 
+
   const [
     editing,
     setEditing,
-  ] = useState(false);
+  ] = useState(
+    false,
+  );
+
 
   const [
     title,
     setTitle,
-  ] = useState('');
+  ] = useState(
+    '',
+  );
+
 
   const [
     content,
     setContent,
-  ] = useState('');
+  ] = useState(
+    '',
+  );
+
 
   const isUpdating =
     updatingMaterialId ===
     materialId;
 
+
   const isDeleting =
     deletingMaterialId ===
     materialId;
+
 
   const busy =
     isUpdating ||
     isDeleting;
 
-  // =========================================================
-  // Populate edit form
-  // =========================================================
 
-  useEffect(() => {
-    if (!material) {
-      return;
-    }
+  useEffect(
+    () => {
 
-    setTitle(
-      material.title,
-    );
-
-    setContent(
-      material.content ??
-        '',
-    );
-  }, [material]);
-
-  // =========================================================
-  // Start editing
-  // =========================================================
-
-  const startEditing = () => {
-    if (!material) {
-      return;
-    }
-
-    setTitle(
-      material.title,
-    );
-
-    setContent(
-      material.content ??
-        '',
-    );
-
-    setEditing(true);
-  };
-
-  // =========================================================
-  // Cancel editing
-  // =========================================================
-
-  const cancelEditing = () => {
-    if (
-      busy ||
-      !material
-    ) {
-      return;
-    }
-
-    setTitle(
-      material.title,
-    );
-
-    setContent(
-      material.content ??
-        '',
-    );
-
-    setEditing(false);
-  };
-
-  // =========================================================
-  // Save changes
-  // =========================================================
-
-  const handleSave =
-    async () => {
       if (!material) {
         return;
       }
 
-      const trimmedTitle =
-        title.trim();
 
-      const trimmedContent =
-        content.trim();
+      setTitle(
+        material.title,
+      );
 
-      if (!trimmedTitle) {
-        Alert.alert(
-          'Title required',
-          'Please enter a title for your material.',
-        );
 
-        return;
-      }
+      setContent(
+        material.content ??
+        '',
+      );
+
+    },
+    [
+      material,
+    ],
+  );
+
+
+  // =========================================================
+  // EDIT
+  // =========================================================
+
+  const startEditing =
+    () => {
 
       if (
-        material.sourceType ===
-          'text' &&
-        !trimmedContent
+        !material ||
+        busy
       ) {
+        return;
+      }
+
+
+      if (
+        material.sourceType !==
+          'text' &&
+        material.sourceType !==
+          'image'
+      ) {
+        return;
+      }
+
+
+      setTitle(
+        material.title,
+      );
+
+
+      setContent(
+        material.content ??
+        '',
+      );
+
+
+      setEditing(
+        true,
+      );
+    };
+
+
+  const cancelEditing =
+    () => {
+
+      if (
+        !material ||
+        busy
+      ) {
+        return;
+      }
+
+
+      setTitle(
+        material.title,
+      );
+
+
+      setContent(
+        material.content ??
+        '',
+      );
+
+
+      setEditing(
+        false,
+      );
+    };
+
+
+  const handleSave =
+    async () => {
+
+      if (!material) {
+        return;
+      }
+
+
+      const cleanTitle =
+        title.trim();
+
+
+      if (!cleanTitle) {
+
         Alert.alert(
-          'Content required',
-          'Please enter some study content.',
+          'Title required',
+          'Please enter a material title.',
         );
 
         return;
       }
 
+
       try {
+
+        // ===============================================
+        // IMAGE → rename only
+        // ===============================================
+
+        if (
+          material.sourceType ===
+          'image'
+        ) {
+
+          await updateImageTitle(
+            material.id,
+            cleanTitle,
+          );
+
+
+          setEditing(
+            false,
+          );
+
+          return;
+        }
+
+
+        // ===============================================
+        // TEXT
+        // ===============================================
+
+        if (
+          material.sourceType !==
+          'text'
+        ) {
+          return;
+        }
+
+
+        const cleanContent =
+          content.trim();
+
+
+        if (!cleanContent) {
+
+          Alert.alert(
+            'Content required',
+            'Please enter study content.',
+          );
+
+          return;
+        }
+
+
         await updateMaterial(
           material.id,
-          trimmedTitle,
-          material.sourceType ===
-            'text'
-            ? trimmedContent
-            : undefined,
+          cleanTitle,
+          cleanContent,
         );
 
-        setEditing(false);
-      } catch (saveError) {
+
+        setEditing(
+          false,
+        );
+
+      } catch (
+        saveError
+      ) {
+
         console.error(
           'Update material error:',
           saveError,
         );
 
+
         Alert.alert(
           'Unable to update material',
-          'Something went wrong while updating the material. Please try again.',
+
+          saveError instanceof Error
+            ? saveError.message
+            : 'Unable to update material.',
         );
       }
     };
 
+
   // =========================================================
-  // Delete
+  // PDF PREVIEW
   // =========================================================
 
-  const handleDelete = () => {
-    if (
-      !material ||
-      busy
-    ) {
-      return;
-    }
+  const handlePreviewPdf =
+    () => {
 
-    Alert.alert(
-      'Delete Material',
-      `Are you sure you want to delete "${material.title}"?`,
-      [
+      if (
+        !material ||
+        material.sourceType !==
+        'pdf'
+      ) {
+        return;
+      }
+
+
+      navigation.navigate(
+        'PdfPreview',
         {
-          text: 'Cancel',
-          style: 'cancel',
+          materialId:
+            material.id,
+
+          subjectId,
+
+          subjectName,
+
+          title:
+            material.title,
         },
-        {
-          text: 'Delete',
-          style: 'destructive',
+      );
+    };
 
-          onPress:
-            async () => {
-              try {
-                await deleteMaterial(
-                  material.id,
-                );
-
-                navigation.goBack();
-              } catch (
-                deleteError
-              ) {
-                console.error(
-                  'Delete material error:',
-                  deleteError,
-                );
-
-                Alert.alert(
-                  'Unable to delete material',
-                  'Something went wrong while deleting the material. Please try again.',
-                );
-              }
-            },
-        },
-      ],
-      {
-        cancelable: true,
-      },
-    );
-  };
 
   // =========================================================
-  // Loading
+  // IMAGE PREVIEW
+  // =========================================================
+
+  const handlePreviewImage =
+    () => {
+
+      if (
+        !material ||
+        material.sourceType !==
+        'image'
+      ) {
+        return;
+      }
+
+
+      navigation.navigate(
+        'ImagePreview',
+        {
+          materialId:
+            material.id,
+
+          subjectId,
+
+          subjectName,
+
+          title:
+            material.title,
+        },
+      );
+    };
+
+
+  // =========================================================
+  // DELETE
+  // =========================================================
+
+  const handleDelete =
+    () => {
+
+      if (
+        !material ||
+        busy
+      ) {
+        return;
+      }
+
+
+      Alert.alert(
+        'Delete material',
+
+        `Are you sure you want to delete "${material.title}"?`,
+
+        [
+          {
+            text:
+              'Cancel',
+
+            style:
+              'cancel',
+          },
+
+          {
+            text:
+              'Delete',
+
+            style:
+              'destructive',
+
+            onPress:
+              async () => {
+
+                try {
+
+                  await deleteMaterial(
+                    material.id,
+                  );
+
+
+                  navigation.goBack();
+
+                } catch (
+                  deleteError
+                ) {
+
+                  Alert.alert(
+                    'Unable to delete material',
+
+                    deleteError instanceof Error
+                      ? deleteError.message
+                      : 'Unable to delete material.',
+                  );
+                }
+              },
+          },
+        ],
+      );
+    };
+
+
+  // =========================================================
+  // LOADING
   // =========================================================
 
   if (loading) {
+
     return (
       <SafeAreaView
         className="
           flex-1
+          items-center
+          justify-center
           bg-slate-50
         ">
 
-        <View
+        <ActivityIndicator
+          color="#4F46E5"
+        />
+
+
+        <Text
           className="
-            flex-1
-            items-center
-            justify-center
-            px-6
+            mt-4
+            text-sm
+            font-semibold
+            text-slate-500
           ">
 
-          <View
-            className="
-              mb-4
-              h-[56px]
-              w-[56px]
-              items-center
-              justify-center
-              rounded-[18px]
-              bg-indigo-50
-            ">
+          Loading material...
 
-            <ActivityIndicator
-              size="small"
-              color="#4F46E5"
-            />
-
-          </View>
-
-          <Text
-            className="
-              text-lg
-              font-bold
-              text-slate-900
-            ">
-            Loading material
-          </Text>
-
-          <Text
-            className="
-              mt-2
-              text-center
-              text-sm
-              text-slate-500
-            ">
-            Preparing your study
-            material...
-          </Text>
-
-        </View>
+        </Text>
 
       </SafeAreaView>
     );
   }
 
+
   // =========================================================
-  // Not found / failed
+  // NOT FOUND
   // =========================================================
 
   if (!material) {
+
     return (
       <SafeAreaView
         className="
@@ -370,7 +530,6 @@ const MaterialDetailsScreen = ({
           ">
 
           <Pressable
-            accessibilityRole="button"
             onPress={() =>
               navigation.goBack()
             }
@@ -392,6 +551,7 @@ const MaterialDetailsScreen = ({
 
           </Pressable>
 
+
           <View
             className="
               flex-1
@@ -400,49 +560,35 @@ const MaterialDetailsScreen = ({
               pb-20
             ">
 
-            <View
-              className="
-                mb-5
-                h-16
-                w-16
-                items-center
-                justify-center
-                rounded-[20px]
-                bg-red-50
-              ">
-
-              <FileText
-                size={29}
-                color="#DC2626"
-              />
-
-            </View>
-
             <Text
               className="
                 text-xl
                 font-bold
                 text-slate-900
               ">
+
               Material not found
+
             </Text>
+
 
             <Text
               className="
                 mt-2
-                max-w-[290px]
                 text-center
                 text-sm
-                leading-5
                 text-slate-500
               ">
-              {error
-                ? 'We could not load this material.'
-                : 'This material may have been removed.'}
+
+              {
+                error ??
+                'The material may have been removed.'
+              }
+
             </Text>
 
+
             <Pressable
-              accessibilityRole="button"
               onPress={
                 loadMaterials
               }
@@ -452,16 +598,16 @@ const MaterialDetailsScreen = ({
                 bg-indigo-50
                 px-6
                 py-3
-                active:opacity-80
               ">
 
               <Text
                 className="
-                  text-sm
                   font-bold
                   text-indigo-600
                 ">
+
                 Try again
+
               </Text>
 
             </Pressable>
@@ -473,6 +619,25 @@ const MaterialDetailsScreen = ({
       </SafeAreaView>
     );
   }
+
+
+  const isPdf =
+    material.sourceType ===
+    'pdf';
+
+
+  const isImage =
+    material.sourceType ===
+    'image';
+
+
+  const typeColor =
+    isPdf
+      ? '#E11D48'
+      : isImage
+        ? '#0284C7'
+        : '#4F46E5';
+
 
   // =========================================================
   // UI
@@ -488,13 +653,18 @@ const MaterialDetailsScreen = ({
       <KeyboardAvoidingView
         className="flex-1"
         behavior={
-          Platform.OS === 'ios'
+          Platform.OS ===
+          'ios'
             ? 'padding'
             : undefined
         }>
 
         <ScrollView
           className="flex-1"
+          contentContainerStyle={{
+            paddingBottom:
+              120,
+          }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={
             false
@@ -503,13 +673,12 @@ const MaterialDetailsScreen = ({
           <View
             className="
               px-6
-              pb-12
               pt-6
             ">
 
-            {/* ==========================================
+            {/* =================================================
                 HEADER
-            =========================================== */}
+            ================================================== */}
 
             <View
               className="
@@ -535,7 +704,6 @@ const MaterialDetailsScreen = ({
                   border
                   border-slate-200
                   bg-white
-                  active:opacity-70
                 ">
 
                 <ArrowLeft
@@ -545,32 +713,46 @@ const MaterialDetailsScreen = ({
 
               </Pressable>
 
-              <View className="flex-1">
+
+              <View
+                className="
+                  flex-1
+                ">
 
                 <Text
                   className="
                     text-[26px]
                     font-bold
-                    tracking-tight
                     text-slate-900
-                  "
-                  numberOfLines={1}>
+                  ">
+
                   Material
+
                 </Text>
+
 
                 <Text
                   className="
                     mt-1
                     text-sm
                     text-slate-500
-                  "
-                  numberOfLines={1}>
+                  ">
+
                   {subjectName}
+
                 </Text>
 
               </View>
 
-              {!editing && (
+
+              {!editing &&
+              (
+                material.sourceType ===
+                  'text' ||
+                material.sourceType ===
+                  'image'
+              ) && (
+
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Edit material"
@@ -585,7 +767,6 @@ const MaterialDetailsScreen = ({
                     justify-center
                     rounded-xl
                     bg-indigo-50
-                    active:opacity-70
                   ">
 
                   <Pencil
@@ -594,13 +775,15 @@ const MaterialDetailsScreen = ({
                   />
 
                 </Pressable>
+
               )}
 
             </View>
 
-            {/* ==========================================
-                TYPE CARD
-            =========================================== */}
+
+            {/* =================================================
+                TYPE
+            ================================================== */}
 
             <View
               className="
@@ -625,14 +808,31 @@ const MaterialDetailsScreen = ({
                   bg-white
                 ">
 
-                <FileText
-                  size={23}
-                  color="#4F46E5"
-                />
+                {isImage ? (
+
+                  <FileImage
+                    size={23}
+                    color={
+                      typeColor
+                    }
+                  />
+
+                ) : (
+
+                  <FileText
+                    size={23}
+                    color={
+                      typeColor
+                    }
+                  />
+
+                )}
 
               </View>
 
-              <View className="flex-1">
+
+              <View
+                className="flex-1">
 
                 <Text
                   className="
@@ -642,8 +842,11 @@ const MaterialDetailsScreen = ({
                     tracking-wider
                     text-indigo-500
                   ">
+
                   Material type
+
                 </Text>
+
 
                 <Text
                   className="
@@ -653,201 +856,43 @@ const MaterialDetailsScreen = ({
                     capitalize
                     text-slate-900
                   ">
+
                   {material.sourceType}
+
                 </Text>
 
               </View>
+
 
               <View
                 className="
                   rounded-full
                   bg-white
                   px-3
-                  py-1
+                  py-1.5
                 ">
 
                 <Text
                   className="
-                    text-[11px]
-                    font-semibold
-                    text-indigo-600
+                    text-xs
+                    font-bold
+                    text-indigo-500
                   ">
+
                   {material.syncStatus}
+
                 </Text>
 
               </View>
 
             </View>
 
-            {/* ==========================================
-                VIEW MODE
-            =========================================== */}
 
-            {!editing ? (
-              <>
-                <View
-                  className="
-                    mb-6
-                    rounded-3xl
-                    border
-                    border-slate-200
-                    bg-white
-                    p-5
-                  ">
+            {/* =================================================
+                EDIT MODE
+            ================================================== */}
 
-                  <Text
-                    className="
-                      text-[11px]
-                      font-bold
-                      uppercase
-                      tracking-wider
-                      text-slate-400
-                    ">
-                    Title
-                  </Text>
-
-                  <Text
-                    className="
-                      mt-2
-                      text-xl
-                      font-bold
-                      leading-7
-                      text-slate-900
-                    ">
-                    {material.title}
-                  </Text>
-
-                </View>
-
-                {material.sourceType ===
-                  'text' && (
-                  <View
-                    className="
-                      mb-6
-                      rounded-3xl
-                      border
-                      border-slate-200
-                      bg-white
-                      p-5
-                    ">
-
-                    <Text
-                      className="
-                        text-[11px]
-                        font-bold
-                        uppercase
-                        tracking-wider
-                        text-slate-400
-                      ">
-                      Study content
-                    </Text>
-
-                    <Text
-                      selectable
-                      className="
-                        mt-4
-                        text-[15px]
-                        leading-6
-                        text-slate-700
-                      ">
-                      {material.content}
-                    </Text>
-
-                  </View>
-                )}
-
-                {!!material.fileName && (
-                  <View
-                    className="
-                      mb-6
-                      rounded-2xl
-                      border
-                      border-slate-200
-                      bg-white
-                      p-4
-                    ">
-
-                    <Text
-                      className="
-                        text-xs
-                        font-semibold
-                        text-slate-400
-                      ">
-                      File
-                    </Text>
-
-                    <Text
-                      className="
-                        mt-1
-                        text-sm
-                        font-semibold
-                        text-slate-800
-                      ">
-                      {material.fileName}
-                    </Text>
-
-                  </View>
-                )}
-
-                {/* ======================================
-                    DELETE
-                ======================================= */}
-
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={busy}
-                  onPress={
-                    handleDelete
-                  }
-                  className={`
-                    min-h-[52px]
-                    flex-row
-                    items-center
-                    justify-center
-                    rounded-xl
-                    border
-                    border-red-200
-                    bg-red-50
-                    px-6
-
-                    ${
-                      busy
-                        ? 'opacity-50'
-                        : 'active:opacity-80'
-                    }
-                  `}>
-
-                  {isDeleting ? (
-                    <ActivityIndicator
-                      size="small"
-                      color="#DC2626"
-                    />
-                  ) : (
-                    <>
-                      <Trash2
-                        size={18}
-                        color="#DC2626"
-                      />
-
-                      <Text
-                        className="
-                          ml-2
-                          text-sm
-                          font-bold
-                          text-red-600
-                        ">
-                        Delete material
-                      </Text>
-                    </>
-                  )}
-
-                </Pressable>
-              </>
-            ) : (
-
-              /* ========================================
-                  EDIT MODE
-              ========================================= */
+            {editing ? (
 
               <View
                 className="
@@ -858,114 +903,68 @@ const MaterialDetailsScreen = ({
                   p-5
                 ">
 
-                <View
-                  className="
-                    mb-6
-                    flex-row
-                    items-center
-                    justify-between
-                  ">
-
-                  <View>
-
-                    <Text
-                      className="
-                        text-lg
-                        font-bold
-                        text-slate-900
-                      ">
-                      Edit material
-                    </Text>
-
-                    <Text
-                      className="
-                        mt-1
-                        text-sm
-                        text-slate-500
-                      ">
-                      Update your study
-                      content.
-                    </Text>
-
-                  </View>
-
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Cancel editing"
-                    disabled={busy}
-                    onPress={
-                      cancelEditing
-                    }
-                    className="
-                      h-10
-                      w-10
-                      items-center
-                      justify-center
-                      rounded-xl
-                      bg-slate-100
-                    ">
-
-                    <X
-                      size={19}
-                      color="#64748B"
-                    />
-
-                  </Pressable>
-
-                </View>
-
-                {/* Title */}
-
                 <Text
                   className="
                     mb-2
-                    text-sm
-                    font-semibold
-                    text-slate-900
+                    text-xs
+                    font-bold
+                    uppercase
+                    text-slate-400
                   ">
+
                   Title
+
                 </Text>
 
+
                 <TextInput
+                  value={title}
+                  onChangeText={
+                    setTitle
+                  }
+                  editable={!busy}
+                  placeholder="Material title"
+                  placeholderTextColor="#94A3B8"
                   className="
-                    mb-5
                     min-h-[52px]
                     rounded-xl
                     border
                     border-slate-200
                     bg-slate-50
                     px-4
-                    text-sm
                     text-slate-900
                   "
-                  placeholder="Material title"
-                  placeholderTextColor="#94A3B8"
-                  value={title}
-                  onChangeText={
-                    setTitle
-                  }
-                  editable={
-                    !busy
-                  }
-                  maxLength={100}
                 />
 
-                {/* Content */}
 
                 {material.sourceType ===
                   'text' && (
+
                   <>
+
                     <Text
                       className="
                         mb-2
-                        text-sm
-                        font-semibold
-                        text-slate-900
+                        mt-5
+                        text-xs
+                        font-bold
+                        uppercase
+                        text-slate-400
                       ">
-                      Study content
+
+                      Content
+
                     </Text>
 
+
                     <TextInput
+                      value={content}
+                      onChangeText={
+                        setContent
+                      }
+                      editable={!busy}
+                      multiline
+                      textAlignVertical="top"
                       className="
                         min-h-[220px]
                         rounded-xl
@@ -974,45 +973,22 @@ const MaterialDetailsScreen = ({
                         bg-slate-50
                         px-4
                         py-4
-                        text-sm
-                        leading-5
                         text-slate-900
                       "
-                      placeholder="Write or paste your notes..."
-                      placeholderTextColor="#94A3B8"
-                      value={
-                        content
-                      }
-                      onChangeText={
-                        setContent
-                      }
-                      editable={
-                        !busy
-                      }
-                      multiline
-                      textAlignVertical="top"
                     />
 
-                    <Text
-                      className="
-                        mb-6
-                        mt-2
-                        self-end
-                        text-xs
-                        text-slate-400
-                      ">
-                      {content.length}
-                      {' '}characters
-                    </Text>
                   </>
+
                 )}
 
-                {/* Actions */}
 
-                <View className="flex-row">
+                <View
+                  className="
+                    mt-6
+                    flex-row
+                  ">
 
                   <Pressable
-                    accessibilityRole="button"
                     disabled={busy}
                     onPress={
                       cancelEditing
@@ -1028,41 +1004,36 @@ const MaterialDetailsScreen = ({
                       border
                       border-slate-200
                       bg-white
-                      px-4
                     ">
 
                     <X
-                      size={17}
+                      size={18}
                       color="#64748B"
                     />
 
                     <Text
                       className="
                         ml-2
-                        text-sm
-                        font-semibold
-                        text-slate-700
+                        font-bold
+                        text-slate-600
                       ">
+
                       Cancel
+
                     </Text>
 
                   </Pressable>
 
+
                   <Pressable
-                    accessibilityRole="button"
                     disabled={
                       busy ||
-                      !title.trim() ||
-                      (
-                        material.sourceType ===
-                          'text' &&
-                        !content.trim()
-                      )
+                      !title.trim()
                     }
                     onPress={
                       handleSave
                     }
-                    className={`
+                    className="
                       min-h-[52px]
                       flex-1
                       flex-row
@@ -1070,43 +1041,36 @@ const MaterialDetailsScreen = ({
                       justify-center
                       rounded-xl
                       bg-indigo-600
-                      px-4
-
-                      ${
-                        busy ||
-                        !title.trim() ||
-                        (
-                          material.sourceType ===
-                            'text' &&
-                          !content.trim()
-                        )
-                          ? 'opacity-40'
-                          : 'active:opacity-80'
-                      }
-                    `}>
+                    ">
 
                     {isUpdating ? (
+
                       <ActivityIndicator
-                        size="small"
                         color="#FFFFFF"
                       />
+
                     ) : (
+
                       <>
+
                         <Save
-                          size={17}
+                          size={18}
                           color="#FFFFFF"
                         />
 
                         <Text
                           className="
                             ml-2
-                            text-sm
                             font-bold
                             text-white
                           ">
-                          Save changes
+
+                          Save
+
                         </Text>
+
                       </>
+
                     )}
 
                   </Pressable>
@@ -1114,6 +1078,355 @@ const MaterialDetailsScreen = ({
                 </View>
 
               </View>
+
+            ) : (
+
+              <>
+
+                {/* =================================================
+                    TITLE
+                ================================================== */}
+
+                <View
+                  className="
+                    mb-4
+                    rounded-[20px]
+                    border
+                    border-slate-200
+                    bg-white
+                    p-5
+                  ">
+
+                  <Text
+                    className="
+                      text-[11px]
+                      font-bold
+                      uppercase
+                      text-slate-400
+                    ">
+
+                    Title
+
+                  </Text>
+
+
+                  <Text
+                    className="
+                      mt-2
+                      text-base
+                      font-bold
+                      text-slate-900
+                    ">
+
+                    {material.title}
+
+                  </Text>
+
+                </View>
+
+
+                {/* =================================================
+                    TEXT
+                ================================================== */}
+
+                {material.sourceType ===
+                  'text' && (
+
+                  <View
+                    className="
+                      mb-4
+                      rounded-[20px]
+                      border
+                      border-slate-200
+                      bg-white
+                      p-5
+                    ">
+
+                    <Text
+                      className="
+                        text-[11px]
+                        font-bold
+                        uppercase
+                        text-slate-400
+                      ">
+
+                      Study content
+
+                    </Text>
+
+
+                    <Text
+                      className="
+                        mt-3
+                        leading-6
+                        text-slate-700
+                      ">
+
+                      {material.content}
+
+                    </Text>
+
+                  </View>
+
+                )}
+
+
+                {/* =================================================
+                    PDF
+                ================================================== */}
+
+                {isPdf && (
+
+                  <View
+                    className="
+                      mb-4
+                      rounded-[20px]
+                      border
+                      border-rose-100
+                      bg-white
+                      p-5
+                    ">
+
+                    <Text
+                      className="
+                        text-xs
+                        font-bold
+                        uppercase
+                        text-slate-400
+                      ">
+
+                      PDF document
+
+                    </Text>
+
+
+                    <Text
+                      numberOfLines={2}
+                      className="
+                        mt-2
+                        font-bold
+                        text-slate-800
+                      ">
+
+                      {
+                        material.fileName ??
+                        'PDF document'
+                      }
+
+                    </Text>
+
+
+                    <Pressable
+                      onPress={
+                        handlePreviewPdf
+                      }
+                      className="
+                        mt-5
+                        min-h-[52px]
+                        flex-row
+                        items-center
+                        justify-center
+                        rounded-xl
+                        bg-rose-600
+                      ">
+
+                      <Eye
+                        size={18}
+                        color="#FFFFFF"
+                      />
+
+
+                      <Text
+                        className="
+                          ml-2
+                          font-bold
+                          text-white
+                        ">
+
+                        Preview PDF
+
+                      </Text>
+
+                    </Pressable>
+
+                  </View>
+
+                )}
+
+
+                {/* =================================================
+                    IMAGE
+                ================================================== */}
+
+                {isImage && (
+
+                  <View
+                    className="
+                      mb-4
+                      rounded-[20px]
+                      border
+                      border-sky-100
+                      bg-white
+                      p-5
+                    ">
+
+                    <View
+                      className="
+                        flex-row
+                        items-center
+                      ">
+
+                      <View
+                        className="
+                          mr-3
+                          h-12
+                          w-12
+                          items-center
+                          justify-center
+                          rounded-xl
+                          bg-sky-50
+                        ">
+
+                        <FileImage
+                          size={22}
+                          color="#0284C7"
+                        />
+
+                      </View>
+
+
+                      <View
+                        className="
+                          flex-1
+                        ">
+
+                        <Text
+                          className="
+                            text-xs
+                            font-bold
+                            uppercase
+                            text-slate-400
+                          ">
+
+                          Image file
+
+                        </Text>
+
+
+                        <Text
+                          numberOfLines={2}
+                          className="
+                            mt-1
+                            font-bold
+                            text-slate-800
+                          ">
+
+                          {
+                            material.fileName ??
+                            'Image material'
+                          }
+
+                        </Text>
+
+                      </View>
+
+                    </View>
+
+
+                    <Pressable
+                      onPress={
+                        handlePreviewImage
+                      }
+                      className="
+                        mt-5
+                        min-h-[52px]
+                        flex-row
+                        items-center
+                        justify-center
+                        rounded-xl
+                        bg-sky-600
+                      ">
+
+                      <Eye
+                        size={18}
+                        color="#FFFFFF"
+                      />
+
+
+                      <Text
+                        className="
+                          ml-2
+                          font-bold
+                          text-white
+                        ">
+
+                        Preview image
+
+                      </Text>
+
+                    </Pressable>
+
+                  </View>
+
+                )}
+
+
+                {/* =================================================
+                    DELETE
+                ================================================== */}
+
+                <Pressable
+                  disabled={busy}
+                  onPress={
+                    handleDelete
+                  }
+                  className="
+                    mt-1
+                    min-h-[52px]
+                    flex-row
+                    items-center
+                    justify-center
+                    rounded-xl
+                    border
+                    border-red-200
+                    bg-red-50
+                  ">
+
+                  {isDeleting ? (
+
+                    <ActivityIndicator
+                      color="#EF4444"
+                    />
+
+                  ) : (
+
+                    <>
+
+                      <Trash2
+                        size={18}
+                        color="#EF4444"
+                      />
+
+
+                      <Text
+                        className="
+                          ml-2
+                          font-bold
+                          text-red-500
+                        ">
+
+                        Delete material
+
+                      </Text>
+
+                    </>
+
+                  )}
+
+                </Pressable>
+
+              </>
+
             )}
 
           </View>
@@ -1125,5 +1438,6 @@ const MaterialDetailsScreen = ({
     </SafeAreaView>
   );
 };
+
 
 export default MaterialDetailsScreen;

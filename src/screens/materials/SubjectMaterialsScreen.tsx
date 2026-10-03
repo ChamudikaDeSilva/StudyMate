@@ -22,10 +22,12 @@ import {
 import {
   ArrowLeft,
   BookOpen,
+  CheckCircle2,
   FileText,
   Plus,
   RefreshCw,
   Search,
+  Type,
   X,
 } from 'lucide-react-native';
 
@@ -49,7 +51,8 @@ type Props =
 
 type MaterialFilter =
   | 'all'
-  | 'text';
+  | 'text'
+  | 'pdf';
 
 const SubjectMaterialsScreen = ({
   navigation,
@@ -492,96 +495,218 @@ const SubjectMaterialsScreen = ({
               className="
                 mb-8
                 flex-row
+                flex-wrap
               ">
 
               {/* All */}
 
               <Pressable
                 accessibilityRole="button"
+                accessibilityState={{
+                  selected:
+                    activeFilter === 'all',
+                }}
                 onPress={() =>
                   setActiveFilter(
                     'all',
                   )
                 }
-                className={`
+                className="
                   mr-2
+                  flex-row
+                  items-center
                   rounded-full
+                  border
                   px-4
                   py-2
-
-                  ${
+                "
+                style={({pressed}) => ({
+                  backgroundColor:
                     activeFilter ===
                     'all'
-                      ? 'bg-indigo-600'
-                      : 'border border-slate-200 bg-white'
-                  }
-                `}>
+                      ? '#EEF2FF'
+                      : '#FFFFFF',
+
+                  borderColor:
+                    activeFilter ===
+                    'all'
+                      ? '#4F46E5'
+                      : '#E2E8F0',
+
+                  opacity:
+                    pressed
+                      ? 0.78
+                      : 1,
+                })}>
+
+                {activeFilter ===
+                  'all' && (
+                  <CheckCircle2
+                    size={15}
+                    color="#4F46E5"
+                  />
+                )}
 
                 <Text
-                  className={`
+                  className="
                     text-sm
                     font-semibold
-
-                    ${
+                  "
+                  style={{
+                    marginLeft:
                       activeFilter ===
                       'all'
-                        ? 'text-white'
-                        : 'text-slate-600'
-                    }
-                  `}>
+                        ? 6
+                        : 0,
+
+                    color:
+                      activeFilter ===
+                      'all'
+                        ? '#4338CA'
+                        : '#475569',
+                  }}>
                   All
                 </Text>
 
               </Pressable>
 
+
               {/* Text */}
 
               <Pressable
                 accessibilityRole="button"
+                accessibilityState={{
+                  selected:
+                    activeFilter ===
+                    'text',
+                }}
                 onPress={() =>
                   setActiveFilter(
                     'text',
                   )
                 }
-                className={`
+                className="
+                  mr-2
                   flex-row
                   items-center
                   rounded-full
+                  border
                   px-4
                   py-2
-
-                  ${
+                "
+                style={({pressed}) => ({
+                  backgroundColor:
                     activeFilter ===
                     'text'
-                      ? 'bg-indigo-600'
-                      : 'border border-slate-200 bg-white'
-                  }
-                `}>
+                      ? '#EEF2FF'
+                      : '#FFFFFF',
 
-                <FileText
+                  borderColor:
+                    activeFilter ===
+                    'text'
+                      ? '#4F46E5'
+                      : '#E2E8F0',
+
+                  opacity:
+                    pressed
+                      ? 0.78
+                      : 1,
+                })}>
+
+                <Type
                   size={15}
                   color={
                     activeFilter ===
                     'text'
-                      ? '#FFFFFF'
+                      ? '#4F46E5'
                       : '#64748B'
                   }
                 />
 
                 <Text
-                  className={`
+                  className="
                     ml-2
                     text-sm
                     font-semibold
-
-                    ${
+                  "
+                  style={{
+                    color:
                       activeFilter ===
                       'text'
-                        ? 'text-white'
-                        : 'text-slate-600'
-                    }
-                  `}>
+                        ? '#4338CA'
+                        : '#475569',
+                  }}>
                   Text
+                </Text>
+
+              </Pressable>
+
+
+              {/* PDF */}
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{
+                  selected:
+                    activeFilter ===
+                    'pdf',
+                }}
+                onPress={() =>
+                  setActiveFilter(
+                    'pdf',
+                  )
+                }
+                className="
+                  flex-row
+                  items-center
+                  rounded-full
+                  border
+                  px-4
+                  py-2
+                "
+                style={({pressed}) => ({
+                  backgroundColor:
+                    activeFilter ===
+                    'pdf'
+                      ? '#FFF1F2'
+                      : '#FFFFFF',
+
+                  borderColor:
+                    activeFilter ===
+                    'pdf'
+                      ? '#E11D48'
+                      : '#E2E8F0',
+
+                  opacity:
+                    pressed
+                      ? 0.78
+                      : 1,
+                })}>
+
+                <FileText
+                  size={15}
+                  color={
+                    activeFilter ===
+                    'pdf'
+                      ? '#E11D48'
+                      : '#64748B'
+                  }
+                />
+
+                <Text
+                  className="
+                    ml-2
+                    text-sm
+                    font-semibold
+                  "
+                  style={{
+                    color:
+                      activeFilter ===
+                      'pdf'
+                        ? '#BE123C'
+                        : '#475569',
+                  }}>
+                  PDF
                 </Text>
 
               </Pressable>
@@ -840,9 +965,13 @@ const SubjectMaterialsScreen = ({
 
                   {hasSearch
                     ? 'No materials found'
-                    : hasActiveFilter
+                    : activeFilter ===
+                        'text'
                       ? 'No text materials yet'
-                      : 'Add your first material'}
+                      : activeFilter ===
+                          'pdf'
+                        ? 'No PDF materials yet'
+                        : 'Add your first material'}
 
                 </Text>
 
@@ -858,9 +987,13 @@ const SubjectMaterialsScreen = ({
 
                   {hasSearch
                     ? `We couldn't find anything matching "${searchText.trim()}".`
-                    : hasActiveFilter
+                    : activeFilter ===
+                        'text'
                       ? 'This subject does not have any text materials yet.'
-                      : 'Start with a text material. PDF, image and camera sources will be added next.'}
+                      : activeFilter ===
+                          'pdf'
+                        ? 'This subject does not have any PDF materials yet.'
+                        : 'Start by adding a text or PDF material. Image and camera sources will be added next.'}
 
                 </Text>
 
@@ -958,9 +1091,22 @@ const SubjectMaterialsScreen = ({
             rounded-[20px]
             bg-indigo-600
             shadow-lg
-            active:scale-95
-            active:opacity-80
-          ">
+          "
+          style={({pressed}) => ({
+            opacity:
+              pressed
+                ? 0.82
+                : 1,
+
+            transform: [
+              {
+                scale:
+                  pressed
+                    ? 0.95
+                    : 1,
+              },
+            ],
+          })}>
 
           <Plus
             size={28}

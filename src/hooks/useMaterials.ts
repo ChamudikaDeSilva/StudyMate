@@ -11,49 +11,54 @@ import {
 } from '../domain/models/Material';
 
 import {
-  MaterialRepositoryImpl,
-} from '../data/repositories/MaterialRepositoryImpl';
+  MaterialApiRepositoryImpl,
+} from '../data/repositories/MaterialApiRepositoryImpl';
 
 import {
-  MaterialStorageService,
-} from '../services/storage/MaterialStorageService';
+  useAuth,
+} from './useAuth';
 
-import {useAuth} from './useAuth';
 
 export const useMaterials = (
   subjectId: string,
 ) => {
-  const {user} =
-    useAuth();
+
+  const {
+    user,
+  } = useAuth();
+
 
   const repository =
     useMemo(
       () =>
-        new MaterialRepositoryImpl(),
+        new MaterialApiRepositoryImpl(),
       [],
     );
 
-  const storageService =
-    useMemo(
-      () =>
-        new MaterialStorageService(),
-      [],
-    );
 
   const [
     materials,
     setMaterials,
-  ] = useState<Material[]>([]);
+  ] = useState<
+    Material[]
+  >([]);
+
 
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] = useState(
+    true,
+  );
+
 
   const [
     creating,
     setCreating,
-  ] = useState(false);
+  ] = useState(
+    false,
+  );
+
 
   const [
     updatingMaterialId,
@@ -62,12 +67,14 @@ export const useMaterials = (
     string | null
   >(null);
 
+
   const [
     deletingMaterialId,
     setDeletingMaterialId,
   ] = useState<
     string | null
   >(null);
+
 
   const [
     error,
@@ -76,52 +83,74 @@ export const useMaterials = (
     string | null
   >(null);
 
+
   // =========================================================
-  // Load materials
+  // LOAD
   // =========================================================
 
   const loadMaterials =
     useCallback(
       async () => {
+
         if (!user) {
-          setMaterials([]);
-          setLoading(false);
+
+          setMaterials(
+            [],
+          );
+
+          setLoading(
+            false,
+          );
 
           return;
         }
 
-        if (!subjectId) {
-          setMaterials([]);
-          setLoading(false);
-
-          return;
-        }
 
         try {
-          setLoading(true);
-          setError(null);
+
+          setLoading(
+            true,
+          );
+
+
+          setError(
+            null,
+          );
+
 
           const result =
             await repository
               .getMaterials(
-                user.uid,
+                user.id,
                 subjectId,
               );
+
 
           setMaterials(
             result,
           );
-        } catch (err) {
+
+        } catch (
+          loadError
+        ) {
+
           console.error(
-            'Failed to load materials:',
-            err,
+            'Load materials error:',
+            loadError,
           );
 
+
           setError(
-            'Unable to load materials.',
+            loadError instanceof Error
+              ? loadError.message
+              : 'Unable to load materials.',
           );
+
         } finally {
-          setLoading(false);
+
+          setLoading(
+            false,
+          );
         }
       },
       [
@@ -131,333 +160,370 @@ export const useMaterials = (
       ],
     );
 
+
+  useEffect(
+    () => {
+
+      void loadMaterials();
+
+    },
+    [
+      loadMaterials,
+    ],
+  );
+
+
   // =========================================================
-  // Create material
+  // CREATE TEXT
   // =========================================================
 
   const createMaterial =
-    async (
-      title: string,
-      sourceType:
-        MaterialSourceType,
-      content?: string,
-      fileName?: string,
-      fileUrl?: string,
-    ) => {
-      if (!user) {
-        throw new Error(
-          'User is not authenticated.',
-        );
-      }
+    useCallback(
+      async (
+        title: string,
+        sourceType:
+          MaterialSourceType,
+        content?: string,
+      ) => {
 
-      const trimmedTitle =
-        title.trim();
+        if (!user) {
 
-      if (!trimmedTitle) {
-        throw new Error(
-          'Material title is required.',
-        );
-      }
+          throw new Error(
+            'You must be logged in.',
+          );
+        }
 
-      if (!subjectId) {
-        throw new Error(
-          'Subject is required.',
-        );
-      }
 
-      try {
-        setCreating(true);
-        setError(null);
+        try {
 
-        const newMaterial =
-          await repository
-            .createMaterial({
-              userId:
-                user.uid,
+          setCreating(
+            true,
+          );
 
-              subjectId,
 
-              title:
-                trimmedTitle,
+          const material =
+            await repository
+              .createMaterial({
+                userId:
+                  user.id,
 
-              sourceType,
+                subjectId,
 
-              content:
-                content?.trim() ||
-                undefined,
+                title,
 
-              fileName:
-                fileName?.trim() ||
-                undefined,
+                sourceType,
 
-              fileUrl:
-                fileUrl?.trim() ||
-                undefined,
-            });
+                content,
+              });
 
-        setMaterials(
-          currentMaterials => [
-            newMaterial,
-            ...currentMaterials,
-          ],
-        );
 
-        return newMaterial;
-      } catch (err) {
-        console.error(
-          'Failed to create material:',
-          err,
-        );
+          setMaterials(
+            current => [
+              material,
+              ...current,
+            ],
+          );
 
-        setError(
-          'Unable to create material.',
-        );
 
-        throw err;
-      } finally {
-        setCreating(false);
-      }
-    };
+          return material;
+
+        } finally {
+
+          setCreating(
+            false,
+          );
+        }
+      },
+      [
+        repository,
+        subjectId,
+        user,
+      ],
+    );
+
 
   // =========================================================
-  // Update material
+  // CREATE PDF
+  // =========================================================
+
+  const createPdfMaterial =
+    useCallback(
+      async (
+        title: string,
+        fileUri: string,
+        fileName: string,
+        mimeType: string,
+      ) => {
+
+        if (!user) {
+
+          throw new Error(
+            'You must be logged in.',
+          );
+        }
+
+
+        try {
+
+          setCreating(
+            true,
+          );
+
+
+          const material =
+            await repository
+              .createPdfMaterial({
+                userId:
+                  user.id,
+
+                subjectId,
+
+                title,
+
+                fileUri,
+
+                fileName,
+
+                mimeType,
+              });
+
+
+          setMaterials(
+            current => [
+              material,
+              ...current,
+            ],
+          );
+
+
+          return material;
+
+        } finally {
+
+          setCreating(
+            false,
+          );
+        }
+      },
+      [
+        repository,
+        subjectId,
+        user,
+      ],
+    );
+
+
+  // =========================================================
+  // CREATE IMAGE
+  // =========================================================
+
+  const createImageMaterial =
+    useCallback(
+      async (
+        title: string,
+        fileUri: string,
+        fileName: string,
+        mimeType: string,
+      ) => {
+
+        if (!user) {
+
+          throw new Error(
+            'You must be logged in.',
+          );
+        }
+
+
+        try {
+
+          setCreating(
+            true,
+          );
+
+
+          const material =
+            await repository
+              .createImageMaterial({
+                userId:
+                  user.id,
+
+                subjectId,
+
+                title,
+
+                fileUri,
+
+                fileName,
+
+                mimeType,
+              });
+
+
+          setMaterials(
+            current => [
+              material,
+              ...current,
+            ],
+          );
+
+
+          return material;
+
+        } finally {
+
+          setCreating(
+            false,
+          );
+        }
+      },
+      [
+        repository,
+        subjectId,
+        user,
+      ],
+    );
+
+
+  // =========================================================
+  // UPDATE TEXT
   // =========================================================
 
   const updateMaterial =
-    async (
-      materialId: string,
-      title: string,
-      content?: string,
-      fileName?: string,
-      fileUrl?: string,
-    ) => {
-      if (!user) {
-        throw new Error(
-          'User is not authenticated.',
-        );
-      }
+    useCallback(
+      async (
+        materialId: string,
+        title: string,
+        content?: string,
+      ) => {
 
-      const trimmedTitle =
-        title.trim();
+        try {
 
-      if (!trimmedTitle) {
-        throw new Error(
-          'Material title is required.',
-        );
-      }
-
-      try {
-        setUpdatingMaterialId(
-          materialId,
-        );
-
-        setError(null);
-
-        await repository
-          .updateMaterial(
+          setUpdatingMaterialId(
             materialId,
-            {
-              title:
-                trimmedTitle,
-
-              content:
-                content !==
-                undefined
-                  ? content.trim()
-                  : undefined,
-
-              fileName:
-                fileName !==
-                undefined
-                  ? fileName.trim()
-                  : undefined,
-
-              fileUrl:
-                fileUrl !==
-                undefined
-                  ? fileUrl.trim()
-                  : undefined,
-            },
           );
 
-        const updatedAt =
-          Date.now();
 
-        setMaterials(
-          currentMaterials =>
-            currentMaterials.map(
-              material =>
-                material.id ===
-                materialId
-                  ? {
-                      ...material,
+          await repository
+            .updateMaterial(
+              materialId,
+              {
+                title,
+                content,
+              },
+            );
 
-                      title:
-                        trimmedTitle,
 
-                      content:
-                        content !==
-                        undefined
-                          ? content.trim()
-                          : material.content,
+          await loadMaterials();
 
-                      fileName:
-                        fileName !==
-                        undefined
-                          ? fileName.trim()
-                          : material.fileName,
+        } finally {
 
-                      fileUrl:
-                        fileUrl !==
-                        undefined
-                          ? fileUrl.trim()
-                          : material.fileUrl,
+          setUpdatingMaterialId(
+            null,
+          );
+        }
+      },
+      [
+        repository,
+        loadMaterials,
+      ],
+    );
 
-                      updatedAt,
-
-                      syncStatus:
-                        'synced',
-                    }
-                  : material,
-            ),
-        );
-      } catch (err) {
-        console.error(
-          'Failed to update material:',
-          err,
-        );
-
-        setError(
-          'Unable to update material.',
-        );
-
-        throw err;
-      } finally {
-        setUpdatingMaterialId(
-          null,
-        );
-      }
-    };
 
   // =========================================================
-  // Delete material
+  // UPDATE IMAGE TITLE
+  // =========================================================
+
+  const updateImageTitle =
+    useCallback(
+      async (
+        materialId: string,
+        title: string,
+      ) => {
+
+        try {
+
+          setUpdatingMaterialId(
+            materialId,
+          );
+
+
+          await repository
+            .updateImageTitle(
+              materialId,
+              title,
+            );
+
+
+          await loadMaterials();
+
+        } finally {
+
+          setUpdatingMaterialId(
+            null,
+          );
+        }
+      },
+      [
+        repository,
+        loadMaterials,
+      ],
+    );
+
+
+  // =========================================================
+  // DELETE
   // =========================================================
 
   const deleteMaterial =
-    async (
-      materialId: string,
-    ) => {
-      if (!user) {
-        throw new Error(
-          'User is not authenticated.',
-        );
-      }
+    useCallback(
+      async (
+        materialId: string,
+      ) => {
 
-      const materialToDelete =
-        materials.find(
-          material =>
-            material.id ===
-            materialId,
-        );
+        try {
 
-      try {
-        setDeletingMaterialId(
-          materialId,
-        );
-
-        setError(null);
-
-        /*
-         * Delete Firestore record first.
-         *
-         * If the database deletion
-         * succeeds, the material should
-         * disappear from the application
-         * even if Storage cleanup later
-         * encounters a problem.
-         */
-        await repository
-          .deleteMaterial(
+          setDeletingMaterialId(
             materialId,
           );
 
-        setMaterials(
-          currentMaterials =>
-            currentMaterials.filter(
-              material =>
-                material.id !==
-                materialId,
-            ),
-        );
 
-        /*
-         * Text materials do not have
-         * physical files.
-         *
-         * PDF, image and camera
-         * materials can have fileUrl,
-         * so clean up Firebase Storage.
-         */
-        if (
-          materialToDelete
-            ?.fileUrl
-        ) {
-          try {
-            await storageService
-              .deleteFile(
-                materialToDelete
-                  .fileUrl,
-              );
-          } catch (
-            storageError
-          ) {
-            /*
-             * Firestore deletion already
-             * succeeded, so do not tell
-             * the UI that the whole
-             * deletion failed.
-             *
-             * Log the cleanup problem.
-             */
-            console.error(
-              'Failed to delete material file from Storage:',
-              storageError,
+          await repository
+            .deleteMaterial(
+              materialId,
             );
-          }
+
+
+          setMaterials(
+            current =>
+              current.filter(
+                material =>
+                  material.id !==
+                  materialId,
+              ),
+          );
+
+        } finally {
+
+          setDeletingMaterialId(
+            null,
+          );
         }
-      } catch (err) {
-        console.error(
-          'Failed to delete material:',
-          err,
-        );
+      },
+      [
+        repository,
+      ],
+    );
 
-        setError(
-          'Unable to delete material.',
-        );
-
-        throw err;
-      } finally {
-        setDeletingMaterialId(
-          null,
-        );
-      }
-    };
-
-  // =========================================================
-  // Initial load
-  // =========================================================
-
-  useEffect(() => {
-    loadMaterials();
-  }, [loadMaterials]);
 
   return {
     materials,
 
     loading,
+
     creating,
 
     updatingMaterialId,
+
     deletingMaterialId,
 
     error,
@@ -465,7 +531,15 @@ export const useMaterials = (
     loadMaterials,
 
     createMaterial,
+
+    createPdfMaterial,
+
+    createImageMaterial,
+
     updateMaterial,
+
+    updateImageTitle,
+
     deleteMaterial,
   };
 };

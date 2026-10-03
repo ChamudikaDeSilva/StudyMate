@@ -5,6 +5,7 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -30,24 +31,24 @@ import {
   NativeStackScreenProps,
 } from '@react-navigation/native-stack';
 
-import {useAuth} from '../../hooks/useAuth';
-import {useMaterials} from '../../hooks/useMaterials';
+import {
+  useMaterials,
+} from '../../hooks/useMaterials';
 
 import {
   SubjectsStackParamList,
 } from '../../navigation/navigationTypes';
 
 import {
-  MaterialStorageService,
-} from '../../services/storage/MaterialStorageService';
-
-import {
   PdfPickerService,
-} from '../../services/storage/PdfPickerService';
-
-import type {
   PickedPdf,
 } from '../../services/storage/PdfPickerService';
+
+import {
+  ImagePickerService,
+  PickedImage,
+} from '../../services/storage/ImagePickerService';
+
 
 type Props =
   NativeStackScreenProps<
@@ -55,55 +56,77 @@ type Props =
     'AddMaterial'
   >;
 
+
 type SelectedSource =
   | 'text'
   | 'pdf'
+  | 'image'
   | null;
+
 
 const pdfPickerService =
   new PdfPickerService();
 
-const materialStorageService =
-  new MaterialStorageService();
+
+const imagePickerService =
+  new ImagePickerService();
+
 
 const MAX_PDF_SIZE =
   20 * 1024 * 1024;
+
+
+const MAX_IMAGE_SIZE =
+  10 * 1024 * 1024;
+
 
 const AddMaterialScreen = ({
   navigation,
   route,
 }: Props) => {
+
   const {
     subjectId,
     subjectName,
   } = route.params;
 
-  const {user} =
-    useAuth();
 
   const {
     createMaterial,
+
+    createPdfMaterial,
+
+    createImageMaterial,
+
     creating,
   } = useMaterials(
     subjectId,
   );
 
+
   const [
     selectedSource,
     setSelectedSource,
-  ] = useState<SelectedSource>(
-    null,
-  );
+  ] = useState<
+    SelectedSource
+  >(null);
+
 
   const [
     title,
     setTitle,
-  ] = useState('');
+  ] = useState(
+    '',
+  );
+
 
   const [
     content,
     setContent,
-  ] = useState('');
+  ] = useState(
+    '',
+  );
+
 
   const [
     selectedPdf,
@@ -112,64 +135,67 @@ const AddMaterialScreen = ({
     PickedPdf | null
   >(null);
 
+
+  const [
+    selectedImage,
+    setSelectedImage,
+  ] = useState<
+    PickedImage | null
+  >(null);
+
+
   const [
     pickingPdf,
     setPickingPdf,
-  ] = useState(false);
+  ] = useState(
+    false,
+  );
+
 
   const [
-    uploadingPdf,
-    setUploadingPdf,
-  ] = useState(false);
+    pickingImage,
+    setPickingImage,
+  ] = useState(
+    false,
+  );
+
+
+  const [
+    uploading,
+    setUploading,
+  ] = useState(
+    false,
+  );
+
 
   const busy =
     creating ||
     pickingPdf ||
-    uploadingPdf;
+    pickingImage ||
+    uploading;
 
-  const textSaveDisabled =
-    busy ||
-    !title.trim() ||
-    !content.trim();
-
-  const pdfSaveDisabled =
-    busy ||
-    !title.trim() ||
-    !selectedPdf;
 
   // =========================================================
-  // Helpers
+  // HELPERS
   // =========================================================
 
-  const getPdfTitle = (
-    fileName: string,
-  ) => {
-    return fileName
-      .replace(
-        /\.pdf$/i,
-        '',
-      )
-      .replace(
-        /[_-]+/g,
-        ' ',
-      )
-      .trim();
-  };
-
-  const formatFileSize = (
+  const formatSize = (
     bytes?: number,
   ) => {
+
     if (
       bytes === undefined
     ) {
-      return 'PDF document';
+      return 'Unknown size';
     }
+
 
     if (
       bytes < 1024
     ) {
       return `${bytes} B`;
     }
+
 
     if (
       bytes <
@@ -180,73 +206,126 @@ const AddMaterialScreen = ({
       ).toFixed(1)} KB`;
     }
 
+
     return `${(
       bytes /
       (1024 * 1024)
     ).toFixed(1)} MB`;
   };
 
-  // =========================================================
-  // Select Text
-  // =========================================================
 
-  const handleSelectText =
+  const cleanFileTitle = (
+    fileName: string,
+  ) => {
+
+    return fileName
+      .replace(
+        /\.[^/.]+$/,
+        '',
+      )
+      .replace(
+        /[_-]+/g,
+        ' ',
+      )
+      .trim();
+  };
+
+
+  const resetSelections =
     () => {
-      if (busy) {
-        return;
-      }
-
-      setSelectedSource(
-        'text',
-      );
 
       setSelectedPdf(
         null,
       );
 
-      setTitle('');
-      setContent('');
+
+      setSelectedImage(
+        null,
+      );
+
+
+      setContent(
+        '',
+      );
+
+
+      setTitle(
+        '',
+      );
     };
 
+
   // =========================================================
-  // Pick PDF
+  // SELECT TEXT
+  // =========================================================
+
+  const handleSelectText =
+    () => {
+
+      if (busy) {
+        return;
+      }
+
+
+      resetSelections();
+
+
+      setSelectedSource(
+        'text',
+      );
+    };
+
+
+  // =========================================================
+  // SELECT PDF
   // =========================================================
 
   const handleSelectPdf =
     async () => {
+
       if (busy) {
         return;
       }
+
 
       setSelectedSource(
         'pdf',
       );
 
-      setContent('');
+
+      setSelectedImage(
+        null,
+      );
+
+
+      setContent(
+        '',
+      );
+
 
       try {
-        setPickingPdf(true);
+
+        setPickingPdf(
+          true,
+        );
+
 
         const pdf =
           await pdfPickerService
             .pickPdf();
 
-        /*
-         * User cancelled picker.
-         */
+
         if (!pdf) {
           return;
         }
 
-        /*
-         * App-side size validation.
-         */
+
         if (
-          pdf.size !==
-            undefined &&
+          pdf.size !== undefined &&
           pdf.size >
-            MAX_PDF_SIZE
+          MAX_PDF_SIZE
         ) {
+
           Alert.alert(
             'PDF too large',
             'Please select a PDF smaller than 20 MB.',
@@ -255,256 +334,352 @@ const AddMaterialScreen = ({
           return;
         }
 
+
         setSelectedPdf(
           pdf,
         );
 
+
         setTitle(
-          getPdfTitle(
+          cleanFileTitle(
             pdf.fileName,
           ),
         );
-      } catch (error) {
-        console.error(
-          'PDF picker error:',
-          error,
-        );
+
+      } catch (
+        pickerError
+      ) {
 
         Alert.alert(
           'Unable to select PDF',
-          error instanceof Error
-            ? error.message
-            : 'Something went wrong while selecting the PDF.',
+
+          pickerError instanceof Error
+            ? pickerError.message
+            : 'Unable to select PDF.',
         );
+
       } finally {
-        setPickingPdf(false);
+
+        setPickingPdf(
+          false,
+        );
       }
     };
 
+
   // =========================================================
-  // Remove PDF
+  // SELECT IMAGE
   // =========================================================
 
-  const handleRemovePdf =
-    () => {
+  const handleSelectImage =
+    async () => {
+
       if (busy) {
         return;
       }
+
+
+      setSelectedSource(
+        'image',
+      );
+
 
       setSelectedPdf(
         null,
       );
 
-      setTitle('');
+
+      setContent(
+        '',
+      );
+
+
+      try {
+
+        setPickingImage(
+          true,
+        );
+
+
+        const image =
+          await imagePickerService
+            .pickImage();
+
+
+        if (!image) {
+          return;
+        }
+
+
+        if (
+          image.size !== undefined &&
+          image.size >
+          MAX_IMAGE_SIZE
+        ) {
+
+          Alert.alert(
+            'Image too large',
+            'Please select an image smaller than 10 MB.',
+          );
+
+          return;
+        }
+
+
+        setSelectedImage(
+          image,
+        );
+
+
+        setTitle(
+          cleanFileTitle(
+            image.fileName,
+          ),
+        );
+
+      } catch (
+        pickerError
+      ) {
+
+        console.error(
+          'Image picker error:',
+          pickerError,
+        );
+
+
+        Alert.alert(
+          'Unable to select image',
+
+          pickerError instanceof Error
+            ? pickerError.message
+            : 'Unable to select image.',
+        );
+
+      } finally {
+
+        setPickingImage(
+          false,
+        );
+      }
     };
 
+
   // =========================================================
-  // Save Text Material
+  // SAVE TEXT
   // =========================================================
 
-  const handleSaveTextMaterial =
+  const handleSaveText =
     async () => {
+
       const trimmedTitle =
         title.trim();
+
 
       const trimmedContent =
         content.trim();
 
+
       if (!trimmedTitle) {
+
         Alert.alert(
           'Title required',
-          'Please enter a title for your material.',
+          'Please enter a title.',
         );
 
         return;
       }
+
 
       if (!trimmedContent) {
+
         Alert.alert(
           'Content required',
-          'Please enter some study content.',
+          'Please enter study content.',
         );
 
         return;
       }
 
+
       try {
+
         await createMaterial(
           trimmedTitle,
           'text',
           trimmedContent,
         );
 
+
         navigation.goBack();
-      } catch (error) {
-        console.error(
-          'Create material error:',
-          error,
-        );
+
+      } catch (
+        saveError
+      ) {
 
         Alert.alert(
           'Unable to save material',
-          'Something went wrong while saving the material. Please try again.',
+
+          saveError instanceof Error
+            ? saveError.message
+            : 'Unable to save material.',
         );
       }
     };
 
+
   // =========================================================
-  // Save PDF Material
+  // SAVE PDF
   // =========================================================
 
-  const handleSavePdfMaterial =
+  const handleSavePdf =
     async () => {
-      if (!user) {
-        Alert.alert(
-          'Session unavailable',
-          'Please sign in again and retry.',
-        );
-
-        return;
-      }
 
       if (!selectedPdf) {
+
         Alert.alert(
           'PDF required',
-          'Please select a PDF file.',
+          'Please select a PDF.',
         );
 
         return;
       }
+
 
       const trimmedTitle =
         title.trim();
 
+
       if (!trimmedTitle) {
+
         Alert.alert(
           'Title required',
-          'Please enter a title for your material.',
+          'Please enter a title.',
         );
 
         return;
       }
 
-      let uploadedFileUrl:
-        | string
-        | undefined;
 
       try {
-        setUploadingPdf(
+
+        setUploading(
           true,
         );
 
-        // ===============================================
-        // 1. Upload physical PDF to Firebase Storage
-        // ===============================================
 
-        const uploadResult =
-          await materialStorageService
-            .uploadPdf({
-              userId:
-                user.uid,
-
-              subjectId,
-
-              fileName:
-                selectedPdf.fileName,
-
-              localUri:
-                selectedPdf.localUri,
-            });
-
-        uploadedFileUrl =
-          uploadResult.fileUrl;
-
-        // ===============================================
-        // 2. Create Firestore material record
-        // ===============================================
-
-        await createMaterial(
+        await createPdfMaterial(
           trimmedTitle,
-          'pdf',
-          undefined,
-          uploadResult.fileName,
-          uploadResult.fileUrl,
+
+          selectedPdf.localUri,
+
+          selectedPdf.fileName,
+
+          'application/pdf',
         );
 
-        // ===============================================
-        // 3. Return to materials screen
-        // ===============================================
 
         navigation.goBack();
-      } catch (error) {
-        const storageError =
-          error as {
-            code?: string;
-            message?: string;
-          };
 
-        console.error(
-          'PDF MATERIAL ERROR:',
-          error,
-        );
+      } catch (
+        uploadError
+      ) {
 
-        console.error(
-          'PDF MATERIAL ERROR CODE:',
-          storageError.code,
-        );
-
-        console.error(
-          'PDF MATERIAL ERROR MESSAGE:',
-          storageError.message,
-        );
-
-        /*
-         * If Firebase Storage upload
-         * succeeded but Firestore
-         * creation failed, remove the
-         * uploaded PDF.
-         *
-         * This prevents orphan files.
-         */
-        if (
-          uploadedFileUrl
-        ) {
-          try {
-            await materialStorageService
-              .deleteFile(
-                uploadedFileUrl,
-              );
-          } catch (
-            rollbackError
-          ) {
-            console.error(
-              'PDF rollback error:',
-              rollbackError,
-            );
-          }
-        }
-
-        /*
-         * TEMPORARILY show detailed
-         * Firebase error while we are
-         * developing.
-         *
-         * Later we can change this back
-         * to a friendly user message.
-         */
         Alert.alert(
-          'Unable to save PDF',
-          `${
-            storageError.code ??
-            'Unknown error'
-          }\n\n${
-            storageError.message ??
-            'No error message returned.'
-          }`,
+          'Unable to upload PDF',
+
+          uploadError instanceof Error
+            ? uploadError.message
+            : 'Unable to upload PDF.',
         );
+
       } finally {
-        setUploadingPdf(
+
+        setUploading(
           false,
         );
       }
     };
+
+
+  // =========================================================
+  // SAVE IMAGE
+  // =========================================================
+
+  const handleSaveImage =
+    async () => {
+
+      if (!selectedImage) {
+
+        Alert.alert(
+          'Image required',
+          'Please select an image.',
+        );
+
+        return;
+      }
+
+
+      const trimmedTitle =
+        title.trim();
+
+
+      if (!trimmedTitle) {
+
+        Alert.alert(
+          'Title required',
+          'Please enter a title.',
+        );
+
+        return;
+      }
+
+
+      try {
+
+        setUploading(
+          true,
+        );
+
+
+        await createImageMaterial(
+          trimmedTitle,
+
+          selectedImage.localUri,
+
+          selectedImage.fileName,
+
+          selectedImage.mimeType,
+        );
+
+
+        navigation.goBack();
+
+      } catch (
+        uploadError
+      ) {
+
+        console.error(
+          'Image upload error:',
+          uploadError,
+        );
+
+
+        Alert.alert(
+          'Unable to upload image',
+
+          uploadError instanceof Error
+            ? uploadError.message
+            : 'Unable to upload image.',
+        );
+
+      } finally {
+
+        setUploading(
+          false,
+        );
+      }
+    };
+
 
   // =========================================================
   // UI
@@ -528,6 +703,10 @@ const AddMaterialScreen = ({
 
         <ScrollView
           className="flex-1"
+          contentContainerStyle={{
+            paddingBottom:
+              180,
+          }}
           showsVerticalScrollIndicator={
             false
           }
@@ -536,13 +715,12 @@ const AddMaterialScreen = ({
           <View
             className="
               px-6
-              pb-12
               pt-6
             ">
 
-            {/* ==========================================
+            {/* =================================================
                 HEADER
-            =========================================== */}
+            ================================================== */}
 
             <View
               className="
@@ -587,7 +765,11 @@ const AddMaterialScreen = ({
 
               </Pressable>
 
-              <View className="flex-1">
+
+              <View
+                className="
+                  flex-1
+                ">
 
                 <Text
                   className="
@@ -596,340 +778,145 @@ const AddMaterialScreen = ({
                     tracking-tight
                     text-slate-900
                   ">
+
                   Add material
+
                 </Text>
+
 
                 <Text
                   className="
                     mt-1
                     text-sm
                     text-slate-500
-                  "
-                  numberOfLines={1}>
+                  ">
+
                   {subjectName}
+
                 </Text>
 
               </View>
 
             </View>
 
-            {/* ==========================================
-                INTRO
-            =========================================== */}
 
-            <View className="mb-6">
+            {/* =================================================
+                SOURCE TITLE
+            ================================================== */}
 
-              <Text
-                className="
-                  text-xl
-                  font-bold
-                  text-slate-900
-                ">
-                Choose a source
-              </Text>
-
-              <Text
-                className="
-                  mt-2
-                  text-sm
-                  leading-5
-                  text-slate-500
-                ">
-                Add written notes or
-                upload an existing PDF
-                document.
-              </Text>
-
-            </View>
-
-            {/* ==========================================
-                TEXT SOURCE
-            =========================================== */}
-
-            <Pressable
-              accessibilityRole="button"
-              disabled={busy}
-              onPress={
-                handleSelectText
-              }
+            <Text
               className="
-                mb-4
-                flex-row
-                items-center
-                rounded-[20px]
-                border
-                bg-white
-                p-4
-              "
-              style={({
-                pressed,
-              }) => ({
-                borderColor:
-                  selectedSource ===
-                  'text'
-                    ? '#4F46E5'
-                    : '#E2E8F0',
+                text-xl
+                font-bold
+                text-slate-900
+              ">
 
-                opacity:
-                  busy
-                    ? 0.6
-                    : pressed
-                      ? 0.82
-                      : 1,
+              Choose a source
 
-                transform: [
-                  {
-                    scale:
-                      pressed &&
-                      !busy
-                        ? 0.99
-                        : 1,
-                  },
-                ],
-              })}>
+            </Text>
 
-              <View
-                className="
-                  mr-4
-                  h-[54px]
-                  w-[54px]
-                  items-center
-                  justify-center
-                  rounded-[16px]
-                  bg-indigo-50
-                ">
 
+            <Text
+              className="
+                mb-6
+                mt-2
+                text-sm
+                text-slate-500
+              ">
+
+              Add notes, PDF documents
+              or images.
+
+            </Text>
+
+
+            {/* =================================================
+                TEXT
+            ================================================== */}
+
+            <SourceCard
+              title="Text"
+              description="Write or paste study notes."
+              selected={
+                selectedSource ===
+                'text'
+              }
+              disabled={busy}
+              color="#4F46E5"
+              background="#EEF2FF"
+              icon={
                 <Type
                   size={24}
                   color="#4F46E5"
                 />
+              }
+              onPress={
+                handleSelectText
+              }
+            />
 
-              </View>
 
-              <View className="flex-1">
+            {/* =================================================
+                PDF
+            ================================================== */}
 
-                <Text
-                  className="
-                    text-base
-                    font-bold
-                    text-slate-900
-                  ">
-                  Text
-                </Text>
-
-                <Text
-                  className="
-                    mt-1
-                    text-xs
-                    leading-[18px]
-                    text-slate-500
-                  ">
-                  Write or paste your
-                  study notes directly.
-                </Text>
-
-              </View>
-
-              {selectedSource ===
-                'text' && (
-                <CheckCircle2
-                  size={21}
-                  color="#4F46E5"
-                />
-              )}
-
-            </Pressable>
-
-            {/* ==========================================
-                PDF SOURCE
-            =========================================== */}
-
-            <Pressable
-              accessibilityRole="button"
+            <SourceCard
+              title="PDF"
+              description="Upload a PDF from your device."
+              selected={
+                selectedSource ===
+                'pdf'
+              }
               disabled={busy}
+              color="#E11D48"
+              background="#FFF1F2"
+              loading={
+                pickingPdf
+              }
+              icon={
+                <FileText
+                  size={24}
+                  color="#E11D48"
+                />
+              }
               onPress={
                 handleSelectPdf
               }
-              className="
-                mb-4
-                flex-row
-                items-center
-                rounded-[20px]
-                border
-                bg-white
-                p-4
-              "
-              style={({
-                pressed,
-              }) => ({
-                borderColor:
-                  selectedSource ===
-                  'pdf'
-                    ? '#E11D48'
-                    : '#E2E8F0',
+            />
 
-                opacity:
-                  busy
-                    ? 0.6
-                    : pressed
-                      ? 0.82
-                      : 1,
 
-                transform: [
-                  {
-                    scale:
-                      pressed &&
-                      !busy
-                        ? 0.99
-                        : 1,
-                  },
-                ],
-              })}>
-
-              <View
-                className="
-                  mr-4
-                  h-[54px]
-                  w-[54px]
-                  items-center
-                  justify-center
-                  rounded-[16px]
-                  bg-rose-50
-                ">
-
-                {pickingPdf ? (
-                  <ActivityIndicator
-                    size="small"
-                    color="#E11D48"
-                  />
-                ) : (
-                  <FileText
-                    size={24}
-                    color="#E11D48"
-                  />
-                )}
-
-              </View>
-
-              <View className="flex-1">
-
-                <Text
-                  className="
-                    text-base
-                    font-bold
-                    text-slate-900
-                  ">
-                  PDF
-                </Text>
-
-                <Text
-                  className="
-                    mt-1
-                    text-xs
-                    leading-[18px]
-                    text-slate-500
-                  ">
-                  Upload a PDF from
-                  your device.
-                </Text>
-
-              </View>
-
-              {selectedSource ===
-                'pdf' &&
-                selectedPdf && (
-                  <CheckCircle2
-                    size={21}
-                    color="#E11D48"
-                  />
-                )}
-
-            </Pressable>
-
-            {/* ==========================================
+            {/* =================================================
                 IMAGE
-            =========================================== */}
+            ================================================== */}
 
-            <View
-              className="
-                mb-4
-                flex-row
-                items-center
-                rounded-[20px]
-                border
-                border-slate-200
-                bg-white
-                p-4
-              "
-              style={{
-                opacity: 0.55,
-              }}>
-
-              <View
-                className="
-                  mr-4
-                  h-[54px]
-                  w-[54px]
-                  items-center
-                  justify-center
-                  rounded-[16px]
-                  bg-sky-50
-                ">
-
+            <SourceCard
+              title="Image"
+              description="Choose an image from your device."
+              selected={
+                selectedSource ===
+                'image'
+              }
+              disabled={busy}
+              color="#0284C7"
+              background="#E0F2FE"
+              loading={
+                pickingImage
+              }
+              icon={
                 <ImageIcon
                   size={24}
                   color="#0284C7"
                 />
+              }
+              onPress={
+                handleSelectImage
+              }
+            />
 
-              </View>
 
-              <View className="flex-1">
-
-                <Text
-                  className="
-                    text-base
-                    font-bold
-                    text-slate-900
-                  ">
-                  Image
-                </Text>
-
-                <Text
-                  className="
-                    mt-1
-                    text-xs
-                    text-slate-500
-                  ">
-                  Choose an image from
-                  your device.
-                </Text>
-
-              </View>
-
-              <View
-                className="
-                  rounded-full
-                  bg-slate-100
-                  px-3
-                  py-1
-                ">
-
-                <Text
-                  className="
-                    text-[11px]
-                    font-semibold
-                    text-slate-500
-                  ">
-                  Coming soon
-                </Text>
-
-              </View>
-
-            </View>
-
-            {/* ==========================================
+            {/* =================================================
                 CAMERA
-            =========================================== */}
+            ================================================== */}
 
             <View
               className="
@@ -943,7 +930,8 @@ const AddMaterialScreen = ({
                 p-4
               "
               style={{
-                opacity: 0.55,
+                opacity:
+                  0.5,
               }}>
 
               <View
@@ -964,16 +952,22 @@ const AddMaterialScreen = ({
 
               </View>
 
-              <View className="flex-1">
+
+              <View
+                className="
+                  flex-1
+                ">
 
                 <Text
                   className="
-                    text-base
                     font-bold
                     text-slate-900
                   ">
+
                   Camera
+
                 </Text>
+
 
                 <Text
                   className="
@@ -981,81 +975,56 @@ const AddMaterialScreen = ({
                     text-xs
                     text-slate-500
                   ">
-                  Capture study
-                  material with your
-                  camera.
+
+                  Capture study material
+                  with your camera.
+
                 </Text>
 
               </View>
 
-              <View
+
+              <Text
                 className="
-                  rounded-full
-                  bg-slate-100
-                  px-3
-                  py-1
+                  text-xs
+                  font-semibold
+                  text-slate-400
                 ">
 
-                <Text
-                  className="
-                    text-[11px]
-                    font-semibold
-                    text-slate-500
-                  ">
-                  Coming soon
-                </Text>
+                Next
 
-              </View>
+              </Text>
 
             </View>
 
-            {/* ==========================================
-                TEXT MATERIAL FORM
-            =========================================== */}
+
+            {/* =================================================
+                TEXT FORM
+            ================================================== */}
 
             {selectedSource ===
               'text' && (
-              <View
-                className="
-                  rounded-3xl
-                  border
-                  border-slate-200
-                  bg-white
-                  p-5
-                ">
 
-                <Text
-                  className="
-                    text-lg
-                    font-bold
-                    text-slate-900
-                  ">
+              <FormCard>
+
+                <FormTitle>
                   Text material
-                </Text>
+                </FormTitle>
 
-                <Text
-                  className="
-                    mb-6
-                    mt-1
-                    text-sm
-                    leading-5
-                    text-slate-500
-                  ">
-                  Add a title and your
-                  study content.
-                </Text>
 
-                <Text
-                  className="
-                    mb-2
-                    text-sm
-                    font-semibold
-                    text-slate-900
-                  ">
+                <FieldLabel>
                   Title
-                </Text>
+                </FieldLabel>
+
 
                 <TextInput
+                  value={title}
+                  onChangeText={
+                    setTitle
+                  }
+                  editable={!busy}
+                  placeholder="Material title"
+                  placeholderTextColor="#94A3B8"
                   className="
                     mb-5
                     min-h-[52px]
@@ -1064,30 +1033,26 @@ const AddMaterialScreen = ({
                     border-slate-200
                     bg-slate-50
                     px-4
-                    text-sm
                     text-slate-900
                   "
-                  placeholder="e.g. Process Scheduling"
-                  placeholderTextColor="#94A3B8"
-                  value={title}
-                  onChangeText={
-                    setTitle
-                  }
-                  editable={!busy}
-                  maxLength={100}
                 />
 
-                <Text
-                  className="
-                    mb-2
-                    text-sm
-                    font-semibold
-                    text-slate-900
-                  ">
+
+                <FieldLabel>
                   Study content
-                </Text>
+                </FieldLabel>
+
 
                 <TextInput
+                  value={content}
+                  onChangeText={
+                    setContent
+                  }
+                  editable={!busy}
+                  multiline
+                  textAlignVertical="top"
+                  placeholder="Write or paste your notes..."
+                  placeholderTextColor="#94A3B8"
                   className="
                     min-h-[220px]
                     rounded-xl
@@ -1096,446 +1061,366 @@ const AddMaterialScreen = ({
                     bg-slate-50
                     px-4
                     py-4
-                    text-sm
-                    leading-5
                     text-slate-900
                   "
-                  placeholder="Write or paste your notes here..."
-                  placeholderTextColor="#94A3B8"
-                  value={content}
-                  onChangeText={
-                    setContent
-                  }
-                  editable={!busy}
-                  multiline
-                  textAlignVertical="top"
                 />
 
-                <Text
-                  className="
-                    mb-6
-                    mt-2
-                    self-end
-                    text-xs
-                    text-slate-400
-                  ">
-                  {content.length}
-                  {' '}characters
-                </Text>
 
-                <Pressable
-                  accessibilityRole="button"
+                <SaveButton
                   disabled={
-                    textSaveDisabled
+                    busy ||
+                    !title.trim() ||
+                    !content.trim()
                   }
+                  loading={
+                    creating
+                  }
+                  title="Save material"
+                  color="#4F46E5"
                   onPress={
-                    handleSaveTextMaterial
+                    handleSaveText
                   }
-                  className="
-                    min-h-[52px]
-                    flex-row
-                    items-center
-                    justify-center
-                    rounded-xl
-                    bg-indigo-600
-                    px-6
-                  "
-                  style={({
-                    pressed,
-                  }) => ({
-                    opacity:
-                      textSaveDisabled
-                        ? 0.4
-                        : pressed
-                          ? 0.8
-                          : 1,
+                />
 
-                    transform: [
-                      {
-                        scale:
-                          !textSaveDisabled &&
-                          pressed
-                            ? 0.99
-                            : 1,
-                      },
-                    ],
-                  })}>
+              </FormCard>
 
-                  {creating ? (
-                    <ActivityIndicator
-                      size="small"
-                      color="#FFFFFF"
-                    />
-                  ) : (
-                    <Text
-                      className="
-                        text-base
-                        font-bold
-                        text-white
-                      ">
-                      Save material
-                    </Text>
-                  )}
-
-                </Pressable>
-
-              </View>
             )}
 
-            {/* ==========================================
-                PDF MATERIAL FORM
-            =========================================== */}
+
+            {/* =================================================
+                PDF FORM
+            ================================================== */}
 
             {selectedSource ===
               'pdf' && (
-              <View
-                className="
-                  rounded-3xl
-                  border
-                  border-slate-200
-                  bg-white
-                  p-5
-                ">
 
-                <Text
-                  className="
-                    text-lg
-                    font-bold
-                    text-slate-900
-                  ">
+              <FormCard>
+
+                <FormTitle>
                   PDF material
-                </Text>
+                </FormTitle>
 
-                <Text
-                  className="
-                    mb-6
-                    mt-1
-                    text-sm
-                    leading-5
-                    text-slate-500
-                  ">
-                  Upload a PDF and give
-                  it a clear study
-                  title.
-                </Text>
-
-                {/* ======================================
-                    SELECTED PDF
-                ======================================= */}
 
                 {selectedPdf ? (
-                  <View
-                    className="
-                      mb-5
-                      flex-row
-                      items-center
-                      rounded-2xl
-                      border
-                      border-rose-100
-                      bg-rose-50
-                      p-4
-                    ">
 
-                    <View
-                      className="
-                        mr-3
-                        h-11
-                        w-11
-                        items-center
-                        justify-center
-                        rounded-xl
-                        bg-white
-                      ">
-
+                  <SelectedFile
+                    icon={
                       <FileText
-                        size={21}
+                        size={22}
                         color="#E11D48"
                       />
+                    }
+                    name={
+                      selectedPdf.fileName
+                    }
+                    details={
+                      formatSize(
+                        selectedPdf.size,
+                      )
+                    }
+                    onRemove={() => {
 
-                    </View>
+                      setSelectedPdf(
+                        null,
+                      );
 
-                    <View className="flex-1">
 
-                      <Text
-                        className="
-                          text-sm
-                          font-bold
-                          text-slate-900
-                        "
-                        numberOfLines={1}>
-                        {
-                          selectedPdf.fileName
-                        }
-                      </Text>
+                      setTitle(
+                        '',
+                      );
+                    }}
+                  />
 
-                      <Text
-                        className="
-                          mt-1
-                          text-xs
-                          text-slate-500
-                        ">
-                        {formatFileSize(
-                          selectedPdf.size,
-                        )}
-                      </Text>
-
-                    </View>
-
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Remove PDF"
-                      disabled={busy}
-                      onPress={
-                        handleRemovePdf
-                      }
-                      className="
-                        h-9
-                        w-9
-                        items-center
-                        justify-center
-                        rounded-xl
-                        bg-white
-                      "
-                      style={({
-                        pressed,
-                      }) => ({
-                        opacity:
-                          busy
-                            ? 0.4
-                            : pressed
-                              ? 0.6
-                              : 1,
-                      })}>
-
-                      <X
-                        size={17}
-                        color="#64748B"
-                      />
-
-                    </Pressable>
-
-                  </View>
                 ) : (
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={busy}
+
+                  <SelectFileButton
+                    title="Choose PDF"
+                    loading={
+                      pickingPdf
+                    }
+                    color="#E11D48"
                     onPress={
                       handleSelectPdf
                     }
-                    className="
-                      mb-5
-                      min-h-[110px]
-                      items-center
-                      justify-center
-                      rounded-2xl
-                      border
-                      border-dashed
-                      border-slate-300
-                      bg-slate-50
-                      px-5
-                    "
-                    style={({
-                      pressed,
-                    }) => ({
-                      opacity:
-                        busy
-                          ? 0.5
-                          : pressed
-                            ? 0.7
-                            : 1,
-                    })}>
+                  />
 
-                    {pickingPdf ? (
-                      <ActivityIndicator
-                        size="small"
-                        color="#E11D48"
-                      />
-                    ) : (
-                      <>
-                        <UploadCloud
-                          size={27}
-                          color="#E11D48"
-                        />
-
-                        <Text
-                          className="
-                            mt-3
-                            text-sm
-                            font-bold
-                            text-slate-800
-                          ">
-                          Choose PDF
-                        </Text>
-
-                        <Text
-                          className="
-                            mt-1
-                            text-xs
-                            text-slate-500
-                          ">
-                          Maximum 20 MB
-                        </Text>
-                      </>
-                    )}
-
-                  </Pressable>
                 )}
 
-                {selectedPdf && (
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={busy}
-                    onPress={
-                      handleSelectPdf
-                    }
-                    className="
-                      mb-5
-                      self-start
-                      py-1
-                    "
-                    style={({
-                      pressed,
-                    }) => ({
-                      opacity:
-                        busy
-                          ? 0.5
-                          : pressed
-                            ? 0.65
-                            : 1,
-                    })}>
 
-                    <Text
-                      className="
-                        text-sm
-                        font-semibold
-                        text-rose-600
-                      ">
-                      Choose another PDF
-                    </Text>
-
-                  </Pressable>
-                )}
-
-                {/* ======================================
-                    PDF TITLE
-                ======================================= */}
-
-                <Text
-                  className="
-                    mb-2
-                    text-sm
-                    font-semibold
-                    text-slate-900
-                  ">
+                <FieldLabel>
                   Title
-                </Text>
+                </FieldLabel>
+
 
                 <TextInput
+                  value={title}
+                  onChangeText={
+                    setTitle
+                  }
+                  editable={!busy}
+                  placeholder="Material title"
+                  placeholderTextColor="#94A3B8"
                   className="
-                    mb-6
+                    mb-2
                     min-h-[52px]
                     rounded-xl
                     border
                     border-slate-200
                     bg-slate-50
                     px-4
-                    text-sm
                     text-slate-900
                   "
-                  placeholder="Material title"
-                  placeholderTextColor="#94A3B8"
+                />
+
+
+                <SaveButton
+                  disabled={
+                    busy ||
+                    !title.trim() ||
+                    !selectedPdf
+                  }
+                  loading={
+                    uploading ||
+                    creating
+                  }
+                  title="Save PDF"
+                  color="#E11D48"
+                  onPress={
+                    handleSavePdf
+                  }
+                />
+
+              </FormCard>
+
+            )}
+
+
+            {/* =================================================
+                IMAGE FORM
+            ================================================== */}
+
+            {selectedSource ===
+              'image' && (
+
+              <FormCard>
+
+                <FormTitle>
+                  Image material
+                </FormTitle>
+
+
+                {selectedImage ? (
+
+                  <>
+
+                    <View
+                      className="
+                        mb-5
+                        overflow-hidden
+                        rounded-2xl
+                        border
+                        border-sky-100
+                        bg-sky-50
+                      ">
+
+                      <Image
+                        source={{
+                          uri:
+                            selectedImage.localUri,
+                        }}
+                        resizeMode="cover"
+                        className="
+                          h-[150px]
+                          w-full
+                        "
+                      />
+
+
+                      <View
+                        className="
+                          flex-row
+                          items-center
+                          p-4
+                        ">
+
+                        <View
+                          className="
+                            flex-1
+                          ">
+
+                          <Text
+                            numberOfLines={1}
+                            className="
+                              font-bold
+                              text-slate-900
+                            ">
+
+                            {
+                              selectedImage.fileName
+                            }
+
+                          </Text>
+
+
+                          <Text
+                            className="
+                              mt-1
+                              text-xs
+                              text-slate-500
+                            ">
+
+                            {
+                              formatSize(
+                                selectedImage.size,
+                              )
+                            }
+
+                          </Text>
+
+                        </View>
+
+
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Remove image"
+                          disabled={busy}
+                          onPress={() => {
+
+                            setSelectedImage(
+                              null,
+                            );
+
+
+                            setTitle(
+                              '',
+                            );
+                          }}
+                          className="
+                            h-10
+                            w-10
+                            items-center
+                            justify-center
+                            rounded-xl
+                            bg-white
+                          "
+                          style={({
+                            pressed,
+                          }) => ({
+                            opacity:
+                              busy
+                                ? 0.5
+                                : pressed
+                                  ? 0.65
+                                  : 1,
+                          })}>
+
+                          <X
+                            size={18}
+                            color="#64748B"
+                          />
+
+                        </Pressable>
+
+                      </View>
+
+                    </View>
+
+
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={busy}
+                      onPress={
+                        handleSelectImage
+                      }
+                      className="
+                        mb-5
+                        self-start
+                      "
+                      style={({
+                        pressed,
+                      }) => ({
+                        opacity:
+                          pressed
+                            ? 0.65
+                            : 1,
+                      })}>
+
+                      <Text
+                        className="
+                          font-semibold
+                          text-sky-600
+                        ">
+
+                        Choose another image
+
+                      </Text>
+
+                    </Pressable>
+
+                  </>
+
+                ) : (
+
+                  <SelectFileButton
+                    title="Choose image"
+                    loading={
+                      pickingImage
+                    }
+                    color="#0284C7"
+                    onPress={
+                      handleSelectImage
+                    }
+                  />
+
+                )}
+
+
+                <FieldLabel>
+                  Title
+                </FieldLabel>
+
+
+                <TextInput
                   value={title}
                   onChangeText={
                     setTitle
                   }
                   editable={!busy}
-                  maxLength={100}
+                  placeholder="Material title"
+                  placeholderTextColor="#94A3B8"
+                  returnKeyType="done"
+                  className="
+                    mb-2
+                    min-h-[52px]
+                    rounded-xl
+                    border
+                    border-slate-200
+                    bg-slate-50
+                    px-4
+                    text-slate-900
+                  "
                 />
 
-                {/* ======================================
-                    SAVE PDF
-                ======================================= */}
 
-                <Pressable
-                  accessibilityRole="button"
+                <SaveButton
                   disabled={
-                    pdfSaveDisabled
+                    busy ||
+                    !title.trim() ||
+                    !selectedImage
                   }
+                  loading={
+                    uploading ||
+                    creating
+                  }
+                  title="Save image"
+                  color="#0284C7"
                   onPress={
-                    handleSavePdfMaterial
+                    handleSaveImage
                   }
-                  className="
-                    min-h-[52px]
-                    flex-row
-                    items-center
-                    justify-center
-                    rounded-xl
-                    bg-rose-600
-                    px-6
-                  "
-                  style={({
-                    pressed,
-                  }) => ({
-                    opacity:
-                      pdfSaveDisabled
-                        ? 0.4
-                        : pressed
-                          ? 0.8
-                          : 1,
+                />
 
-                    transform: [
-                      {
-                        scale:
-                          !pdfSaveDisabled &&
-                          pressed
-                            ? 0.99
-                            : 1,
-                      },
-                    ],
-                  })}>
+              </FormCard>
 
-                  {uploadingPdf ||
-                  creating ? (
-                    <>
-                      <ActivityIndicator
-                        size="small"
-                        color="#FFFFFF"
-                      />
-
-                      <Text
-                        className="
-                          ml-3
-                          text-base
-                          font-bold
-                          text-white
-                        ">
-                        {uploadingPdf
-                          ? 'Uploading...'
-                          : 'Saving...'}
-                      </Text>
-                    </>
-                  ) : (
-                    <>
-                      <UploadCloud
-                        size={18}
-                        color="#FFFFFF"
-                      />
-
-                      <Text
-                        className="
-                          ml-2
-                          text-base
-                          font-bold
-                          text-white
-                        ">
-                        Save PDF
-                      </Text>
-                    </>
-                  )}
-
-                </Pressable>
-
-              </View>
             )}
 
           </View>
@@ -1547,5 +1432,545 @@ const AddMaterialScreen = ({
     </SafeAreaView>
   );
 };
+
+
+// =========================================================
+// SOURCE CARD
+// =========================================================
+
+interface SourceCardProps {
+  title:
+    string;
+
+  description:
+    string;
+
+  selected:
+    boolean;
+
+  disabled:
+    boolean;
+
+  color:
+    string;
+
+  background:
+    string;
+
+  icon:
+    React.ReactNode;
+
+  loading?:
+    boolean;
+
+  onPress:
+    () => void;
+}
+
+
+const SourceCard = ({
+  title,
+  description,
+  selected,
+  disabled,
+  color,
+  background,
+  icon,
+  loading = false,
+  onPress,
+}: SourceCardProps) => (
+
+  <Pressable
+    accessibilityRole="button"
+    disabled={disabled}
+    onPress={onPress}
+    className="
+      mb-4
+      flex-row
+      items-center
+      rounded-[20px]
+      border
+      bg-white
+      p-4
+    "
+    style={({
+      pressed,
+    }) => ({
+      borderColor:
+        selected
+          ? color
+          : '#E2E8F0',
+
+      opacity:
+        disabled
+          ? 0.6
+          : pressed
+            ? 0.82
+            : 1,
+    })}>
+
+    <View
+      className="
+        mr-4
+        h-[54px]
+        w-[54px]
+        items-center
+        justify-center
+        rounded-[16px]
+      "
+      style={{
+        backgroundColor:
+          background,
+      }}>
+
+      {loading ? (
+
+        <ActivityIndicator
+          color={color}
+        />
+
+      ) : (
+
+        icon
+
+      )}
+
+    </View>
+
+
+    <View
+      className="
+        flex-1
+      ">
+
+      <Text
+        className="
+          text-base
+          font-bold
+          text-slate-900
+        ">
+
+        {title}
+
+      </Text>
+
+
+      <Text
+        className="
+          mt-1
+          text-xs
+          text-slate-500
+        ">
+
+        {description}
+
+      </Text>
+
+    </View>
+
+
+    {selected && (
+
+      <CheckCircle2
+        size={21}
+        color={color}
+      />
+
+    )}
+
+  </Pressable>
+);
+
+
+// =========================================================
+// FORM CARD
+// =========================================================
+
+const FormCard = ({
+  children,
+}: {
+  children:
+    React.ReactNode;
+}) => (
+
+  <View
+    className="
+      rounded-3xl
+      border
+      border-slate-200
+      bg-white
+      p-5
+    ">
+
+    {children}
+
+  </View>
+);
+
+
+// =========================================================
+// FORM TITLE
+// =========================================================
+
+const FormTitle = ({
+  children,
+}: {
+  children:
+    React.ReactNode;
+}) => (
+
+  <Text
+    className="
+      mb-6
+      text-lg
+      font-bold
+      text-slate-900
+    ">
+
+    {children}
+
+  </Text>
+);
+
+
+// =========================================================
+// FIELD LABEL
+// =========================================================
+
+const FieldLabel = ({
+  children,
+}: {
+  children:
+    React.ReactNode;
+}) => (
+
+  <Text
+    className="
+      mb-2
+      text-sm
+      font-semibold
+      text-slate-900
+    ">
+
+    {children}
+
+  </Text>
+);
+
+
+// =========================================================
+// SELECT FILE BUTTON
+// =========================================================
+
+const SelectFileButton = ({
+  title,
+  loading,
+  color,
+  onPress,
+}: {
+  title:
+    string;
+
+  loading:
+    boolean;
+
+  color:
+    string;
+
+  onPress:
+    () => void;
+}) => (
+
+  <Pressable
+    accessibilityRole="button"
+    disabled={loading}
+    onPress={onPress}
+    className="
+      mb-5
+      min-h-[110px]
+      items-center
+      justify-center
+      rounded-2xl
+      border
+      border-dashed
+      border-slate-300
+      bg-slate-50
+    "
+    style={({
+      pressed,
+    }) => ({
+      opacity:
+        loading
+          ? 0.6
+          : pressed
+            ? 0.8
+            : 1,
+    })}>
+
+    {loading ? (
+
+      <ActivityIndicator
+        color={color}
+      />
+
+    ) : (
+
+      <>
+
+        <UploadCloud
+          size={28}
+          color={color}
+        />
+
+
+        <Text
+          className="
+            mt-3
+            font-bold
+            text-slate-800
+          ">
+
+          {title}
+
+        </Text>
+
+      </>
+
+    )}
+
+  </Pressable>
+);
+
+
+// =========================================================
+// SELECTED FILE
+// =========================================================
+
+const SelectedFile = ({
+  icon,
+  name,
+  details,
+  onRemove,
+}: {
+  icon:
+    React.ReactNode;
+
+  name:
+    string;
+
+  details:
+    string;
+
+  onRemove:
+    () => void;
+}) => (
+
+  <View
+    className="
+      mb-5
+      flex-row
+      items-center
+      rounded-2xl
+      border
+      border-slate-200
+      bg-slate-50
+      p-4
+    ">
+
+    <View
+      className="
+        mr-3
+        h-11
+        w-11
+        items-center
+        justify-center
+        rounded-xl
+        bg-white
+      ">
+
+      {icon}
+
+    </View>
+
+
+    <View
+      className="
+        flex-1
+      ">
+
+      <Text
+        numberOfLines={1}
+        className="
+          font-bold
+          text-slate-900
+        ">
+
+        {name}
+
+      </Text>
+
+
+      <Text
+        className="
+          mt-1
+          text-xs
+          text-slate-500
+        ">
+
+        {details}
+
+      </Text>
+
+    </View>
+
+
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Remove file"
+      onPress={onRemove}
+      className="
+        h-9
+        w-9
+        items-center
+        justify-center
+        rounded-xl
+        bg-white
+      "
+      style={({
+        pressed,
+      }) => ({
+        opacity:
+          pressed
+            ? 0.65
+            : 1,
+      })}>
+
+      <X
+        size={17}
+        color="#64748B"
+      />
+
+    </Pressable>
+
+  </View>
+);
+
+
+// =========================================================
+// SAVE BUTTON
+// =========================================================
+
+const SaveButton = ({
+  disabled,
+  loading,
+  title,
+  color,
+  onPress,
+}: {
+  disabled:
+    boolean;
+
+  loading:
+    boolean;
+
+  title:
+    string;
+
+  color:
+    string;
+
+  onPress:
+    () => void;
+}) => (
+
+  <Pressable
+    accessibilityRole="button"
+    disabled={disabled}
+    onPress={onPress}
+    className="
+      mt-4
+      min-h-[56px]
+      flex-row
+      items-center
+      justify-center
+      rounded-xl
+      px-6
+    "
+    style={({
+      pressed,
+    }) => ({
+      backgroundColor:
+        color,
+
+      opacity:
+        disabled
+          ? 0.4
+          : pressed
+            ? 0.8
+            : 1,
+
+      transform: [
+        {
+          scale:
+            !disabled &&
+            pressed
+              ? 0.99
+              : 1,
+        },
+      ],
+    })}>
+
+    {loading ? (
+
+      <>
+
+        <ActivityIndicator
+          color="#FFFFFF"
+        />
+
+
+        <Text
+          className="
+            ml-3
+            text-base
+            font-bold
+            text-white
+          ">
+
+          Saving...
+
+        </Text>
+
+      </>
+
+    ) : (
+
+      <>
+
+        <UploadCloud
+          size={18}
+          color="#FFFFFF"
+        />
+
+
+        <Text
+          className="
+            ml-2
+            text-base
+            font-bold
+            text-white
+          ">
+
+          {title}
+
+        </Text>
+
+      </>
+
+    )}
+
+  </Pressable>
+);
+
 
 export default AddMaterialScreen;

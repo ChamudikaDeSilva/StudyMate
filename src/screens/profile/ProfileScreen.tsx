@@ -8,20 +8,35 @@ import {
 
 import AccountMenu from '../../components/home/AccountMenu';
 
-import {useAuth} from '../../hooks/useAuth';
+import {
+  useAuth,
+} from '../../hooks/useAuth';
+
 
 const ProfileScreen = () => {
-  const {user} = useAuth();
+
+  const {
+    user,
+  } = useAuth();
+
+
+  // =========================================================
+  // Display Name
+  // =========================================================
 
   const displayName =
-    user?.displayName?.trim() ||
-    user?.email?.split('@')[0] ||
+    user?.name?.trim() ||
+    user?.email
+      ?.split('@')[0] ||
     'Student';
+
 
   const profileInitial =
     displayName
       .charAt(0)
-      .toUpperCase() || 'U';
+      .toUpperCase() ||
+    'U';
+
 
   return (
     <SafeAreaView
@@ -37,6 +52,10 @@ const ProfileScreen = () => {
           pt-6
         ">
 
+        {/* ===================================================
+            HEADER
+        ==================================================== */}
+
         <View
           className="
             flex-row
@@ -50,8 +69,11 @@ const ProfileScreen = () => {
               font-bold
               text-slate-900
             ">
+
             Profile
+
           </Text>
+
 
           <AccountMenu
             displayName={
@@ -60,6 +82,11 @@ const ProfileScreen = () => {
           />
 
         </View>
+
+
+        {/* ===================================================
+            PROFILE CARD
+        ==================================================== */}
 
         <View
           className="
@@ -71,6 +98,8 @@ const ProfileScreen = () => {
             bg-white
             p-6
           ">
+
+          {/* Avatar */}
 
           <View
             className="
@@ -88,10 +117,15 @@ const ProfileScreen = () => {
                 font-bold
                 text-indigo-600
               ">
+
               {profileInitial}
+
             </Text>
 
           </View>
+
+
+          {/* Name */}
 
           <Text
             className="
@@ -100,18 +134,27 @@ const ProfileScreen = () => {
               font-bold
               text-slate-900
             ">
+
             {displayName}
+
           </Text>
 
+
+          {/* Email */}
+
           {!!user?.email && (
+
             <Text
               className="
                 mt-1
                 text-sm
                 text-slate-500
               ">
+
               {user.email}
+
             </Text>
+
           )}
 
         </View>
@@ -121,5 +164,6 @@ const ProfileScreen = () => {
     </SafeAreaView>
   );
 };
+
 
 export default ProfileScreen;

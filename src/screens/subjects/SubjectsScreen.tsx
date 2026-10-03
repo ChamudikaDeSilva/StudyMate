@@ -152,7 +152,7 @@ const SubjectsScreen = ({
   ] = useState(false);
 
   const displayName =
-    user?.displayName?.trim() ||
+    user?.name?.trim() ||
     user?.email?.split('@')[0] ||
     'Student';
 
@@ -1571,7 +1571,7 @@ const SubjectsScreen = ({
                   onPress={
                     handleSaveSubject
                   }
-                  className={`
+                  className="
                     min-h-[48px]
                     min-w-[145px]
                     flex-row
@@ -1580,14 +1580,27 @@ const SubjectsScreen = ({
                     rounded-xl
                     bg-indigo-600
                     px-6
-
-                    ${
+                  "
+                  style={({pressed}) => ({
+                    opacity:
                       submitting ||
                       !name.trim()
-                        ? 'opacity-40'
-                        : 'active:scale-[0.98] active:opacity-80'
-                    }
-                  `}>
+                        ? 0.4
+                        : pressed
+                          ? 0.8
+                          : 1,
+
+                    transform: [
+                      {
+                        scale:
+                          !submitting &&
+                          !!name.trim() &&
+                          pressed
+                            ? 0.98
+                            : 1,
+                      },
+                    ],
+                  })}>
 
                   {submitting ? (
                     <ActivityIndicator
