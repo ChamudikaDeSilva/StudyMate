@@ -121,7 +121,10 @@ export const useMaterials = (
           const result =
             await repository
               .getMaterials(
-                user.id,
+                String(
+                  user.id,
+                ),
+
                 subjectId,
               );
 
@@ -205,7 +208,9 @@ export const useMaterials = (
             await repository
               .createMaterial({
                 userId:
-                  user.id,
+                  String(
+                    user.id,
+                  ),
 
                 subjectId,
 
@@ -274,7 +279,9 @@ export const useMaterials = (
             await repository
               .createPdfMaterial({
                 userId:
-                  user.id,
+                  String(
+                    user.id,
+                  ),
 
                 subjectId,
 
@@ -314,7 +321,7 @@ export const useMaterials = (
 
 
   // =========================================================
-  // CREATE IMAGE
+  // CREATE IMAGE / CAMERA
   // =========================================================
 
   const createImageMaterial =
@@ -345,7 +352,9 @@ export const useMaterials = (
             await repository
               .createImageMaterial({
                 userId:
-                  user.id,
+                  String(
+                    user.id,
+                  ),
 
                 subjectId,
 

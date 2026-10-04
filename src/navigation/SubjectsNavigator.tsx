@@ -136,13 +136,14 @@ const SubjectsNavigator =
     return (
 
       <Stack.Navigator
+        initialRouteName="SubjectsHome"
         screenOptions={{
           headerShown:
             false,
         }}>
 
         <Stack.Screen
-          name="Subjects"
+          name="SubjectsHome"
           component={
             SubjectsScreen
           }

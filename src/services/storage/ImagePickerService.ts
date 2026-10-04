@@ -1,6 +1,12 @@
 import {
-  Asset,
+  launchCamera,
   launchImageLibrary,
+} from 'react-native-image-picker';
+
+import type {
+  Asset,
+  CameraOptions,
+  ImageLibraryOptions,
 } from 'react-native-image-picker';
 
 
@@ -21,102 +27,69 @@ export interface PickedImage {
 
 export class ImagePickerService {
 
-  async pickImage():
-    Promise<PickedImage | null> {
+  // =========================================================
+  // Convert picker Asset -> app model
+  // =========================================================
 
-    const result =
-      await launchImageLibrary({
-        mediaType:
-          'photo',
-
-        selectionLimit:
-          1,
-
-        includeBase64:
-          false,
-
-        quality:
-          0.9,
-      });
-
-
-    // =====================================================
-    // User cancelled
-    // =====================================================
-
-    if (
-      result.didCancel
-    ) {
-      return null;
-    }
-
-
-    // =====================================================
-    // Picker error
-    // =====================================================
-
-    if (
-      result.errorCode
-    ) {
-      throw new Error(
-        result.errorMessage ||
-        'Unable to select image.',
-      );
-    }
-
-
-    const asset: Asset | undefined =
-      result.assets?.[0];
-
-
-    if (!asset) {
-      throw new Error(
-        'No image was selected.',
-      );
-    }
-
+  private mapAsset(
+    asset: Asset,
+    source:
+      'gallery' | 'camera',
+  ): PickedImage {
 
     if (!asset.uri) {
+
       throw new Error(
-        'Selected image has no local URI.',
+        'The selected image does not contain a valid file URI.',
       );
     }
 
 
     const mimeType =
-      asset.type ||
+      asset.type ??
       'image/jpeg';
 
 
-    const allowedTypes = [
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-      'image/webp',
-    ];
+    let extension =
+      'jpg';
 
 
     if (
-      !allowedTypes.includes(
-        mimeType.toLowerCase(),
-      )
+      mimeType ===
+      'image/png'
     ) {
-      throw new Error(
-        'Please select a JPEG, PNG or WEBP image.',
-      );
+      extension =
+        'png';
     }
 
 
-    const fileName =
-      asset.fileName ||
-      `image-${Date.now()}.jpg`;
+    if (
+      mimeType ===
+      'image/webp'
+    ) {
+      extension =
+        'webp';
+    }
+
+
+    const generatedFileName =
+      source ===
+      'camera'
+        ? (
+            `camera-${Date.now()}.${extension}`
+          )
+        : (
+            `image-${Date.now()}.${extension}`
+          );
 
 
     return {
       localUri:
         asset.uri,
 
-      fileName,
+      fileName:
+        asset.fileName ??
+        generatedFileName,
 
       mimeType,
 
@@ -129,5 +102,148 @@ export class ImagePickerService {
       height:
         asset.height,
     };
+  }
+
+
+  // =========================================================
+  // Gallery
+  // =========================================================
+
+  async pickImage():
+    Promise<
+      PickedImage | null
+    > {
+
+    const options:
+      ImageLibraryOptions = {
+
+      mediaType:
+        'photo',
+
+      selectionLimit:
+        1,
+
+      quality:
+        1,
+
+      includeBase64:
+        false,
+    };
+
+
+    const response =
+      await launchImageLibrary(
+        options,
+      );
+
+
+    if (
+      response.didCancel
+    ) {
+
+      return null;
+    }
+
+
+    if (
+      response.errorCode
+    ) {
+
+      throw new Error(
+        response.errorMessage ??
+        'Unable to open image library.',
+      );
+    }
+
+
+    const asset =
+      response.assets?.[0];
+
+
+    if (!asset) {
+
+      throw new Error(
+        'No image was selected.',
+      );
+    }
+
+
+    return this.mapAsset(
+      asset,
+      'gallery',
+    );
+  }
+
+
+  // =========================================================
+  // Camera
+  // =========================================================
+
+  async captureImage():
+    Promise<
+      PickedImage | null
+    > {
+
+    const options:
+      CameraOptions = {
+
+      mediaType:
+        'photo',
+
+      cameraType:
+        'back',
+
+      quality:
+        0.9,
+
+      saveToPhotos:
+        false,
+
+      includeBase64:
+        false,
+    };
+
+
+    const response =
+      await launchCamera(
+        options,
+      );
+
+
+    if (
+      response.didCancel
+    ) {
+
+      return null;
+    }
+
+
+    if (
+      response.errorCode
+    ) {
+
+      throw new Error(
+        response.errorMessage ??
+        'Unable to open the camera.',
+      );
+    }
+
+
+    const asset =
+      response.assets?.[0];
+
+
+    if (!asset) {
+
+      throw new Error(
+        'The camera did not return a captured image.',
+      );
+    }
+
+
+    return this.mapAsset(
+      asset,
+      'camera',
+    );
   }
 }

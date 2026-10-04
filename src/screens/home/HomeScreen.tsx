@@ -21,14 +21,27 @@ import {
   Sparkles,
 } from 'lucide-react-native';
 
-import AccountMenu from '../../components/home/AccountMenu';
-import HomeStatCard from '../../components/home/HomeStatCard';
-import QuickActionCard from '../../components/home/QuickActionCard';
+import AccountMenu
+  from '../../components/home/AccountMenu';
 
-import {useAuth} from '../../hooks/useAuth';
-import {useSubjects} from '../../hooks/useSubjects';
+import HomeStatCard
+  from '../../components/home/HomeStatCard';
 
-import {MainTabParamList} from '../../navigation/navigationTypes';
+import QuickActionCard
+  from '../../components/home/QuickActionCard';
+
+import {
+  useAuth,
+} from '../../hooks/useAuth';
+
+import {
+  useSubjects,
+} from '../../hooks/useSubjects';
+
+import {
+  MainTabParamList,
+} from '../../navigation/navigationTypes';
+
 
 type Props =
   BottomTabScreenProps<
@@ -36,34 +49,88 @@ type Props =
     'Home'
   >;
 
+
 const HomeScreen = ({
   navigation,
 }: Props) => {
-  const {user} = useAuth();
+
+  const {
+    user,
+  } = useAuth();
+
 
   const {
     subjects,
   } = useSubjects();
 
-  const displayName =
-    user?.displayName?.trim() ||
-    user?.email?.split('@')[0] ||
+
+  // =========================================================
+  // USER DISPLAY NAME
+  // =========================================================
+  //
+  // The previous Firebase implementation used:
+  //
+  // user?.displayName
+  //
+  // Our FastAPI AuthUser does not contain displayName.
+  // Therefore use the part before @ in the email.
+  //
+  // Example:
+  //
+  // chamudika@gmail.com
+  //          ↓
+  // Chamudika
+  //
+
+  const emailName =
+    user?.email
+      ?.split('@')[0]
+      ?.trim() ||
     'Student';
 
+
+  const displayName =
+    emailName
+      .replace(
+        /[._-]+/g,
+        ' ',
+      )
+      .replace(
+        /\b\w/g,
+        character =>
+          character.toUpperCase(),
+      );
+
+
   const firstName =
-    displayName.split(' ')[0];
+    displayName
+      .split(' ')[0];
+
+
+  // =========================================================
+  // COUNTS
+  // =========================================================
 
   const subjectCount =
-    subjects?.length ?? 0;
+    subjects?.length ??
+    0;
+
 
   /*
-   * Materials are not implemented yet.
+   * Material count will later be connected
+   * to the real materials data.
    *
-   * Replace this with real material
-   * data after the Materials module
-   * is connected.
+   * For now keep it at zero instead of
+   * displaying incorrect information.
    */
-  const materialCount = 0;
+
+  const materialCount =
+    0;
+
+
+  // =========================================================
+  // UI
+  // =========================================================
 
   return (
     <SafeAreaView
@@ -110,8 +177,11 @@ const HomeScreen = ({
                   tracking-tight
                   text-slate-900
                 ">
+
                 Hi, {firstName} 👋
+
               </Text>
+
 
               <Text
                 className="
@@ -120,11 +190,14 @@ const HomeScreen = ({
                   leading-5
                   text-slate-500
                 ">
+
                 Ready to make some
                 progress today?
+
               </Text>
 
             </View>
+
 
             <AccountMenu
               displayName={
@@ -133,6 +206,7 @@ const HomeScreen = ({
             />
 
           </View>
+
 
           {/* =============================================
               HERO
@@ -163,6 +237,7 @@ const HomeScreen = ({
               "
             />
 
+
             <View
               className="
                 absolute
@@ -175,7 +250,11 @@ const HomeScreen = ({
               "
             />
 
-            <View className="mb-6">
+
+            <View
+              className="
+                mb-6
+              ">
 
               <View
                 className="
@@ -193,6 +272,7 @@ const HomeScreen = ({
                   color="#FFFFFF"
                 />
 
+
                 <Text
                   className="
                     ml-2
@@ -201,12 +281,15 @@ const HomeScreen = ({
                     tracking-widest
                     text-white
                   ">
+
                   LEARNLOOP AI
+
                 </Text>
 
               </View>
 
             </View>
+
 
             <Text
               className="
@@ -217,10 +300,13 @@ const HomeScreen = ({
                 tracking-tight
                 text-white
               ">
+
               Learn smarter,
               {'\n'}
               not harder.
+
             </Text>
+
 
             <Text
               className="
@@ -230,11 +316,14 @@ const HomeScreen = ({
                 leading-[21px]
                 text-indigo-100
               ">
+
               Organize your materials
               and transform them into
               summaries, flashcards
               and quizzes.
+
             </Text>
+
 
             <Pressable
               accessibilityRole="button"
@@ -252,13 +341,30 @@ const HomeScreen = ({
                 bg-white
                 px-4
                 py-3
-                active:opacity-80
-              ">
+              "
+              style={({
+                pressed,
+              }) => ({
+                opacity:
+                  pressed
+                    ? 0.8
+                    : 1,
+
+                transform: [
+                  {
+                    scale:
+                      pressed
+                        ? 0.99
+                        : 1,
+                  },
+                ],
+              })}>
 
               <BookOpen
                 size={18}
                 color="#4F46E5"
               />
+
 
               <Text
                 className="
@@ -267,18 +373,24 @@ const HomeScreen = ({
                   font-bold
                   text-indigo-600
                 ">
+
                 Explore subjects
+
               </Text>
 
             </Pressable>
 
           </View>
 
+
           {/* =============================================
               WORKSPACE
           ============================================== */}
 
-          <View className="mb-4">
+          <View
+            className="
+              mb-4
+            ">
 
             <Text
               className="
@@ -286,8 +398,11 @@ const HomeScreen = ({
                 font-bold
                 text-slate-900
               ">
+
               Your workspace
+
             </Text>
+
 
             <Text
               className="
@@ -296,11 +411,14 @@ const HomeScreen = ({
                 leading-[19px]
                 text-slate-500
               ">
+
               Everything you're
               learning in one place.
+
             </Text>
 
           </View>
+
 
           <View
             className="
@@ -310,22 +428,32 @@ const HomeScreen = ({
             ">
 
             <HomeStatCard
-              value={subjectCount}
+              value={
+                subjectCount
+              }
               label="Subjects"
-              icon={LibraryBig}
+              icon={
+                LibraryBig
+              }
               iconColor="#4F46E5"
               iconBackground="#EEF2FF"
             />
 
+
             <HomeStatCard
-              value={materialCount}
+              value={
+                materialCount
+              }
               label="Materials"
-              icon={BookOpen}
+              icon={
+                BookOpen
+              }
               iconColor="#0284C7"
               iconBackground="#E0F2FE"
             />
 
           </View>
+
 
           {/* =============================================
               SUBJECT BANNER
@@ -348,9 +476,24 @@ const HomeScreen = ({
               border-slate-200
               bg-white
               p-4
-              active:scale-[0.99]
-              active:opacity-80
-            ">
+            "
+            style={({
+              pressed,
+            }) => ({
+              opacity:
+                pressed
+                  ? 0.8
+                  : 1,
+
+              transform: [
+                {
+                  scale:
+                    pressed
+                      ? 0.99
+                      : 1,
+                },
+              ],
+            })}>
 
             <View
               className="
@@ -370,7 +513,11 @@ const HomeScreen = ({
 
             </View>
 
-            <View className="flex-1">
+
+            <View
+              className="
+                flex-1
+              ">
 
               <Text
                 className="
@@ -378,8 +525,11 @@ const HomeScreen = ({
                   font-bold
                   text-slate-900
                 ">
+
                 My Subjects
+
               </Text>
+
 
               <Text
                 className="
@@ -387,12 +537,15 @@ const HomeScreen = ({
                   text-sm
                   text-slate-500
                 ">
+
                 Organize learning
                 materials into
                 subjects.
+
               </Text>
 
             </View>
+
 
             <View
               className="
@@ -407,18 +560,24 @@ const HomeScreen = ({
                   text-[27px]
                   text-slate-400
                 ">
+
                 ›
+
               </Text>
 
             </View>
 
           </Pressable>
 
+
           {/* =============================================
               QUICK ACTIONS
           ============================================== */}
 
-          <View className="mb-4">
+          <View
+            className="
+              mb-4
+            ">
 
             <Text
               className="
@@ -426,10 +585,13 @@ const HomeScreen = ({
                 font-bold
                 text-slate-900
               ">
+
               Quick actions
+
             </Text>
 
           </View>
+
 
           <View
             className="
@@ -442,7 +604,9 @@ const HomeScreen = ({
             <QuickActionCard
               title="Add subject"
               description="Create a new learning space"
-              icon={FilePlus2}
+              icon={
+                FilePlus2
+              }
               iconColor="#7C3AED"
               iconBackground="#F3E8FF"
               onPress={() =>
@@ -452,10 +616,13 @@ const HomeScreen = ({
               }
             />
 
+
             <QuickActionCard
               title="Add material"
               description="Text, PDF, image or camera"
-              icon={BookOpen}
+              icon={
+                BookOpen
+              }
               iconColor="#0284C7"
               iconBackground="#E0F2FE"
               onPress={() =>
@@ -465,14 +632,18 @@ const HomeScreen = ({
               }
             />
 
+
             <QuickActionCard
               title="Study tools"
               description="Flashcards and quizzes"
-              icon={BrainCircuit}
+              icon={
+                BrainCircuit
+              }
               iconColor="#16A34A"
               iconBackground="#DCFCE7"
               disabled
             />
+
 
             <QuickActionCard
               title="Ask AI"
@@ -486,6 +657,7 @@ const HomeScreen = ({
             />
 
           </View>
+
 
           {/* =============================================
               COMING SOON
@@ -520,7 +692,11 @@ const HomeScreen = ({
 
             </View>
 
-            <View className="flex-1">
+
+            <View
+              className="
+                flex-1
+              ">
 
               <Text
                 className="
@@ -528,9 +704,12 @@ const HomeScreen = ({
                   font-bold
                   text-slate-900
                 ">
+
                 AI study tools are
                 coming next
+
               </Text>
+
 
               <Text
                 className="
@@ -539,10 +718,12 @@ const HomeScreen = ({
                   leading-[18px]
                   text-slate-500
                 ">
+
                 Add materials to
                 generate summaries,
                 flashcards and
                 quizzes.
+
               </Text>
 
             </View>
@@ -556,5 +737,6 @@ const HomeScreen = ({
     </SafeAreaView>
   );
 };
+
 
 export default HomeScreen;

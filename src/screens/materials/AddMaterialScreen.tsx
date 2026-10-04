@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   FileText,
   Image as ImageIcon,
+  RotateCcw,
   Type,
   UploadCloud,
   X,
@@ -61,6 +62,7 @@ type SelectedSource =
   | 'text'
   | 'pdf'
   | 'image'
+  | 'camera'
   | null;
 
 
@@ -104,6 +106,10 @@ const AddMaterialScreen = ({
   );
 
 
+  // =========================================================
+  // State
+  // =========================================================
+
   const [
     selectedSource,
     setSelectedSource,
@@ -145,6 +151,14 @@ const AddMaterialScreen = ({
 
 
   const [
+    capturedImage,
+    setCapturedImage,
+  ] = useState<
+    PickedImage | null
+  >(null);
+
+
+  const [
     pickingPdf,
     setPickingPdf,
   ] = useState(
@@ -155,6 +169,14 @@ const AddMaterialScreen = ({
   const [
     pickingImage,
     setPickingImage,
+  ] = useState(
+    false,
+  );
+
+
+  const [
+    capturing,
+    setCapturing,
   ] = useState(
     false,
   );
@@ -172,11 +194,12 @@ const AddMaterialScreen = ({
     creating ||
     pickingPdf ||
     pickingImage ||
+    capturing ||
     uploading;
 
 
   // =========================================================
-  // HELPERS
+  // Helpers
   // =========================================================
 
   const formatSize = (
@@ -231,6 +254,38 @@ const AddMaterialScreen = ({
   };
 
 
+  const createCameraTitle =
+    () => {
+
+      const now =
+        new Date();
+
+
+      const date =
+        now
+          .toLocaleDateString();
+
+
+      const time =
+        now
+          .toLocaleTimeString(
+            [],
+            {
+              hour:
+                '2-digit',
+
+              minute:
+                '2-digit',
+            },
+          );
+
+
+      return (
+        `Camera material ${date} ${time}`
+      );
+    };
+
+
   const resetSelections =
     () => {
 
@@ -240,6 +295,11 @@ const AddMaterialScreen = ({
 
 
       setSelectedImage(
+        null,
+      );
+
+
+      setCapturedImage(
         null,
       );
 
@@ -256,7 +316,7 @@ const AddMaterialScreen = ({
 
 
   // =========================================================
-  // SELECT TEXT
+  // Text
   // =========================================================
 
   const handleSelectText =
@@ -277,7 +337,7 @@ const AddMaterialScreen = ({
 
 
   // =========================================================
-  // SELECT PDF
+  // PDF
   // =========================================================
 
   const handleSelectPdf =
@@ -294,6 +354,11 @@ const AddMaterialScreen = ({
 
 
       setSelectedImage(
+        null,
+      );
+
+
+      setCapturedImage(
         null,
       );
 
@@ -368,7 +433,7 @@ const AddMaterialScreen = ({
 
 
   // =========================================================
-  // SELECT IMAGE
+  // Gallery Image
   // =========================================================
 
   const handleSelectImage =
@@ -385,6 +450,11 @@ const AddMaterialScreen = ({
 
 
       setSelectedPdf(
+        null,
+      );
+
+
+      setCapturedImage(
         null,
       );
 
@@ -465,7 +535,125 @@ const AddMaterialScreen = ({
 
 
   // =========================================================
-  // SAVE TEXT
+  // Camera
+  // =========================================================
+
+  const handleCapturePhoto =
+    async () => {
+
+      if (busy) {
+        return;
+      }
+
+
+      setSelectedSource(
+        'camera',
+      );
+
+
+      setSelectedPdf(
+        null,
+      );
+
+
+      setSelectedImage(
+        null,
+      );
+
+
+      setContent(
+        '',
+      );
+
+
+      try {
+
+        setCapturing(
+          true,
+        );
+
+
+        const image =
+          await imagePickerService
+            .captureImage();
+
+
+        if (!image) {
+
+          return;
+        }
+
+
+        if (
+          image.size !== undefined &&
+          image.size >
+          MAX_IMAGE_SIZE
+        ) {
+
+          Alert.alert(
+            'Photo too large',
+            'Please capture a photo smaller than 10 MB.',
+          );
+
+          return;
+        }
+
+
+        setCapturedImage(
+          image,
+        );
+
+
+        setTitle(
+          createCameraTitle(),
+        );
+
+      } catch (
+        cameraError
+      ) {
+
+        console.error(
+          'Camera error:',
+          cameraError,
+        );
+
+
+        Alert.alert(
+          'Unable to use camera',
+
+          cameraError instanceof Error
+            ? cameraError.message
+            : 'Unable to capture a photo.',
+        );
+
+      } finally {
+
+        setCapturing(
+          false,
+        );
+      }
+    };
+
+
+  const handleRetakePhoto =
+    async () => {
+
+      if (busy) {
+        return;
+      }
+
+
+      setCapturedImage(
+        null,
+      );
+
+
+      await handleCapturePhoto();
+    };
+
+
+  // =========================================================
+  // Save Text
   // =========================================================
 
   const handleSaveText =
@@ -528,7 +716,7 @@ const AddMaterialScreen = ({
 
 
   // =========================================================
-  // SAVE PDF
+  // Save PDF
   // =========================================================
 
   const handleSavePdf =
@@ -602,7 +790,7 @@ const AddMaterialScreen = ({
 
 
   // =========================================================
-  // SAVE IMAGE
+  // Save Gallery Image
   // =========================================================
 
   const handleSaveImage =
@@ -670,6 +858,90 @@ const AddMaterialScreen = ({
           uploadError instanceof Error
             ? uploadError.message
             : 'Unable to upload image.',
+        );
+
+      } finally {
+
+        setUploading(
+          false,
+        );
+      }
+    };
+
+
+  // =========================================================
+  // Save Camera Photo
+  // =========================================================
+
+  const handleSaveCameraPhoto =
+    async () => {
+
+      if (!capturedImage) {
+
+        Alert.alert(
+          'Photo required',
+          'Please capture a photo first.',
+        );
+
+        return;
+      }
+
+
+      const trimmedTitle =
+        title.trim();
+
+
+      if (!trimmedTitle) {
+
+        Alert.alert(
+          'Title required',
+          'Please enter a title.',
+        );
+
+        return;
+      }
+
+
+      try {
+
+        setUploading(
+          true,
+        );
+
+
+        // IMPORTANT:
+        // Reusing the same proven Image
+        // upload endpoint.
+
+        await createImageMaterial(
+          trimmedTitle,
+
+          capturedImage.localUri,
+
+          capturedImage.fileName,
+
+          capturedImage.mimeType,
+        );
+
+
+        navigation.goBack();
+
+      } catch (
+        uploadError
+      ) {
+
+        console.error(
+          'Camera photo upload error:',
+          uploadError,
+        );
+
+
+        Alert.alert(
+          'Unable to upload photo',
+
+          uploadError instanceof Error
+            ? uploadError.message
+            : 'Unable to upload the captured photo.',
         );
 
       } finally {
@@ -824,8 +1096,8 @@ const AddMaterialScreen = ({
                 text-slate-500
               ">
 
-              Add notes, PDF documents
-              or images.
+              Add notes, PDFs, images
+              or capture study material.
 
             </Text>
 
@@ -891,7 +1163,7 @@ const AddMaterialScreen = ({
 
             <SourceCard
               title="Image"
-              description="Choose an image from your device."
+              description="Choose an image from your gallery."
               selected={
                 selectedSource ===
                 'image'
@@ -918,84 +1190,29 @@ const AddMaterialScreen = ({
                 CAMERA
             ================================================== */}
 
-            <View
-              className="
-                mb-8
-                flex-row
-                items-center
-                rounded-[20px]
-                border
-                border-slate-200
-                bg-white
-                p-4
-              "
-              style={{
-                opacity:
-                  0.5,
-              }}>
-
-              <View
-                className="
-                  mr-4
-                  h-[54px]
-                  w-[54px]
-                  items-center
-                  justify-center
-                  rounded-[16px]
-                  bg-green-50
-                ">
-
+            <SourceCard
+              title="Camera"
+              description="Capture study material using your camera."
+              selected={
+                selectedSource ===
+                'camera'
+              }
+              disabled={busy}
+              color="#16A34A"
+              background="#F0FDF4"
+              loading={
+                capturing
+              }
+              icon={
                 <Camera
                   size={24}
                   color="#16A34A"
                 />
-
-              </View>
-
-
-              <View
-                className="
-                  flex-1
-                ">
-
-                <Text
-                  className="
-                    font-bold
-                    text-slate-900
-                  ">
-
-                  Camera
-
-                </Text>
-
-
-                <Text
-                  className="
-                    mt-1
-                    text-xs
-                    text-slate-500
-                  ">
-
-                  Capture study material
-                  with your camera.
-
-                </Text>
-
-              </View>
-
-
-              <Text
-                className="
-                  text-xs
-                  font-semibold
-                  text-slate-400
-                ">
-
-                Next
-
-              </Text>
-
-            </View>
+              }
+              onPress={
+                handleCapturePhoto
+              }
+            />
 
 
             {/* =================================================
@@ -1213,121 +1430,32 @@ const AddMaterialScreen = ({
 
                   <>
 
-                    <View
-                      className="
-                        mb-5
-                        overflow-hidden
-                        rounded-2xl
-                        border
-                        border-sky-100
-                        bg-sky-50
-                      ">
+                    <MediaPreview
+                      image={
+                        selectedImage
+                      }
+                      color="#0284C7"
+                      background="#E0F2FE"
+                      details={
+                        formatSize(
+                          selectedImage.size,
+                        )
+                      }
+                      onRemove={() => {
 
-                      <Image
-                        source={{
-                          uri:
-                            selectedImage.localUri,
-                        }}
-                        resizeMode="cover"
-                        className="
-                          h-[150px]
-                          w-full
-                        "
-                      />
+                        setSelectedImage(
+                          null,
+                        );
 
 
-                      <View
-                        className="
-                          flex-row
-                          items-center
-                          p-4
-                        ">
-
-                        <View
-                          className="
-                            flex-1
-                          ">
-
-                          <Text
-                            numberOfLines={1}
-                            className="
-                              font-bold
-                              text-slate-900
-                            ">
-
-                            {
-                              selectedImage.fileName
-                            }
-
-                          </Text>
-
-
-                          <Text
-                            className="
-                              mt-1
-                              text-xs
-                              text-slate-500
-                            ">
-
-                            {
-                              formatSize(
-                                selectedImage.size,
-                              )
-                            }
-
-                          </Text>
-
-                        </View>
-
-
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="Remove image"
-                          disabled={busy}
-                          onPress={() => {
-
-                            setSelectedImage(
-                              null,
-                            );
-
-
-                            setTitle(
-                              '',
-                            );
-                          }}
-                          className="
-                            h-10
-                            w-10
-                            items-center
-                            justify-center
-                            rounded-xl
-                            bg-white
-                          "
-                          style={({
-                            pressed,
-                          }) => ({
-                            opacity:
-                              busy
-                                ? 0.5
-                                : pressed
-                                  ? 0.65
-                                  : 1,
-                          })}>
-
-                          <X
-                            size={18}
-                            color="#64748B"
-                          />
-
-                        </Pressable>
-
-                      </View>
-
-                    </View>
+                        setTitle(
+                          '',
+                        );
+                      }}
+                    />
 
 
                     <Pressable
-                      accessibilityRole="button"
                       disabled={busy}
                       onPress={
                         handleSelectImage
@@ -1335,15 +1463,7 @@ const AddMaterialScreen = ({
                       className="
                         mb-5
                         self-start
-                      "
-                      style={({
-                        pressed,
-                      }) => ({
-                        opacity:
-                          pressed
-                            ? 0.65
-                            : 1,
-                      })}>
+                      ">
 
                       <Text
                         className="
@@ -1388,7 +1508,6 @@ const AddMaterialScreen = ({
                   editable={!busy}
                   placeholder="Material title"
                   placeholderTextColor="#94A3B8"
-                  returnKeyType="done"
                   className="
                     mb-2
                     min-h-[52px]
@@ -1423,6 +1542,289 @@ const AddMaterialScreen = ({
 
             )}
 
+
+            {/* =================================================
+                CAMERA FORM
+            ================================================== */}
+
+            {selectedSource ===
+              'camera' && (
+
+              <FormCard>
+
+                <View
+                  className="
+                    mb-6
+                    flex-row
+                    items-center
+                  ">
+
+                  <View
+                    className="
+                      mr-3
+                      h-11
+                      w-11
+                      items-center
+                      justify-center
+                      rounded-xl
+                      bg-green-50
+                    ">
+
+                    <Camera
+                      size={21}
+                      color="#16A34A"
+                    />
+
+                  </View>
+
+
+                  <View className="flex-1">
+
+                    <Text
+                      className="
+                        text-lg
+                        font-bold
+                        text-slate-900
+                      ">
+
+                      Camera material
+
+                    </Text>
+
+
+                    <Text
+                      className="
+                        mt-1
+                        text-xs
+                        text-slate-500
+                      ">
+
+                      Capture, preview and upload
+                      your study material.
+
+                    </Text>
+
+                  </View>
+
+                </View>
+
+
+                {!capturedImage ? (
+
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={busy}
+                    onPress={
+                      handleCapturePhoto
+                    }
+                    className="
+                      min-h-[150px]
+                      items-center
+                      justify-center
+                      rounded-2xl
+                      border
+                      border-dashed
+                      border-green-300
+                      bg-green-50
+                    "
+                    style={({
+                      pressed,
+                    }) => ({
+                      opacity:
+                        busy
+                          ? 0.5
+                          : pressed
+                            ? 0.8
+                            : 1,
+                    })}>
+
+                    {capturing ? (
+
+                      <ActivityIndicator
+                        color="#16A34A"
+                      />
+
+                    ) : (
+
+                      <>
+
+                        <View
+                          className="
+                            h-14
+                            w-14
+                            items-center
+                            justify-center
+                            rounded-2xl
+                            bg-white
+                          ">
+
+                          <Camera
+                            size={27}
+                            color="#16A34A"
+                          />
+
+                        </View>
+
+
+                        <Text
+                          className="
+                            mt-4
+                            text-base
+                            font-bold
+                            text-green-700
+                          ">
+
+                          Open camera
+
+                        </Text>
+
+
+                        <Text
+                          className="
+                            mt-1
+                            text-xs
+                            text-green-700
+                          ">
+
+                          Take a photo of your notes
+
+                        </Text>
+
+                      </>
+
+                    )}
+
+                  </Pressable>
+
+                ) : (
+
+                  <>
+
+                    <MediaPreview
+                      image={
+                        capturedImage
+                      }
+                      color="#16A34A"
+                      background="#F0FDF4"
+                      details={
+                        formatSize(
+                          capturedImage.size,
+                        )
+                      }
+                      onRemove={() => {
+
+                        setCapturedImage(
+                          null,
+                        );
+
+
+                        setTitle(
+                          '',
+                        );
+                      }}
+                    />
+
+
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={busy}
+                      onPress={
+                        handleRetakePhoto
+                      }
+                      className="
+                        mb-6
+                        min-h-[48px]
+                        flex-row
+                        items-center
+                        justify-center
+                        rounded-xl
+                        border
+                        border-green-200
+                        bg-green-50
+                      "
+                      style={({
+                        pressed,
+                      }) => ({
+                        opacity:
+                          pressed
+                            ? 0.7
+                            : 1,
+                      })}>
+
+                      <RotateCcw
+                        size={18}
+                        color="#15803D"
+                      />
+
+
+                      <Text
+                        className="
+                          ml-2
+                          font-bold
+                          text-green-700
+                        ">
+
+                        Retake photo
+
+                      </Text>
+
+                    </Pressable>
+
+                  </>
+
+                )}
+
+
+                <FieldLabel>
+                  Title
+                </FieldLabel>
+
+
+                <TextInput
+                  value={title}
+                  onChangeText={
+                    setTitle
+                  }
+                  editable={
+                    !busy &&
+                    !!capturedImage
+                  }
+                  placeholder="Camera material title"
+                  placeholderTextColor="#94A3B8"
+                  className="
+                    mb-2
+                    min-h-[52px]
+                    rounded-xl
+                    border
+                    border-slate-200
+                    bg-slate-50
+                    px-4
+                    text-slate-900
+                  "
+                />
+
+
+                <SaveButton
+                  disabled={
+                    busy ||
+                    !title.trim() ||
+                    !capturedImage
+                  }
+                  loading={
+                    uploading ||
+                    creating
+                  }
+                  title="Save camera photo"
+                  color="#16A34A"
+                  onPress={
+                    handleSaveCameraPhoto
+                  }
+                />
+
+              </FormCard>
+
+            )}
+
           </View>
 
         </ScrollView>
@@ -1435,7 +1837,7 @@ const AddMaterialScreen = ({
 
 
 // =========================================================
-// SOURCE CARD
+// Source Card
 // =========================================================
 
 interface SourceCardProps {
@@ -1538,10 +1940,7 @@ const SourceCard = ({
     </View>
 
 
-    <View
-      className="
-        flex-1
-      ">
+    <View className="flex-1">
 
       <Text
         className="
@@ -1583,7 +1982,7 @@ const SourceCard = ({
 
 
 // =========================================================
-// FORM CARD
+// Form Card
 // =========================================================
 
 const FormCard = ({
@@ -1609,7 +2008,7 @@ const FormCard = ({
 
 
 // =========================================================
-// FORM TITLE
+// Form Title
 // =========================================================
 
 const FormTitle = ({
@@ -1634,7 +2033,7 @@ const FormTitle = ({
 
 
 // =========================================================
-// FIELD LABEL
+// Field Label
 // =========================================================
 
 const FieldLabel = ({
@@ -1659,7 +2058,7 @@ const FieldLabel = ({
 
 
 // =========================================================
-// SELECT FILE BUTTON
+// Select File Button
 // =========================================================
 
 const SelectFileButton = ({
@@ -1743,7 +2142,7 @@ const SelectFileButton = ({
 
 
 // =========================================================
-// SELECTED FILE
+// Selected File
 // =========================================================
 
 const SelectedFile = ({
@@ -1793,10 +2192,7 @@ const SelectedFile = ({
     </View>
 
 
-    <View
-      className="
-        flex-1
-      ">
+    <View className="flex-1">
 
       <Text
         numberOfLines={1}
@@ -1835,15 +2231,7 @@ const SelectedFile = ({
         justify-center
         rounded-xl
         bg-white
-      "
-      style={({
-        pressed,
-      }) => ({
-        opacity:
-          pressed
-            ? 0.65
-            : 1,
-      })}>
+      ">
 
       <X
         size={17}
@@ -1857,7 +2245,140 @@ const SelectedFile = ({
 
 
 // =========================================================
-// SAVE BUTTON
+// Image / Camera Preview
+// =========================================================
+
+const MediaPreview = ({
+  image,
+  color,
+  background,
+  details,
+  onRemove,
+}: {
+  image:
+    PickedImage;
+
+  color:
+    string;
+
+  background:
+    string;
+
+  details:
+    string;
+
+  onRemove:
+    () => void;
+}) => (
+
+  <View
+    className="
+      mb-5
+      overflow-hidden
+      rounded-2xl
+      border
+      border-slate-200
+      bg-white
+    ">
+
+    <Image
+      source={{
+        uri:
+          image.localUri,
+      }}
+      resizeMode="cover"
+      className="
+        h-[180px]
+        w-full
+      "
+    />
+
+
+    <View
+      className="
+        flex-row
+        items-center
+        p-4
+      ">
+
+      <View
+        className="
+          mr-3
+          h-10
+          w-10
+          items-center
+          justify-center
+          rounded-xl
+        "
+        style={{
+          backgroundColor:
+            background,
+        }}>
+
+        <ImageIcon
+          size={19}
+          color={color}
+        />
+
+      </View>
+
+
+      <View className="flex-1">
+
+        <Text
+          numberOfLines={1}
+          className="
+            font-bold
+            text-slate-900
+          ">
+
+          {image.fileName}
+
+        </Text>
+
+
+        <Text
+          className="
+            mt-1
+            text-xs
+            text-slate-500
+          ">
+
+          {details}
+
+        </Text>
+
+      </View>
+
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Remove photo"
+        onPress={onRemove}
+        className="
+          h-10
+          w-10
+          items-center
+          justify-center
+          rounded-xl
+          bg-slate-50
+        ">
+
+        <X
+          size={18}
+          color="#64748B"
+        />
+
+      </Pressable>
+
+    </View>
+
+  </View>
+);
+
+
+// =========================================================
+// Save Button
 // =========================================================
 
 const SaveButton = ({
@@ -1908,16 +2429,6 @@ const SaveButton = ({
           : pressed
             ? 0.8
             : 1,
-
-      transform: [
-        {
-          scale:
-            !disabled &&
-            pressed
-              ? 0.99
-              : 1,
-        },
-      ],
     })}>
 
     {loading ? (
