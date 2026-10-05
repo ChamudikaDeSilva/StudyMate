@@ -1,13 +1,4 @@
-import React, {
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-
-import {
-  useFocusEffect,
-} from '@react-navigation/native';
+import React from 'react';
 
 import {
   SafeAreaView,
@@ -18,12 +9,6 @@ import {
 
 import {
   BookOpen,
-  CheckCircle2,
-  FileText,
-  Image as ImageIcon,
-  RefreshCw,
-  Search,
-  Type,
 } from 'lucide-react-native';
 
 import {
@@ -39,21 +24,18 @@ import OverviewCard
 import ScreenHeader
   from '../../components/common/ScreenHeader';
 
-import ScreenState
-  from '../../components/common/ScreenState';
-
 import SearchBar
   from '../../components/common/SearchBar';
 
-import MaterialCard
-  from '../../components/materials/MaterialCard';
+import MaterialFilters
+  from '../../components/materials/MaterialFilters';
 
-import MaterialFilterChip
-  from '../../components/materials/MaterialFilterChip';
+import MaterialsList
+  from '../../components/materials/MaterialsList';
 
 import {
-  useMaterials,
-} from '../../hooks/useMaterials';
+  useSubjectMaterialsScreen,
+} from '../../hooks/useSubjectMaterialsScreen';
 
 import {
   SubjectsStackParamList,
@@ -67,13 +49,6 @@ type Props =
   >;
 
 
-type MaterialFilter =
-  | 'all'
-  | 'text'
-  | 'pdf'
-  | 'image';
-
-
 const SubjectMaterialsScreen = ({
   navigation,
   route,
@@ -85,187 +60,15 @@ const SubjectMaterialsScreen = ({
   } = route.params;
 
 
-  const {
-    materials,
-    loading,
-    error,
-    loadMaterials,
-  } = useMaterials(
-    subjectId,
-  );
-
-
-  const [
-    searchText,
-    setSearchText,
-  ] = useState(
-    '',
-  );
-
-
-  const [
-    activeFilter,
-    setActiveFilter,
-  ] = useState<
-    MaterialFilter
-  >(
-    'all',
-  );
-
-
-  const hasFocusedOnce =
-    useRef(
-      false,
+  const screen =
+    useSubjectMaterialsScreen(
+      subjectId,
     );
 
 
-  useFocusEffect(
-    useCallback(
-      () => {
-
-        if (
-          hasFocusedOnce.current
-        ) {
-
-          void loadMaterials();
-
-        } else {
-
-          hasFocusedOnce.current =
-            true;
-        }
-
-      },
-      [
-        loadMaterials,
-      ],
-    ),
-  );
-
-
   // =========================================================
-  // FILTERING
+  // NAVIGATION
   // =========================================================
-
-  const filteredMaterials =
-    useMemo(
-      () => {
-
-        const query =
-          searchText
-            .trim()
-            .toLowerCase();
-
-
-        return materials.filter(
-          material => {
-
-            const sourceMatches =
-
-              activeFilter ===
-                'all'
-
-              ||
-
-              (
-                activeFilter ===
-                  'image'
-
-                  ? (
-                      material.sourceType ===
-                        'image'
-
-                      ||
-
-                      material.sourceType ===
-                        'camera'
-                    )
-
-                  : material.sourceType ===
-                    activeFilter
-              );
-
-
-            if (!sourceMatches) {
-
-              return false;
-            }
-
-
-            if (!query) {
-
-              return true;
-            }
-
-
-            return (
-
-              material.title
-                .toLowerCase()
-                .includes(
-                  query,
-                )
-
-              ||
-
-              (
-                material.content
-                  ?.toLowerCase()
-                  .includes(
-                    query,
-                  )
-                ??
-                false
-              )
-
-              ||
-
-              (
-                material.fileName
-                  ?.toLowerCase()
-                  .includes(
-                    query,
-                  )
-                ??
-                false
-              )
-            );
-          },
-        );
-
-      },
-      [
-        materials,
-        searchText,
-        activeFilter,
-      ],
-    );
-
-
-  const showLoadError =
-
-    !loading
-
-    &&
-
-    !!error
-
-    &&
-
-    materials.length === 0;
-
-
-  const hasSearch =
-    searchText
-      .trim()
-      .length >
-    0;
-
-
-  const hasActiveFilter =
-    activeFilter !==
-    'all';
-
 
   const openAddMaterial =
     () => {
@@ -279,50 +82,6 @@ const SubjectMaterialsScreen = ({
         },
       );
     };
-
-
-  // =========================================================
-  // EMPTY STATE
-  // =========================================================
-
-  const emptyTitle =
-
-    hasSearch
-      ? 'No materials found'
-
-      : activeFilter ===
-          'text'
-        ? 'No text materials yet'
-
-        : activeFilter ===
-            'pdf'
-          ? 'No PDF materials yet'
-
-          : activeFilter ===
-              'image'
-            ? 'No image materials yet'
-
-            : 'Add your first material';
-
-
-  const emptyDescription =
-
-    hasSearch
-      ? `We couldn't find anything matching "${searchText.trim()}".`
-
-      : activeFilter ===
-          'text'
-        ? 'This subject does not have any text materials yet.'
-
-        : activeFilter ===
-            'pdf'
-          ? 'This subject does not have any PDF materials yet.'
-
-          : activeFilter ===
-              'image'
-            ? 'This subject does not have any image or camera materials yet.'
-
-            : 'Add text notes, PDFs, gallery images or camera captures.';
 
 
   // =========================================================
@@ -342,6 +101,10 @@ const SubjectMaterialsScreen = ({
           flex-1
         ">
 
+        {/* ===================================================
+            CONTENT
+        ==================================================== */}
+
         <ScrollView
           className="
             flex-1
@@ -360,6 +123,8 @@ const SubjectMaterialsScreen = ({
               pt-6
             ">
 
+            {/* Header */}
+
             <ScreenHeader
               title={
                 subjectName
@@ -373,6 +138,8 @@ const SubjectMaterialsScreen = ({
             />
 
 
+            {/* Overview */}
+
             <View
               className="
                 mb-6
@@ -382,12 +149,19 @@ const SubjectMaterialsScreen = ({
                 kicker="MATERIALS"
 
                 value={
-                  materials.length
+                  screen
+                    .materials
+                    .length
                 }
 
                 description={
-                  materials.length === 1
+                  screen
+                    .materials
+                    .length ===
+                  1
+
                     ? 'material saved in this subject'
+
                     : 'materials saved in this subject'
                 }
 
@@ -399,6 +173,8 @@ const SubjectMaterialsScreen = ({
             </View>
 
 
+            {/* Search */}
+
             <View
               className="
                 mb-4
@@ -406,11 +182,11 @@ const SubjectMaterialsScreen = ({
 
               <SearchBar
                 value={
-                  searchText
+                  screen.searchText
                 }
 
                 onChangeText={
-                  setSearchText
+                  screen.setSearchText
                 }
 
                 placeholder="Search materials..."
@@ -419,114 +195,27 @@ const SubjectMaterialsScreen = ({
             </View>
 
 
-            <ScrollView
-              horizontal
+            {/* Filters */}
 
-              showsHorizontalScrollIndicator={
-                false
-              }
-
+            <View
               className="
                 mb-8
               ">
 
-              <MaterialFilterChip
-                label="All"
-
-                selected={
-                  activeFilter ===
-                  'all'
+              <MaterialFilters
+                activeFilter={
+                  screen.activeFilter
                 }
 
-                icon={
-                  CheckCircle2
-                }
-
-                color="#4F46E5"
-
-                background="#EEF2FF"
-
-                onPress={() =>
-                  setActiveFilter(
-                    'all',
-                  )
+                onChange={
+                  screen.setActiveFilter
                 }
               />
 
-
-              <MaterialFilterChip
-                label="Text"
-
-                selected={
-                  activeFilter ===
-                  'text'
-                }
-
-                icon={
-                  Type
-                }
-
-                color="#4F46E5"
-
-                background="#EEF2FF"
-
-                onPress={() =>
-                  setActiveFilter(
-                    'text',
-                  )
-                }
-              />
+            </View>
 
 
-              <MaterialFilterChip
-                label="PDF"
-
-                selected={
-                  activeFilter ===
-                  'pdf'
-                }
-
-                icon={
-                  FileText
-                }
-
-                color="#E11D48"
-
-                background="#FFF1F2"
-
-                onPress={() =>
-                  setActiveFilter(
-                    'pdf',
-                  )
-                }
-              />
-
-
-              <MaterialFilterChip
-                label="Image"
-
-                selected={
-                  activeFilter ===
-                  'image'
-                }
-
-                icon={
-                  ImageIcon
-                }
-
-                color="#0284C7"
-
-                background="#E0F2FE"
-
-                onPress={() =>
-                  setActiveFilter(
-                    'image',
-                  )
-                }
-              />
-
-            </ScrollView>
-
+            {/* Heading */}
 
             <View
               className="
@@ -547,7 +236,7 @@ const SubjectMaterialsScreen = ({
               </Text>
 
 
-              {!loading && (
+              {!screen.loading && (
 
                 <View
                   className="
@@ -568,7 +257,9 @@ const SubjectMaterialsScreen = ({
                     ">
 
                     {
-                      filteredMaterials.length
+                      screen
+                        .filteredMaterials
+                        .length
                     }
 
                   </Text>
@@ -580,100 +271,68 @@ const SubjectMaterialsScreen = ({
             </View>
 
 
-            {loading ? (
+            {/* Materials */}
 
-              <ScreenState
-                loading
+            <MaterialsList
+              materials={
+                screen.filteredMaterials
+              }
 
-                title="Loading materials"
+              loading={
+                screen.loading
+              }
 
-                description="Preparing your study materials..."
-              />
+              showLoadError={
+                screen.showLoadError
+              }
 
-            ) : showLoadError ? (
+              emptyTitle={
+                screen.emptyTitle
+              }
 
-              <ScreenState
-                title="Couldn't load materials"
+              emptyDescription={
+                screen.emptyDescription
+              }
 
-                description="Check your connection and try again."
+              hasSearch={
+                screen.hasSearch
+              }
 
-                icon={
-                  RefreshCw
+              hasActiveFilter={
+                screen.hasActiveFilter
+              }
+
+              onRetry={
+                screen.loadMaterials
+              }
+
+              onOpenMaterial={
+                material => {
+
+                  navigation.navigate(
+                    'MaterialDetails',
+
+                    {
+                      materialId:
+                        material.id,
+
+                      subjectId,
+
+                      subjectName,
+                    },
+                  );
                 }
-
-                iconColor="#DC2626"
-
-                actionTitle="Try again"
-
-                onAction={
-                  loadMaterials
-                }
-              />
-
-            ) : filteredMaterials.length ===
-              0 ? (
-
-              <ScreenState
-                title={
-                  emptyTitle
-                }
-
-                description={
-                  emptyDescription
-                }
-
-                icon={
-                  hasSearch ||
-                  hasActiveFilter
-                    ? Search
-                    : BookOpen
-                }
-              />
-
-            ) : (
-
-              <View>
-
-                {filteredMaterials.map(
-                  material => (
-
-                    <MaterialCard
-                      key={
-                        material.id
-                      }
-
-                      material={
-                        material
-                      }
-
-                      onPress={() =>
-
-                        navigation.navigate(
-                          'MaterialDetails',
-
-                          {
-                            materialId:
-                              material.id,
-
-                            subjectId,
-
-                            subjectName,
-                          },
-                        )
-                      }
-                    />
-
-                  ),
-                )}
-
-              </View>
-
-            )}
+              }
+            />
 
           </View>
 
         </ScrollView>
 
+
+        {/* ===================================================
+            PRIMARY ACTION
+        ==================================================== */}
 
         <BottomActionBar
           title="Add material"
