@@ -1,10 +1,6 @@
-import React, {
-  useMemo,
-  useState,
-} from 'react';
+import React from 'react';
 
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   Text,
@@ -12,14 +8,12 @@ import {
 } from 'react-native';
 
 import {
-  NativeStackScreenProps,
-} from '@react-navigation/native-stack';
+  BookOpen,
+} from 'lucide-react-native';
 
 import {
-  BookOpen,
-  RefreshCw,
-  Search,
-} from 'lucide-react-native';
+  NativeStackScreenProps,
+} from '@react-navigation/native-stack';
 
 import BottomActionBar
   from '../../components/common/BottomActionBar';
@@ -30,9 +24,6 @@ import OverviewCard
 import ScreenHeader
   from '../../components/common/ScreenHeader';
 
-import ScreenState
-  from '../../components/common/ScreenState';
-
 import SearchBar
   from '../../components/common/SearchBar';
 
@@ -42,35 +33,19 @@ import AccountMenu
 import SubjectActionsSheet
   from '../../components/subjects/SubjectActionsSheet';
 
-import SubjectCard
-  from '../../components/subjects/SubjectCard';
-
 import SubjectFormModal
   from '../../components/subjects/SubjectFormModal';
 
-import {
-  subjectPalette,
-} from '../../constants/subjectPalette';
-
-import {
-  Subject,
-} from '../../domain/models/Subject';
-
-import {
-  useAuth,
-} from '../../hooks/useAuth';
-
-import {
-  useSubjects,
-} from '../../hooks/useSubjects';
+import SubjectsList
+  from '../../components/subjects/SubjectsList';
 
 import {
   SubjectsStackParamList,
 } from '../../navigation/navigationTypes';
 
 import {
-  getDisplayName,
-} from '../../utils/userUtils';
+  useSubjectsScreen,
+} from '../../hooks/useSubjectsScreen';
 
 
 type Props =
@@ -84,446 +59,11 @@ const SubjectsScreen = ({
   navigation,
 }: Props) => {
 
-  const {
-    user,
-  } = useAuth();
+  const screen =
+    useSubjectsScreen();
 
-
-  const {
-    subjects,
-
-    loading,
-
-    creating,
-
-    updatingSubjectId,
-
-    deletingSubjectId,
-
-    error,
-
-    loadSubjects,
-
-    createSubject,
-
-    updateSubject,
-
-    deleteSubject,
-  } = useSubjects();
-
-
-  const [
-    searchText,
-    setSearchText,
-  ] = useState(
-    '',
-  );
-
-
-  const [
-    formVisible,
-    setFormVisible,
-  ] = useState(
-    false,
-  );
-
-
-  const [
-    editingSubject,
-    setEditingSubject,
-  ] = useState<
-    Subject | null
-  >(null);
-
-
-  const [
-    selectedSubject,
-    setSelectedSubject,
-  ] = useState<
-    Subject | null
-  >(null);
-
-
-  const [
-    actionsVisible,
-    setActionsVisible,
-  ] = useState(
-    false,
-  );
-
-
-  const [
-    name,
-    setName,
-  ] = useState(
-    '',
-  );
-
-
-  const [
-    description,
-    setDescription,
-  ] = useState(
-    '',
-  );
-
-
-  const displayName =
-    getDisplayName(
-      user,
-    );
-
-
-  const filteredSubjects =
-    useMemo(
-      () => {
-
-        const query =
-          searchText
-            .trim()
-            .toLowerCase();
-
-
-        if (!query) {
-
-          return subjects;
-        }
-
-
-        return subjects.filter(
-          subject =>
-
-            subject.name
-              .toLowerCase()
-              .includes(
-                query,
-              )
-
-            ||
-
-            (
-              subject.description
-                ?.toLowerCase()
-                .includes(
-                  query,
-                )
-              ??
-              false
-            ),
-        );
-
-      },
-      [
-        subjects,
-        searchText,
-      ],
-    );
-
-
-  const submitting =
-
-    creating
-
-    ||
-
-    (
-      editingSubject !==
-        null
-
-      &&
-
-      updatingSubjectId ===
-        editingSubject.id
-    );
-
-
-  const showLoadError =
-
-    !loading
-
-    &&
-
-    !!error
-
-    &&
-
-    subjects.length === 0;
-
-
-  // =========================================================
-  // FORM
-  // =========================================================
-
-  const resetForm =
-    () => {
-
-      setEditingSubject(
-        null,
-      );
-
-
-      setName(
-        '',
-      );
-
-
-      setDescription(
-        '',
-      );
-    };
-
-
-  const openCreateSubject =
-    () => {
-
-      resetForm();
-
-
-      setFormVisible(
-        true,
-      );
-    };
-
-
-  const closeForm =
-    () => {
-
-      if (submitting) {
-        return;
-      }
-
-
-      setFormVisible(
-        false,
-      );
-
-
-      resetForm();
-    };
-
-
-  // =========================================================
-  // ACTION SHEET
-  // =========================================================
-
-  const openActions =
-    (
-      subject:
-        Subject,
-    ) => {
-
-      setSelectedSubject(
-        subject,
-      );
-
-
-      setActionsVisible(
-        true,
-      );
-    };
-
-
-  const closeActions =
-    () => {
-
-      setActionsVisible(
-        false,
-      );
-
-
-      setSelectedSubject(
-        null,
-      );
-    };
-
-
-  const openEdit =
-    (
-      subject:
-        Subject,
-    ) => {
-
-      closeActions();
-
-
-      setEditingSubject(
-        subject,
-      );
-
-
-      setName(
-        subject.name,
-      );
-
-
-      setDescription(
-        subject.description ??
-        '',
-      );
-
-
-      setTimeout(
-        () => {
-
-          setFormVisible(
-            true,
-          );
-
-        },
-        150,
-      );
-    };
-
-
-  // =========================================================
-  // SAVE
-  // =========================================================
-
-  const saveSubject =
-    async () => {
-
-      const cleanName =
-        name.trim();
-
-
-      if (!cleanName) {
-
-        Alert.alert(
-          'Subject name required',
-          'Please enter a name for your subject.',
-        );
-
-        return;
-      }
-
-
-      try {
-
-        if (
-          editingSubject
-        ) {
-
-          await updateSubject(
-            editingSubject.id,
-
-            cleanName,
-
-            description
-              .trim() ||
-            undefined,
-          );
-
-        } else {
-
-          await createSubject(
-            cleanName,
-
-            description
-              .trim() ||
-            undefined,
-          );
-        }
-
-
-        setFormVisible(
-          false,
-        );
-
-
-        resetForm();
-
-      } catch (
-        saveError
-      ) {
-
-        Alert.alert(
-          editingSubject
-            ? 'Unable to update subject'
-            : 'Unable to create subject',
-
-          saveError instanceof Error
-            ? saveError.message
-            : 'Something went wrong. Please try again.',
-        );
-      }
-    };
-
-
-  // =========================================================
-  // DELETE
-  // =========================================================
-
-  const confirmDelete =
-    (
-      subject:
-        Subject,
-    ) => {
-
-      closeActions();
-
-
-      setTimeout(
-        () => {
-
-          Alert.alert(
-            'Delete Subject',
-
-            `Are you sure you want to delete "${subject.name}"?`,
-
-            [
-              {
-                text:
-                  'Cancel',
-
-                style:
-                  'cancel',
-              },
-
-              {
-                text:
-                  'Delete',
-
-                style:
-                  'destructive',
-
-                onPress:
-                  async () => {
-
-                    try {
-
-                      await deleteSubject(
-                        subject.id,
-                      );
-
-                    } catch (
-                      deleteError
-                    ) {
-
-                      Alert.alert(
-                        'Unable to delete subject',
-
-                        deleteError instanceof Error
-                          ? deleteError.message
-                          : 'Something went wrong while deleting the subject.',
-                      );
-                    }
-                  },
-              },
-            ],
-          );
-
-        },
-        150,
-      );
-    };
-
-
-  // =========================================================
-  // UI
-  // =========================================================
 
   return (
-
     <SafeAreaView
       className="
         flex-1
@@ -534,6 +74,10 @@ const SubjectsScreen = ({
         className="
           flex-1
         ">
+
+        {/* ===================================================
+            PAGE CONTENT
+        ==================================================== */}
 
         <ScrollView
           className="
@@ -553,6 +97,8 @@ const SubjectsScreen = ({
               pt-6
             ">
 
+            {/* Header */}
+
             <ScreenHeader
               title="Subjects"
 
@@ -561,12 +107,14 @@ const SubjectsScreen = ({
               right={
                 <AccountMenu
                   displayName={
-                    displayName
+                    screen.displayName
                   }
                 />
               }
             />
 
+
+            {/* Overview */}
 
             <View
               className="
@@ -577,11 +125,12 @@ const SubjectsScreen = ({
                 kicker="YOUR LEARNING LIBRARY"
 
                 value={
-                  subjects.length
+                  screen.subjects.length
                 }
 
                 description={
-                  subjects.length === 1
+                  screen.subjects.length ===
+                  1
                     ? 'subject ready for your learning materials'
                     : 'subjects ready for your learning materials'
                 }
@@ -594,6 +143,8 @@ const SubjectsScreen = ({
             </View>
 
 
+            {/* Search */}
+
             <View
               className="
                 mb-8
@@ -601,11 +152,11 @@ const SubjectsScreen = ({
 
               <SearchBar
                 value={
-                  searchText
+                  screen.searchText
                 }
 
                 onChangeText={
-                  setSearchText
+                  screen.setSearchText
                 }
 
                 placeholder="Search your subjects..."
@@ -613,6 +164,8 @@ const SubjectsScreen = ({
 
             </View>
 
+
+            {/* Section heading */}
 
             <View
               className="
@@ -633,7 +186,7 @@ const SubjectsScreen = ({
               </Text>
 
 
-              {!loading && (
+              {!screen.loading && (
 
                 <View
                   className="
@@ -654,7 +207,9 @@ const SubjectsScreen = ({
                     ">
 
                     {
-                      filteredSubjects.length
+                      screen
+                        .filteredSubjects
+                        .length
                     }
 
                   </Text>
@@ -666,197 +221,142 @@ const SubjectsScreen = ({
             </View>
 
 
-            {loading ? (
+            {/* Subject list */}
 
-              <ScreenState
-                loading
+            <SubjectsList
+              subjects={
+                screen.filteredSubjects
+              }
 
-                title="Loading your subjects"
+              loading={
+                screen.loading
+              }
 
-                description="Preparing your learning library..."
-              />
+              showLoadError={
+                screen.showLoadError
+              }
 
-            ) : showLoadError ? (
+              searchText={
+                screen.searchText
+              }
 
-              <ScreenState
-                title="Couldn't load subjects"
+              onRetry={
+                screen.loadSubjects
+              }
 
-                description="Check your connection and try again."
+              isSubjectBusy={
+                screen.isSubjectBusy
+              }
 
-                icon={
-                  RefreshCw
+              onOptionsPress={
+                screen.openActions
+              }
+
+              onOpenSubject={
+                subject => {
+
+                  navigation.navigate(
+                    'SubjectMaterials',
+
+                    {
+                      subjectId:
+                        subject.id,
+
+                      subjectName:
+                        subject.name,
+                    },
+                  );
                 }
-
-                iconColor="#DC2626"
-
-                actionTitle="Try again"
-
-                onAction={
-                  loadSubjects
-                }
-              />
-
-            ) : filteredSubjects.length ===
-              0 ? (
-
-              <ScreenState
-                title={
-                  searchText.trim()
-                    ? 'No subjects found'
-                    : 'Create your first subject'
-                }
-
-                description={
-                  searchText.trim()
-                    ? `We couldn't find anything matching "${searchText.trim()}".`
-                    : 'Subjects help you organize notes, PDFs, images and other learning materials.'
-                }
-
-                icon={
-                  searchText.trim()
-                    ? Search
-                    : BookOpen
-                }
-              />
-
-            ) : (
-
-              <View>
-
-                {filteredSubjects.map(
-                  (
-                    subject,
-                    index,
-                  ) => (
-
-                    <SubjectCard
-                      key={
-                        subject.id
-                      }
-
-                      subject={
-                        subject
-                      }
-
-                      accent={
-                        subjectPalette[
-                          index %
-                          subjectPalette.length
-                        ]
-                      }
-
-                      busy={
-                        updatingSubjectId ===
-                          subject.id
-
-                        ||
-
-                        deletingSubjectId ===
-                          subject.id
-                      }
-
-                      onPress={() =>
-
-                        navigation.navigate(
-                          'SubjectMaterials',
-
-                          {
-                            subjectId:
-                              subject.id,
-
-                            subjectName:
-                              subject.name,
-                          },
-                        )
-                      }
-
-                      onOptionsPress={
-                        openActions
-                      }
-                    />
-
-                  ),
-                )}
-
-              </View>
-
-            )}
+              }
+            />
 
           </View>
 
         </ScrollView>
 
 
+        {/* ===================================================
+            PRIMARY ACTION
+        ==================================================== */}
+
         <BottomActionBar
           title="Add subject"
 
           onPress={
-            openCreateSubject
+            screen.openCreateSubject
           }
         />
 
       </View>
 
 
+      {/* =====================================================
+          SUBJECT ACTIONS
+      ====================================================== */}
+
       <SubjectActionsSheet
         visible={
-          actionsVisible
+          screen.actionsVisible
         }
 
         subject={
-          selectedSubject
+          screen.selectedSubject
         }
 
         onClose={
-          closeActions
+          screen.closeActions
         }
 
         onEdit={
-          openEdit
+          screen.openEdit
         }
 
         onDelete={
-          confirmDelete
+          screen.confirmDelete
         }
       />
 
 
+      {/* =====================================================
+          CREATE / EDIT MODAL
+      ====================================================== */}
+
       <SubjectFormModal
         visible={
-          formVisible
+          screen.formVisible
         }
 
         editing={
-          editingSubject !==
+          screen.editingSubject !==
           null
         }
 
         name={
-          name
+          screen.name
         }
 
         description={
-          description
+          screen.description
         }
 
         submitting={
-          submitting
+          screen.submitting
         }
 
         onNameChange={
-          setName
+          screen.setName
         }
 
         onDescriptionChange={
-          setDescription
+          screen.setDescription
         }
 
         onClose={
-          closeForm
+          screen.closeForm
         }
 
         onSave={
-          saveSubject
+          screen.saveSubject
         }
       />
 
