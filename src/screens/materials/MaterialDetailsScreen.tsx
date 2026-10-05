@@ -179,6 +179,38 @@ const MaterialDetailsScreen = ({
 
 
   // =========================================================
+  // GENERATE AI SUMMARY
+  // =========================================================
+
+  const handleGenerateSummary =
+    () => {
+
+      if (
+        screen.busy
+      ) {
+
+        return;
+      }
+
+
+      navigation.navigate(
+        'MaterialSummary',
+        {
+          materialId:
+            material.id,
+
+          subjectId,
+
+          subjectName,
+
+          materialTitle:
+            material.title,
+        },
+      );
+    };
+
+
+  // =========================================================
   // UI
   // =========================================================
 
@@ -265,7 +297,18 @@ const MaterialDetailsScreen = ({
                         justify-center
                         rounded-xl
                         bg-indigo-50
-                      ">
+                      "
+
+                      style={({
+                        pressed,
+                      }) => ({
+                        opacity:
+                          screen.busy
+                            ? 0.4
+                            : pressed
+                              ? 0.65
+                              : 1,
+                      })}>
 
                       <Pencil
                         size={20}
@@ -332,6 +375,14 @@ const MaterialDetailsScreen = ({
 
               onDelete={
                 screen.deleteCurrentMaterial
+              }
+
+              onGenerateSummary={
+                handleGenerateSummary
+              }
+
+              aiSummaryDisabled={
+                !screen.canGenerateSummary
               }
 
               onPreviewPdf={() => {

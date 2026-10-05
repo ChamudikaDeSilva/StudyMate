@@ -30,6 +30,9 @@ import PdfPreviewScreen
 import ImagePreviewScreen
   from '../screens/materials/ImagePreviewScreen';
 
+import MaterialSummaryScreen
+  from '../screens/ai/MaterialSummaryScreen';
+
 import {
   SubjectsStackParamList,
 } from './navigationTypes';
@@ -96,6 +99,18 @@ const SubjectsNavigator =
           name="MaterialDetails"
           component={
             MaterialDetailsScreen
+          }
+        />
+
+
+        {/* ===============================================
+            AI MATERIAL SUMMARY
+        ================================================ */}
+
+        <Stack.Screen
+          name="MaterialSummary"
+          component={
+            MaterialSummaryScreen
           }
         />
 
@@ -195,7 +210,10 @@ const SubjectsNavigator =
                       text-slate-500
                     ">
 
-                    {route.params.subjectName}
+                    {
+                      route.params
+                        .subjectName
+                    }
 
                   </Text>
 
@@ -300,7 +318,10 @@ const SubjectsNavigator =
                       text-slate-500
                     ">
 
-                    {route.params.subjectName}
+                    {
+                      route.params
+                        .subjectName
+                    }
 
                   </Text>
 

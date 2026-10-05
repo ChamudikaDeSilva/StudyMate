@@ -37,4 +37,10 @@ export type SubjectsStackParamList = {
     subjectName: string;
     title: string;
   };
+MaterialSummary: {
+  materialId: string;
+  subjectId: string;
+  subjectName: string;
+  materialTitle: string;
+};
 };

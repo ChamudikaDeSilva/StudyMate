@@ -140,6 +140,11 @@ export const useMaterialDetailsScreen = ({
       'image';
 
 
+  const canGenerateSummary =
+    !!material &&
+    !busy;
+
+
   // =========================================================
   // POPULATE FORM
   // =========================================================
@@ -487,6 +492,7 @@ export const useMaterialDetailsScreen = ({
 
     // Capabilities
     canEdit,
+    canGenerateSummary,
 
     // Operation state
     busy,

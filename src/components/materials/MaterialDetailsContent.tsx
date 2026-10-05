@@ -3,6 +3,7 @@ import React from 'react';
 import {
   ActivityIndicator,
   Text,
+  View,
 } from 'react-native';
 
 import {
@@ -14,6 +15,9 @@ import {
 import {
   Material,
 } from '../../domain/models/Material';
+
+import AiSummaryActionCard
+  from '../ai/AiSummaryActionCard';
 
 import AppButton
   from '../common/AppButton';
@@ -78,6 +82,12 @@ interface MaterialDetailsContentProps {
   onPreviewImage:
     () => void;
 
+  onGenerateSummary:
+    () => void;
+
+  aiSummaryDisabled?:
+    boolean;
+
   onDelete:
     () => void;
 }
@@ -109,6 +119,11 @@ const MaterialDetailsContent = ({
   onPreviewPdf,
 
   onPreviewImage,
+
+  onGenerateSummary,
+
+  aiSummaryDisabled =
+    false,
 
   onDelete,
 }: MaterialDetailsContentProps) => {
@@ -290,11 +305,21 @@ const MaterialDetailsContent = ({
           {isImage && (
 
             <MaterialFileActionCard
-              label="Image file"
+              label={
+                material.sourceType ===
+                  'camera'
+                  ? 'Camera image'
+                  : 'Image file'
+              }
 
               fileName={
                 material.fileName ??
-                'Image material'
+                (
+                  material.sourceType ===
+                    'camera'
+                    ? 'Camera material'
+                    : 'Image material'
+                )
               }
 
               icon={
@@ -315,6 +340,28 @@ const MaterialDetailsContent = ({
             />
 
           )}
+
+
+          {/* =================================================
+              AI SUMMARY
+          ================================================== */}
+
+          <View
+            className="
+              mb-4
+            ">
+
+            <AiSummaryActionCard
+              onPress={
+                onGenerateSummary
+              }
+
+              disabled={
+                aiSummaryDisabled
+              }
+            />
+
+          </View>
 
 
           {/* =================================================
