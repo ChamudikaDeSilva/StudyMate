@@ -1,40 +1,20 @@
-export type MaterialSourceType =
-  | 'text'
-  | 'pdf'
-  | 'image'
-  | 'camera';
+import {SyncStatus} from './SyncStatus';
 
-export type MaterialSyncStatus =
-  | 'synced'
-  | 'pending'
-  | 'syncing'
-  | 'failed';
+export type MaterialSourceType = 'text' | 'pdf' | 'image' | 'camera';
+
+// Backward-compatible alias. Prefer the shared SyncStatus type in new code.
+export type MaterialSyncStatus = SyncStatus;
 
 export interface Material {
   id: string;
-
   userId: string;
   subjectId: string;
-
   title: string;
-
   sourceType: MaterialSourceType;
-
-  /*
-   * Used for text materials.
-   * Later this can also contain extracted text
-   * from PDF/image/camera sources.
-   */
   content?: string;
-
-  /*
-   * Used by PDF/image/camera materials later.
-   */
   fileName?: string;
   fileUrl?: string;
-
   createdAt: number;
   updatedAt: number;
-
-  syncStatus: MaterialSyncStatus;
+  syncStatus: SyncStatus;
 }

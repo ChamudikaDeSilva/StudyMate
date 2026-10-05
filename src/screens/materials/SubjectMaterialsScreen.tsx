@@ -10,38 +10,55 @@ import {
 } from '@react-navigation/native';
 
 import {
-  ActivityIndicator,
-  Pressable,
   SafeAreaView,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
 import {
-  ArrowLeft,
   BookOpen,
   CheckCircle2,
   FileText,
-  Plus,
+  Image as ImageIcon,
   RefreshCw,
   Search,
   Type,
-  X,
 } from 'lucide-react-native';
 
 import {
   NativeStackScreenProps,
 } from '@react-navigation/native-stack';
 
-import MaterialCard from '../../components/materials/MaterialCard';
+import BottomActionBar
+  from '../../components/common/BottomActionBar';
 
-import {useMaterials} from '../../hooks/useMaterials';
+import OverviewCard
+  from '../../components/common/OverviewCard';
+
+import ScreenHeader
+  from '../../components/common/ScreenHeader';
+
+import ScreenState
+  from '../../components/common/ScreenState';
+
+import SearchBar
+  from '../../components/common/SearchBar';
+
+import MaterialCard
+  from '../../components/materials/MaterialCard';
+
+import MaterialFilterChip
+  from '../../components/materials/MaterialFilterChip';
+
+import {
+  useMaterials,
+} from '../../hooks/useMaterials';
 
 import {
   SubjectsStackParamList,
 } from '../../navigation/navigationTypes';
+
 
 type Props =
   NativeStackScreenProps<
@@ -49,19 +66,24 @@ type Props =
     'SubjectMaterials'
   >;
 
+
 type MaterialFilter =
   | 'all'
   | 'text'
-  | 'pdf';
+  | 'pdf'
+  | 'image';
+
 
 const SubjectMaterialsScreen = ({
   navigation,
   route,
 }: Props) => {
+
   const {
     subjectId,
     subjectName,
   } = route.params;
+
 
   const {
     materials,
@@ -72,130 +94,185 @@ const SubjectMaterialsScreen = ({
     subjectId,
   );
 
+
   const [
     searchText,
     setSearchText,
-  ] = useState('');
+  ] = useState(
+    '',
+  );
+
 
   const [
     activeFilter,
     setActiveFilter,
-  ] = useState<MaterialFilter>(
+  ] = useState<
+    MaterialFilter
+  >(
     'all',
   );
 
-  /*
-   * useMaterials() already loads the
-   * materials when this screen mounts.
-   *
-   * We therefore skip the first focus
-   * event and refresh only when the user
-   * returns to this screen later.
-   *
-   * Example:
-   *
-   * SubjectMaterials
-   *      ↓
-   * AddMaterial
-   *      ↓
-   * Save
-   *      ↓
-   * goBack()
-   *      ↓
-   * loadMaterials()
-   */
+
   const hasFocusedOnce =
-    useRef(false);
+    useRef(
+      false,
+    );
+
 
   useFocusEffect(
-    useCallback(() => {
-      if (
-        hasFocusedOnce.current
-      ) {
-        loadMaterials();
-      } else {
-        hasFocusedOnce.current =
-          true;
-      }
-    }, [loadMaterials]),
+    useCallback(
+      () => {
+
+        if (
+          hasFocusedOnce.current
+        ) {
+
+          void loadMaterials();
+
+        } else {
+
+          hasFocusedOnce.current =
+            true;
+        }
+
+      },
+      [
+        loadMaterials,
+      ],
+    ),
   );
 
+
   // =========================================================
-  // Filter + Search
+  // FILTERING
   // =========================================================
 
   const filteredMaterials =
-    useMemo(() => {
-      const query =
-        searchText
-          .trim()
-          .toLowerCase();
+    useMemo(
+      () => {
 
-      return materials.filter(
-        material => {
-          const sourceMatches =
-            activeFilter ===
-              'all' ||
-            material.sourceType ===
-              activeFilter;
+        const query =
+          searchText
+            .trim()
+            .toLowerCase();
 
-          if (!sourceMatches) {
-            return false;
-          }
 
-          if (!query) {
-            return true;
-          }
+        return materials.filter(
+          material => {
 
-          const titleMatches =
-            material.title
-              .toLowerCase()
-              .includes(query);
+            const sourceMatches =
 
-          const contentMatches =
-            material.content
-              ?.toLowerCase()
-              .includes(query) ??
-            false;
+              activeFilter ===
+                'all'
 
-          const fileMatches =
-            material.fileName
-              ?.toLowerCase()
-              .includes(query) ??
-            false;
+              ||
 
-          return (
-            titleMatches ||
-            contentMatches ||
-            fileMatches
-          );
-        },
-      );
-    }, [
-      materials,
-      searchText,
-      activeFilter,
-    ]);
+              (
+                activeFilter ===
+                  'image'
+
+                  ? (
+                      material.sourceType ===
+                        'image'
+
+                      ||
+
+                      material.sourceType ===
+                        'camera'
+                    )
+
+                  : material.sourceType ===
+                    activeFilter
+              );
+
+
+            if (!sourceMatches) {
+
+              return false;
+            }
+
+
+            if (!query) {
+
+              return true;
+            }
+
+
+            return (
+
+              material.title
+                .toLowerCase()
+                .includes(
+                  query,
+                )
+
+              ||
+
+              (
+                material.content
+                  ?.toLowerCase()
+                  .includes(
+                    query,
+                  )
+                ??
+                false
+              )
+
+              ||
+
+              (
+                material.fileName
+                  ?.toLowerCase()
+                  .includes(
+                    query,
+                  )
+                ??
+                false
+              )
+            );
+          },
+        );
+
+      },
+      [
+        materials,
+        searchText,
+        activeFilter,
+      ],
+    );
+
 
   const showLoadError =
-    !loading &&
-    !!error &&
+
+    !loading
+
+    &&
+
+    !!error
+
+    &&
+
     materials.length === 0;
 
+
   const hasSearch =
-    searchText.trim().length > 0;
+    searchText
+      .trim()
+      .length >
+    0;
+
 
   const hasActiveFilter =
-    activeFilter !== 'all';
+    activeFilter !==
+    'all';
 
-  // =========================================================
-  // Navigation helpers
-  // =========================================================
 
   const openAddMaterial =
     () => {
+
       navigation.navigate(
         'AddMaterial',
+
         {
           subjectId,
           subjectName,
@@ -203,519 +280,253 @@ const SubjectMaterialsScreen = ({
       );
     };
 
-  const openMaterialDetails = (
-    materialId: string,
-  ) => {
-    navigation.navigate(
-      'MaterialDetails',
-      {
-        materialId,
-        subjectId,
-        subjectName,
-      },
-    );
-  };
+
+  // =========================================================
+  // EMPTY STATE
+  // =========================================================
+
+  const emptyTitle =
+
+    hasSearch
+      ? 'No materials found'
+
+      : activeFilter ===
+          'text'
+        ? 'No text materials yet'
+
+        : activeFilter ===
+            'pdf'
+          ? 'No PDF materials yet'
+
+          : activeFilter ===
+              'image'
+            ? 'No image materials yet'
+
+            : 'Add your first material';
+
+
+  const emptyDescription =
+
+    hasSearch
+      ? `We couldn't find anything matching "${searchText.trim()}".`
+
+      : activeFilter ===
+          'text'
+        ? 'This subject does not have any text materials yet.'
+
+        : activeFilter ===
+            'pdf'
+          ? 'This subject does not have any PDF materials yet.'
+
+          : activeFilter ===
+              'image'
+            ? 'This subject does not have any image or camera materials yet.'
+
+            : 'Add text notes, PDFs, gallery images or camera captures.';
+
 
   // =========================================================
   // UI
   // =========================================================
 
   return (
+
     <SafeAreaView
       className="
         flex-1
         bg-slate-50
       ">
 
-      <View className="flex-1">
+      <View
+        className="
+          flex-1
+        ">
 
         <ScrollView
-          className="flex-1"
+          className="
+            flex-1
+          "
+
           showsVerticalScrollIndicator={
             false
           }
+
           keyboardShouldPersistTaps="handled">
 
           <View
             className="
               px-6
-              pb-28
+              pb-6
               pt-6
             ">
 
-            {/* ==========================================
-                HEADER
-            =========================================== */}
+            <ScreenHeader
+              title={
+                subjectName
+              }
+
+              subtitle="Learning materials"
+
+              onBack={() =>
+                navigation.goBack()
+              }
+            />
+
 
             <View
               className="
-                mb-8
-                flex-row
-                items-center
-              ">
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Go back"
-                onPress={() =>
-                  navigation.goBack()
-                }
-                className="
-                  mr-4
-                  h-11
-                  w-11
-                  items-center
-                  justify-center
-                  rounded-xl
-                  border
-                  border-slate-200
-                  bg-white
-                  active:opacity-70
-                ">
-
-                <ArrowLeft
-                  size={22}
-                  color="#0F172A"
-                />
-
-              </Pressable>
-
-              <View className="flex-1">
-
-                <Text
-                  className="
-                    text-[26px]
-                    font-bold
-                    tracking-tight
-                    text-slate-900
-                  "
-                  numberOfLines={1}>
-                  {subjectName}
-                </Text>
-
-                <Text
-                  className="
-                    mt-1
-                    text-sm
-                    text-slate-500
-                  ">
-                  Learning materials
-                </Text>
-
-              </View>
-
-            </View>
-
-            {/* ==========================================
-                OVERVIEW
-            =========================================== */}
-
-            <View
-              className="
-                relative
                 mb-6
-                min-h-[145px]
-                flex-row
-                items-center
-                overflow-hidden
-                rounded-[22px]
-                bg-indigo-600
-                p-6
               ">
 
-              {/* Decoration */}
+              <OverviewCard
+                kicker="MATERIALS"
 
-              <View
-                className="
-                  absolute
-                  -right-8
-                  -top-10
-                  h-[120px]
-                  w-[120px]
-                  rounded-full
-                  bg-white/10
-                "
-              />
+                value={
+                  materials.length
+                }
 
-              <View
-                className="
-                  absolute
-                  -bottom-10
-                  right-8
-                  h-[80px]
-                  w-[80px]
-                  rounded-full
-                  bg-white/10
-                "
-              />
-
-              {/* Icon */}
-
-              <View
-                className="
-                  z-10
-                  mr-4
-                  h-[54px]
-                  w-[54px]
-                  items-center
-                  justify-center
-                  rounded-2xl
-                  bg-white/15
-                ">
-
-                <BookOpen
-                  size={24}
-                  color="#FFFFFF"
-                />
-
-              </View>
-
-              {/* Count */}
-
-              <View
-                className="
-                  z-10
-                  flex-1
-                ">
-
-                <Text
-                  className="
-                    text-[10px]
-                    font-bold
-                    tracking-widest
-                    text-indigo-200
-                  ">
-                  MATERIALS
-                </Text>
-
-                <Text
-                  className="
-                    mt-1
-                    text-[32px]
-                    font-extrabold
-                    text-white
-                  ">
-                  {materials.length}
-                </Text>
-
-                <Text
-                  className="
-                    mt-1
-                    text-xs
-                    leading-[17px]
-                    text-indigo-100
-                  ">
-
-                  {materials.length ===
-                  1
+                description={
+                  materials.length === 1
                     ? 'material saved in this subject'
-                    : 'materials saved in this subject'}
+                    : 'materials saved in this subject'
+                }
 
-                </Text>
-
-              </View>
+                icon={
+                  BookOpen
+                }
+              />
 
             </View>
 
-            {/* ==========================================
-                SEARCH
-            =========================================== */}
 
             <View
               className="
                 mb-4
-                h-[54px]
-                flex-row
-                items-center
-                rounded-2xl
-                border
-                border-slate-200
-                bg-white
-                px-4
               ">
 
-              <Search
-                size={20}
-                color="#64748B"
-              />
-
-              <TextInput
-                className="
-                  ml-2
-                  flex-1
-                  py-0
-                  text-sm
-                  text-slate-900
-                "
-                placeholder="Search materials..."
-                placeholderTextColor="#94A3B8"
+              <SearchBar
                 value={
                   searchText
                 }
+
                 onChangeText={
                   setSearchText
                 }
-                returnKeyType="search"
+
+                placeholder="Search materials..."
               />
-
-              {searchText.length >
-                0 && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Clear search"
-                  hitSlop={10}
-                  onPress={() =>
-                    setSearchText('')
-                  }
-                  className="
-                    h-[30px]
-                    w-[30px]
-                    items-center
-                    justify-center
-                    rounded-full
-                    bg-slate-100
-                    active:opacity-70
-                  ">
-
-                  <X
-                    size={17}
-                    color="#64748B"
-                  />
-
-                </Pressable>
-              )}
 
             </View>
 
-            {/* ==========================================
-                FILTERS
-            =========================================== */}
 
-            <View
+            <ScrollView
+              horizontal
+
+              showsHorizontalScrollIndicator={
+                false
+              }
+
               className="
                 mb-8
-                flex-row
-                flex-wrap
               ">
 
-              {/* All */}
+              <MaterialFilterChip
+                label="All"
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{
-                  selected:
-                    activeFilter === 'all',
-                }}
+                selected={
+                  activeFilter ===
+                  'all'
+                }
+
+                icon={
+                  CheckCircle2
+                }
+
+                color="#4F46E5"
+
+                background="#EEF2FF"
+
                 onPress={() =>
                   setActiveFilter(
                     'all',
                   )
                 }
-                className="
-                  mr-2
-                  flex-row
-                  items-center
-                  rounded-full
-                  border
-                  px-4
-                  py-2
-                "
-                style={({pressed}) => ({
-                  backgroundColor:
-                    activeFilter ===
-                    'all'
-                      ? '#EEF2FF'
-                      : '#FFFFFF',
-
-                  borderColor:
-                    activeFilter ===
-                    'all'
-                      ? '#4F46E5'
-                      : '#E2E8F0',
-
-                  opacity:
-                    pressed
-                      ? 0.78
-                      : 1,
-                })}>
-
-                {activeFilter ===
-                  'all' && (
-                  <CheckCircle2
-                    size={15}
-                    color="#4F46E5"
-                  />
-                )}
-
-                <Text
-                  className="
-                    text-sm
-                    font-semibold
-                  "
-                  style={{
-                    marginLeft:
-                      activeFilter ===
-                      'all'
-                        ? 6
-                        : 0,
-
-                    color:
-                      activeFilter ===
-                      'all'
-                        ? '#4338CA'
-                        : '#475569',
-                  }}>
-                  All
-                </Text>
-
-              </Pressable>
+              />
 
 
-              {/* Text */}
+              <MaterialFilterChip
+                label="Text"
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{
-                  selected:
-                    activeFilter ===
-                    'text',
-                }}
+                selected={
+                  activeFilter ===
+                  'text'
+                }
+
+                icon={
+                  Type
+                }
+
+                color="#4F46E5"
+
+                background="#EEF2FF"
+
                 onPress={() =>
                   setActiveFilter(
                     'text',
                   )
                 }
-                className="
-                  mr-2
-                  flex-row
-                  items-center
-                  rounded-full
-                  border
-                  px-4
-                  py-2
-                "
-                style={({pressed}) => ({
-                  backgroundColor:
-                    activeFilter ===
-                    'text'
-                      ? '#EEF2FF'
-                      : '#FFFFFF',
-
-                  borderColor:
-                    activeFilter ===
-                    'text'
-                      ? '#4F46E5'
-                      : '#E2E8F0',
-
-                  opacity:
-                    pressed
-                      ? 0.78
-                      : 1,
-                })}>
-
-                <Type
-                  size={15}
-                  color={
-                    activeFilter ===
-                    'text'
-                      ? '#4F46E5'
-                      : '#64748B'
-                  }
-                />
-
-                <Text
-                  className="
-                    ml-2
-                    text-sm
-                    font-semibold
-                  "
-                  style={{
-                    color:
-                      activeFilter ===
-                      'text'
-                        ? '#4338CA'
-                        : '#475569',
-                  }}>
-                  Text
-                </Text>
-
-              </Pressable>
+              />
 
 
-              {/* PDF */}
+              <MaterialFilterChip
+                label="PDF"
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{
-                  selected:
-                    activeFilter ===
-                    'pdf',
-                }}
+                selected={
+                  activeFilter ===
+                  'pdf'
+                }
+
+                icon={
+                  FileText
+                }
+
+                color="#E11D48"
+
+                background="#FFF1F2"
+
                 onPress={() =>
                   setActiveFilter(
                     'pdf',
                   )
                 }
-                className="
-                  flex-row
-                  items-center
-                  rounded-full
-                  border
-                  px-4
-                  py-2
-                "
-                style={({pressed}) => ({
-                  backgroundColor:
-                    activeFilter ===
-                    'pdf'
-                      ? '#FFF1F2'
-                      : '#FFFFFF',
+              />
 
-                  borderColor:
-                    activeFilter ===
-                    'pdf'
-                      ? '#E11D48'
-                      : '#E2E8F0',
 
-                  opacity:
-                    pressed
-                      ? 0.78
-                      : 1,
-                })}>
+              <MaterialFilterChip
+                label="Image"
 
-                <FileText
-                  size={15}
-                  color={
-                    activeFilter ===
-                    'pdf'
-                      ? '#E11D48'
-                      : '#64748B'
-                  }
-                />
+                selected={
+                  activeFilter ===
+                  'image'
+                }
 
-                <Text
-                  className="
-                    ml-2
-                    text-sm
-                    font-semibold
-                  "
-                  style={{
-                    color:
-                      activeFilter ===
-                      'pdf'
-                        ? '#BE123C'
-                        : '#475569',
-                  }}>
-                  PDF
-                </Text>
+                icon={
+                  ImageIcon
+                }
 
-              </Pressable>
+                color="#0284C7"
 
-            </View>
+                background="#E0F2FE"
 
-            {/* ==========================================
-                SECTION HEADER
-            =========================================== */}
+                onPress={() =>
+                  setActiveFilter(
+                    'image',
+                  )
+                }
+              />
+
+            </ScrollView>
+
 
             <View
               className="
@@ -730,16 +541,19 @@ const SubjectMaterialsScreen = ({
                   font-bold
                   text-slate-900
                 ">
+
                 Your materials
+
               </Text>
 
+
               {!loading && (
+
                 <View
                   className="
                     ml-2
                     min-w-[28px]
                     items-center
-                    justify-center
                     rounded-full
                     bg-indigo-50
                     px-2
@@ -752,374 +566,128 @@ const SubjectMaterialsScreen = ({
                       font-bold
                       text-indigo-600
                     ">
+
                     {
                       filteredMaterials.length
                     }
+
                   </Text>
 
                 </View>
+
               )}
 
             </View>
 
-            {/* ==========================================
-                LOADING
-            =========================================== */}
 
             {loading ? (
-              <View
-                className="
-                  min-h-[270px]
-                  items-center
-                  justify-center
-                ">
 
-                <View
-                  className="
-                    mb-4
-                    h-[54px]
-                    w-[54px]
-                    items-center
-                    justify-center
-                    rounded-[17px]
-                    bg-indigo-50
-                  ">
+              <ScreenState
+                loading
 
-                  <ActivityIndicator
-                    size="small"
-                    color="#4F46E5"
-                  />
+                title="Loading materials"
 
-                </View>
+                description="Preparing your study materials..."
+              />
 
-                <Text
-                  className="
-                    text-lg
-                    font-bold
-                    text-slate-900
-                  ">
-                  Loading materials
-                </Text>
-
-                <Text
-                  className="
-                    mt-2
-                    text-center
-                    text-sm
-                    text-slate-500
-                  ">
-                  Preparing your study
-                  materials...
-                </Text>
-
-              </View>
             ) : showLoadError ? (
 
-              /* ========================================
-                  LOAD ERROR
-              ========================================= */
+              <ScreenState
+                title="Couldn't load materials"
 
-              <View
-                className="
-                  min-h-[270px]
-                  items-center
-                  justify-center
-                ">
+                description="Check your connection and try again."
 
-                <View
-                  className="
-                    mb-4
-                    h-[54px]
-                    w-[54px]
-                    items-center
-                    justify-center
-                    rounded-[17px]
-                    bg-red-50
-                  ">
+                icon={
+                  RefreshCw
+                }
 
-                  <RefreshCw
-                    size={25}
-                    color="#DC2626"
-                  />
+                iconColor="#DC2626"
 
-                </View>
+                actionTitle="Try again"
 
-                <Text
-                  className="
-                    text-center
-                    text-lg
-                    font-bold
-                    text-slate-900
-                  ">
-                  Couldn't load
-                  materials
-                </Text>
+                onAction={
+                  loadMaterials
+                }
+              />
 
-                <Text
-                  className="
-                    mt-2
-                    text-center
-                    text-sm
-                    text-slate-500
-                  ">
-                  Check your connection
-                  and try again.
-                </Text>
-
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={
-                    loadMaterials
-                  }
-                  className="
-                    mt-6
-                    flex-row
-                    items-center
-                    rounded-xl
-                    bg-indigo-50
-                    px-6
-                    py-3
-                    active:scale-[0.98]
-                    active:opacity-80
-                  ">
-
-                  <RefreshCw
-                    size={17}
-                    color="#4F46E5"
-                  />
-
-                  <Text
-                    className="
-                      ml-2
-                      text-sm
-                      font-bold
-                      text-indigo-600
-                    ">
-                    Try again
-                  </Text>
-
-                </Pressable>
-
-              </View>
-            ) :
-            filteredMaterials.length ===
+            ) : filteredMaterials.length ===
               0 ? (
 
-              /* ========================================
-                  EMPTY / NO RESULTS
-              ========================================= */
+              <ScreenState
+                title={
+                  emptyTitle
+                }
 
-              <View
-                className="
-                  min-h-[300px]
-                  items-center
-                  justify-center
-                  px-6
-                ">
+                description={
+                  emptyDescription
+                }
 
-                <View
-                  className="
-                    mb-6
-                    h-[86px]
-                    w-[86px]
-                    items-center
-                    justify-center
-                    rounded-[28px]
-                    bg-purple-50
-                  ">
+                icon={
+                  hasSearch ||
+                  hasActiveFilter
+                    ? Search
+                    : BookOpen
+                }
+              />
 
-                  <View
-                    className="
-                      h-[58px]
-                      w-[58px]
-                      items-center
-                      justify-center
-                      rounded-[19px]
-                      bg-indigo-50
-                    ">
-
-                    {hasSearch ||
-                    hasActiveFilter ? (
-                      <Search
-                        size={30}
-                        color="#4F46E5"
-                      />
-                    ) : (
-                      <BookOpen
-                        size={30}
-                        color="#4F46E5"
-                      />
-                    )}
-
-                  </View>
-
-                </View>
-
-                <Text
-                  className="
-                    text-center
-                    text-xl
-                    font-bold
-                    text-slate-900
-                  ">
-
-                  {hasSearch
-                    ? 'No materials found'
-                    : activeFilter ===
-                        'text'
-                      ? 'No text materials yet'
-                      : activeFilter ===
-                          'pdf'
-                        ? 'No PDF materials yet'
-                        : 'Add your first material'}
-
-                </Text>
-
-                <Text
-                  className="
-                    mt-2
-                    max-w-[300px]
-                    text-center
-                    text-sm
-                    leading-5
-                    text-slate-500
-                  ">
-
-                  {hasSearch
-                    ? `We couldn't find anything matching "${searchText.trim()}".`
-                    : activeFilter ===
-                        'text'
-                      ? 'This subject does not have any text materials yet.'
-                      : activeFilter ===
-                          'pdf'
-                        ? 'This subject does not have any PDF materials yet.'
-                        : 'Start by adding a text or PDF material. Image and camera sources will be added next.'}
-
-                </Text>
-
-                {!hasSearch &&
-                  !hasActiveFilter &&
-                  materials.length ===
-                    0 && (
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={
-                        openAddMaterial
-                      }
-                      className="
-                        mt-6
-                        flex-row
-                        items-center
-                        rounded-2xl
-                        bg-indigo-600
-                        px-6
-                        py-3
-                        active:scale-[0.98]
-                        active:opacity-80
-                      ">
-
-                      <Plus
-                        size={18}
-                        color="#FFFFFF"
-                      />
-
-                      <Text
-                        className="
-                          ml-2
-                          text-sm
-                          font-bold
-                          text-white
-                        ">
-                        Add material
-                      </Text>
-
-                    </Pressable>
-                  )}
-
-              </View>
             ) : (
-
-              /* ========================================
-                  MATERIAL LIST
-              ========================================= */
 
               <View>
 
                 {filteredMaterials.map(
                   material => (
+
                     <MaterialCard
                       key={
                         material.id
                       }
+
                       material={
                         material
                       }
+
                       onPress={() =>
-                        openMaterialDetails(
-                          material.id,
+
+                        navigation.navigate(
+                          'MaterialDetails',
+
+                          {
+                            materialId:
+                              material.id,
+
+                            subjectId,
+
+                            subjectName,
+                          },
                         )
                       }
                     />
+
                   ),
                 )}
 
               </View>
+
             )}
 
           </View>
 
         </ScrollView>
 
-        {/* ============================================
-            FLOATING ADD
-        ============================================= */}
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Add material"
+        <BottomActionBar
+          title="Add material"
+
           onPress={
             openAddMaterial
           }
-          className="
-            absolute
-            bottom-6
-            right-6
-            h-[62px]
-            w-[62px]
-            items-center
-            justify-center
-            rounded-[20px]
-            bg-indigo-600
-            shadow-lg
-          "
-          style={({pressed}) => ({
-            opacity:
-              pressed
-                ? 0.82
-                : 1,
-
-            transform: [
-              {
-                scale:
-                  pressed
-                    ? 0.95
-                    : 1,
-              },
-            ],
-          })}>
-
-          <Plus
-            size={28}
-            color="#FFFFFF"
-            strokeWidth={2.2}
-          />
-
-        </Pressable>
+        />
 
       </View>
 
     </SafeAreaView>
   );
 };
+
 
 export default SubjectMaterialsScreen;

@@ -1,18 +1,28 @@
-import React from 'react';
+import React, {
+  ReactNode,
+} from 'react';
 
 import {
-  ActivityIndicator,
-  Pressable,
   StyleProp,
-  Text,
+  StyleSheet,
+  View,
   ViewStyle,
 } from 'react-native';
+
+import ActionButton, {
+  ActionButtonTone,
+  ActionButtonVariant,
+} from './ActionButton';
+
 
 type ButtonVariant =
   | 'primary'
   | 'secondary'
+  | 'solid'
+  | 'soft'
   | 'outline'
   | 'ghost';
+
 
 interface AppButtonProps {
   title: string;
@@ -25,139 +35,145 @@ interface AppButtonProps {
 
   variant?: ButtonVariant;
 
-  /*
-   * Kept for backward compatibility.
-   * Existing screens may still pass
-   * an inline style while we migrate.
-   */
+  tone?: ActionButtonTone;
+
+  icon?: ReactNode;
+
   style?: StyleProp<ViewStyle>;
 
   className?: string;
 }
 
+
 const AppButton = ({
   title,
   onPress,
+
   disabled = false,
+
   loading = false,
+
   variant = 'primary',
+
+  tone = 'primary',
+
+  icon,
+
   style,
+
   className = '',
 }: AppButtonProps) => {
-  const isDisabled =
-    disabled || loading;
 
-  // =========================================================
-  // Variant styles
-  // =========================================================
+  let mappedVariant:
+    ActionButtonVariant;
 
-  const getButtonClasses = () => {
-    switch (variant) {
-      case 'secondary':
-        return `
-          bg-indigo-50
-        `;
 
-      case 'outline':
-        return `
-          border
-          border-slate-200
-          bg-white
-        `;
+  switch (variant) {
 
-      case 'ghost':
-        return `
-          bg-transparent
-        `;
+    case 'secondary':
 
-      case 'primary':
-      default:
-        return `
-          bg-indigo-600
-        `;
-    }
-  };
+      mappedVariant =
+        'soft';
 
-  const getTextClasses = () => {
-    switch (variant) {
-      case 'secondary':
-      case 'outline':
-      case 'ghost':
-        return `
-          text-indigo-600
-        `;
+      break;
 
-      case 'primary':
-      default:
-        return `
-          text-white
-        `;
-    }
-  };
 
-  const indicatorColor =
-    variant === 'primary'
-      ? '#FFFFFF'
-      : '#4F46E5';
+    case 'outline':
 
-  // =========================================================
-  // UI
-  // =========================================================
+      mappedVariant =
+        'outline';
+
+      break;
+
+
+    case 'ghost':
+
+      mappedVariant =
+        'ghost';
+
+      break;
+
+
+    case 'soft':
+
+      mappedVariant =
+        'soft';
+
+      break;
+
+
+    case 'solid':
+
+    case 'primary':
+
+    default:
+
+      mappedVariant =
+        'solid';
+
+      break;
+  }
+
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{
-        disabled:
-          isDisabled,
 
-        busy:
-          loading,
-      }}
-      onPress={onPress}
-      disabled={isDisabled}
-      style={style}
-      className={`
-        min-h-[52px]
-        items-center
-        justify-center
-        rounded-xl
-        px-6
+    <View
+      className={
+        className
+      }
 
-        active:opacity-80
+      style={[
+        styles.container,
+        style,
+      ]}>
 
-        ${getButtonClasses()}
-
-        ${
-          isDisabled
-            ? 'opacity-50'
-            : ''
+      <ActionButton
+        title={
+          title
         }
 
-        ${className}
-      `}>
+        onPress={
+          onPress
+        }
 
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={
-            indicatorColor
-          }
-        />
-      ) : (
-        <Text
-          className={`
-            text-base
-            font-semibold
+        disabled={
+          disabled
+        }
 
-            ${getTextClasses()}
-          `}>
-          {title}
-        </Text>
-      )}
+        loading={
+          loading
+        }
 
-    </Pressable>
+        tone={
+          tone
+        }
+
+        variant={
+          mappedVariant
+        }
+
+        icon={
+          icon
+        }
+      />
+
+    </View>
   );
 };
+
+
+const styles =
+  StyleSheet.create({
+
+    container: {
+
+      alignSelf:
+        'stretch',
+
+      minWidth:
+        0,
+    },
+  });
+
 
 export default AppButton;

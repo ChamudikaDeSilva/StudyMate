@@ -1,20 +1,16 @@
 import React from 'react';
 
 import {
-  Pressable,
+  Text,
+  View,
 } from 'react-native';
-
-import {
-  ArrowLeft,
-} from 'lucide-react-native';
 
 import {
   createNativeStackNavigator,
 } from '@react-navigation/native-stack';
 
-import {
-  SubjectsStackParamList,
-} from './navigationTypes';
+import BackButton
+  from '../components/common/BackButton';
 
 import SubjectsScreen
   from '../screens/subjects/SubjectsScreen';
@@ -34,6 +30,10 @@ import PdfPreviewScreen
 import ImagePreviewScreen
   from '../screens/materials/ImagePreviewScreen';
 
+import {
+  SubjectsStackParamList,
+} from './navigationTypes';
+
 
 const Stack =
   createNativeStackNavigator<
@@ -41,106 +41,20 @@ const Stack =
   >();
 
 
-const createPreviewOptions = (
-  title: string,
-  navigation: any,
-) => ({
-
-  headerShown:
-    true,
-
-  headerBackVisible:
-    false,
-
-  headerShadowVisible:
-    true,
-
-  headerTitle:
-    title,
-
-  headerTitleStyle: {
-    fontSize:
-      16,
-
-    fontWeight:
-      '700' as const,
-
-    color:
-      '#0F172A',
-  },
-
-  headerStyle: {
-    backgroundColor:
-      '#FFFFFF',
-  },
-
-  headerLeft:
-    () => (
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Go back"
-        onPress={() =>
-          navigation.goBack()
-        }
-        style={({
-          pressed,
-        }) => ({
-
-          width:
-            42,
-
-          height:
-            42,
-
-          marginRight:
-            12,
-
-          alignItems:
-            'center',
-
-          justifyContent:
-            'center',
-
-          borderRadius:
-            12,
-
-          borderWidth:
-            1,
-
-          borderColor:
-            '#E2E8F0',
-
-          backgroundColor:
-            '#FFFFFF',
-
-          opacity:
-            pressed
-              ? 0.65
-              : 1,
-        })}>
-
-        <ArrowLeft
-          size={21}
-          color="#0F172A"
-        />
-
-      </Pressable>
-    ),
-});
-
-
 const SubjectsNavigator =
   () => {
 
     return (
-
       <Stack.Navigator
         initialRouteName="SubjectsHome"
         screenOptions={{
           headerShown:
             false,
         }}>
+
+        {/* ===============================================
+            SUBJECTS
+        ================================================ */}
 
         <Stack.Screen
           name="SubjectsHome"
@@ -150,6 +64,10 @@ const SubjectsNavigator =
         />
 
 
+        {/* ===============================================
+            SUBJECT MATERIALS
+        ================================================ */}
+
         <Stack.Screen
           name="SubjectMaterials"
           component={
@@ -157,6 +75,10 @@ const SubjectsNavigator =
           }
         />
 
+
+        {/* ===============================================
+            ADD MATERIAL
+        ================================================ */}
 
         <Stack.Screen
           name="AddMaterial"
@@ -166,6 +88,10 @@ const SubjectsNavigator =
         />
 
 
+        {/* ===============================================
+            MATERIAL DETAILS
+        ================================================ */}
+
         <Stack.Screen
           name="MaterialDetails"
           component={
@@ -173,6 +99,10 @@ const SubjectsNavigator =
           }
         />
 
+
+        {/* ===============================================
+            PDF PREVIEW
+        ================================================ */}
 
         <Stack.Screen
           name="PdfPreview"
@@ -182,14 +112,102 @@ const SubjectsNavigator =
           options={({
             navigation,
             route,
-          }) =>
-            createPreviewOptions(
-              route.params.title,
-              navigation,
-            )
-          }
+          }) => ({
+
+            headerShown:
+              true,
+
+            headerBackVisible:
+              false,
+
+            headerShadowVisible:
+              true,
+
+            headerStyle: {
+              backgroundColor:
+                '#FFFFFF',
+            },
+
+            headerLeft:
+              () => (
+
+                <View
+                  className="
+                    mr-3
+                  ">
+
+                  <BackButton
+                    onPress={() => {
+
+                      if (
+                        navigation.canGoBack()
+                      ) {
+
+                        navigation.goBack();
+
+                        return;
+                      }
+
+
+                      navigation.replace(
+                        'MaterialDetails',
+                        {
+                          materialId:
+                            route.params.materialId,
+
+                          subjectId:
+                            route.params.subjectId,
+
+                          subjectName:
+                            route.params.subjectName,
+                        },
+                      );
+                    }}
+                  />
+
+                </View>
+              ),
+
+            headerTitle:
+              () => (
+
+                <View>
+
+                  <Text
+                    numberOfLines={1}
+                    className="
+                      max-w-[240px]
+                      text-base
+                      font-bold
+                      text-slate-900
+                    ">
+
+                    {route.params.title}
+
+                  </Text>
+
+
+                  <Text
+                    numberOfLines={1}
+                    className="
+                      mt-0.5
+                      text-xs
+                      text-slate-500
+                    ">
+
+                    {route.params.subjectName}
+
+                  </Text>
+
+                </View>
+              ),
+          })}
         />
 
+
+        {/* ===============================================
+            IMAGE PREVIEW
+        ================================================ */}
 
         <Stack.Screen
           name="ImagePreview"
@@ -199,12 +217,96 @@ const SubjectsNavigator =
           options={({
             navigation,
             route,
-          }) =>
-            createPreviewOptions(
-              route.params.title,
-              navigation,
-            )
-          }
+          }) => ({
+
+            headerShown:
+              true,
+
+            headerBackVisible:
+              false,
+
+            headerShadowVisible:
+              true,
+
+            headerStyle: {
+              backgroundColor:
+                '#FFFFFF',
+            },
+
+            headerLeft:
+              () => (
+
+                <View
+                  className="
+                    mr-3
+                  ">
+
+                  <BackButton
+                    onPress={() => {
+
+                      if (
+                        navigation.canGoBack()
+                      ) {
+
+                        navigation.goBack();
+
+                        return;
+                      }
+
+
+                      navigation.replace(
+                        'MaterialDetails',
+                        {
+                          materialId:
+                            route.params.materialId,
+
+                          subjectId:
+                            route.params.subjectId,
+
+                          subjectName:
+                            route.params.subjectName,
+                        },
+                      );
+                    }}
+                  />
+
+                </View>
+              ),
+
+            headerTitle:
+              () => (
+
+                <View>
+
+                  <Text
+                    numberOfLines={1}
+                    className="
+                      max-w-[240px]
+                      text-base
+                      font-bold
+                      text-slate-900
+                    ">
+
+                    {route.params.title}
+
+                  </Text>
+
+
+                  <Text
+                    numberOfLines={1}
+                    className="
+                      mt-0.5
+                      text-xs
+                      text-slate-500
+                    ">
+
+                    {route.params.subjectName}
+
+                  </Text>
+
+                </View>
+              ),
+          })}
         />
 
       </Stack.Navigator>

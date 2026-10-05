@@ -7,9 +7,6 @@ import React, {
 } from 'react';
 
 import {
-  ActivityIndicator,
-  BackHandler,
-  Pressable,
   SafeAreaView,
   Text,
   View,
@@ -17,26 +14,25 @@ import {
 
 import {
   FileText,
-  RefreshCw,
 } from 'lucide-react-native';
 
 import {
   NativeStackScreenProps,
 } from '@react-navigation/native-stack';
 
-import {
-  useFocusEffect,
-} from '@react-navigation/native';
+import Pdf
+  from 'react-native-pdf';
 
-import Pdf from 'react-native-pdf';
+import ScreenState
+  from '../../components/common/ScreenState';
 
 import {
   SubjectsStackParamList,
 } from '../../navigation/navigationTypes';
 
 import {
-  PdfDownloadService,
-} from '../../services/storage/PdfDownloadService';
+  MaterialFileDownloadService,
+} from '../../services/storage/MaterialFileDownloadService';
 
 
 type Props =
@@ -47,32 +43,21 @@ type Props =
 
 
 const PdfPreviewScreen = ({
-  navigation,
   route,
 }: Props) => {
 
   const {
     materialId,
-    subjectId,
-    subjectName,
   } = route.params;
 
-
-  // =========================================================
-  // Service
-  // =========================================================
 
   const downloadService =
     useMemo(
       () =>
-        new PdfDownloadService(),
+        new MaterialFileDownloadService(),
       [],
     );
 
-
-  // =========================================================
-  // State
-  // =========================================================
 
   const [
     pdfUri,
@@ -121,79 +106,7 @@ const PdfPreviewScreen = ({
 
 
   // =========================================================
-  // Back Navigation
-  // =========================================================
-
-  const handleBack =
-    useCallback(
-      () => {
-
-        if (
-          navigation.canGoBack()
-        ) {
-
-          navigation.goBack();
-
-          return;
-        }
-
-
-        navigation.replace(
-          'MaterialDetails',
-          {
-            materialId,
-
-            subjectId,
-
-            subjectName,
-          },
-        );
-
-      },
-      [
-        navigation,
-        materialId,
-        subjectId,
-        subjectName,
-      ],
-    );
-
-
-  // =========================================================
-  // Android Hardware Back
-  // =========================================================
-
-  useFocusEffect(
-    useCallback(
-      () => {
-
-        const subscription =
-          BackHandler.addEventListener(
-            'hardwareBackPress',
-            () => {
-
-              handleBack();
-
-              return true;
-            },
-          );
-
-
-        return () => {
-
-          subscription.remove();
-        };
-
-      },
-      [
-        handleBack,
-      ],
-    ),
-  );
-
-
-  // =========================================================
-  // Download PDF
+  // LOAD PDF
   // =========================================================
 
   const loadPdf =
@@ -222,16 +135,12 @@ const PdfPreviewScreen = ({
           );
 
 
-          // ===============================================
-          // Remove previous cached file
-          // ===============================================
-
           if (
             currentPdfUri.current
           ) {
 
             await downloadService
-              .deleteCachedPdf(
+              .deleteCachedFile(
                 currentPdfUri.current,
               );
 
@@ -246,49 +155,37 @@ const PdfPreviewScreen = ({
           }
 
 
-          // ===============================================
-          // Secure download
-          // ===============================================
-
-          const localUri =
+          const uri =
             await downloadService
-              .downloadPdf(
+              .download(
                 materialId,
+                'pdf',
               );
 
 
           currentPdfUri.current =
-            localUri;
+            uri;
 
 
           setPdfUri(
-            localUri,
+            uri,
           );
-
 
         } catch (
           loadError
         ) {
 
           console.error(
-            'PDF preview download error:',
+            'PDF preview error:',
             loadError,
           );
 
 
-          const message =
+          setError(
             loadError instanceof Error
               ? loadError.message
-              : (
-                  'Unable to load '
-                  + 'this PDF.'
-                );
-
-
-          setError(
-            message,
+              : 'Unable to load this PDF.',
           );
-
 
         } finally {
 
@@ -304,10 +201,6 @@ const PdfPreviewScreen = ({
     );
 
 
-  // =========================================================
-  // Initial Load
-  // =========================================================
-
   useEffect(
     () => {
 
@@ -321,7 +214,7 @@ const PdfPreviewScreen = ({
 
 
   // =========================================================
-  // Cleanup Cached PDF
+  // CLEANUP
   // =========================================================
 
   useEffect(
@@ -329,17 +222,10 @@ const PdfPreviewScreen = ({
 
       return () => {
 
-        const uri =
-          currentPdfUri.current;
-
-
-        if (uri) {
-
-          void downloadService
-            .deleteCachedPdf(
-              uri,
-            );
-        }
+        void downloadService
+          .deleteCachedFile(
+            currentPdfUri.current,
+          );
       };
 
     },
@@ -350,35 +236,6 @@ const PdfPreviewScreen = ({
 
 
   // =========================================================
-  // PDF Source
-  // =========================================================
-
-  const pdfSource =
-    useMemo(
-      () => {
-
-        if (!pdfUri) {
-
-          return null;
-        }
-
-
-        return {
-          uri:
-            pdfUri,
-
-          cache:
-            false,
-        };
-
-      },
-      [
-        pdfUri,
-      ],
-    );
-
-
-  // =========================================================
   // UI
   // =========================================================
 
@@ -386,399 +243,164 @@ const PdfPreviewScreen = ({
     <SafeAreaView
       className="
         flex-1
-        bg-slate-50
+        bg-slate-100
       ">
 
-      {/* =====================================================
-          SUBJECT INFO
-      ====================================================== */}
+      {loading ? (
 
-      <View
-        className="
-          border-b
-          border-slate-200
-          bg-white
-          px-5
-          py-3
-        ">
+        <ScreenState
+          loading
+          title="Loading PDF"
+          description="Securely loading your study material..."
+        />
 
-        <Text
+      ) : error ? (
+
+        <ScreenState
+          title="Couldn't open PDF"
+          description={error}
+          icon={
+            FileText
+          }
+          iconColor="#DC2626"
+          actionTitle="Try again"
+          onAction={
+            loadPdf
+          }
+        />
+
+      ) : pdfUri ? (
+
+        <View
           className="
-            text-xs
-            font-semibold
-            text-indigo-600
+            flex-1
+            bg-slate-100
           ">
 
-          PDF PREVIEW
+          <Pdf
+            source={{
+              uri:
+                pdfUri,
 
-        </Text>
+              cache:
+                false,
+            }}
+            style={{
+              flex:
+                1,
 
+              width:
+                '100%',
 
-        <Text
-          className="
-            mt-1
-            text-sm
-            text-slate-500
-          "
-          numberOfLines={
-            1
-          }>
+              backgroundColor:
+                '#F1F5F9',
+            }}
+            trustAllCerts={
+              false
+            }
+            enablePaging={
+              false
+            }
+            horizontal={
+              false
+            }
+            spacing={10}
+            minScale={1}
+            maxScale={4}
+            onLoadComplete={(
+              numberOfPages,
+            ) => {
 
-          {subjectName}
-
-        </Text>
-
-      </View>
-
-
-      {/* =====================================================
-          CONTENT
-      ====================================================== */}
-
-      <View
-        className="
-          flex-1
-          bg-slate-100
-        ">
-
-        {loading ? (
-
-          // =================================================
-          // Loading
-          // =================================================
-
-          <View
-            className="
-              flex-1
-              items-center
-              justify-center
-              px-8
-            ">
-
-            <View
-              className="
-                mb-5
-                h-16
-                w-16
-                items-center
-                justify-center
-                rounded-[20px]
-                bg-indigo-50
-              ">
-
-              <ActivityIndicator
-                size="small"
-                color="#4F46E5"
-              />
-
-            </View>
+              setTotalPages(
+                numberOfPages,
+              );
 
 
-            <Text
-              className="
-                text-lg
-                font-bold
-                text-slate-900
-              ">
+              setCurrentPage(
+                1,
+              );
+            }}
+            onPageChanged={(
+              page,
+              numberOfPages,
+            ) => {
 
-              Loading PDF
+              setCurrentPage(
+                page,
+              );
 
-            </Text>
+
+              setTotalPages(
+                numberOfPages,
+              );
+            }}
+            onError={(
+              pdfError,
+            ) => {
+
+              console.error(
+                'PDF renderer error:',
+                pdfError,
+              );
 
 
-            <Text
-              className="
-                mt-2
-                max-w-[280px]
-                text-center
-                text-sm
-                leading-5
-                text-slate-500
-              ">
+              setError(
+                'The PDF was downloaded, '
+                + 'but it could not be displayed.',
+              );
+            }}
+          />
 
-              Securely loading your
-              study material...
 
-            </Text>
-
-          </View>
-
-        ) : error ? (
-
-          // =================================================
-          // Error
-          // =================================================
-
-          <View
-            className="
-              flex-1
-              items-center
-              justify-center
-              px-8
-            ">
+          {totalPages > 0 && (
 
             <View
+              pointerEvents="none"
               className="
-                mb-5
-                h-16
-                w-16
-                items-center
-                justify-center
-                rounded-[20px]
-                bg-red-50
-              ">
-
-              <FileText
-                size={29}
-                color="#DC2626"
-              />
-
-            </View>
-
-
-            <Text
-              className="
-                text-xl
-                font-bold
-                text-slate-900
-              ">
-
-              Couldn't open PDF
-
-            </Text>
-
-
-            <Text
-              className="
-                mt-2
-                max-w-[300px]
-                text-center
-                text-sm
-                leading-5
-                text-slate-500
-              ">
-
-              {error}
-
-            </Text>
-
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-
-                void loadPdf();
-
-              }}
-              className="
-                mt-6
-                flex-row
-                items-center
-                rounded-xl
-                bg-indigo-600
-                px-6
-                py-3
+                absolute
+                bottom-5
+                self-center
+                rounded-full
+                border
+                border-indigo-100
+                bg-white
+                px-4
+                py-2
               "
-              style={({
-                pressed,
-              }) => ({
+              style={{
+                elevation:
+                  8,
 
-                opacity:
-                  pressed
-                    ? 0.8
-                    : 1,
-
-              })}>
-
-              <RefreshCw
-                size={17}
-                color="#FFFFFF"
-              />
-
+                zIndex:
+                  30,
+              }}>
 
               <Text
                 className="
-                  ml-2
-                  text-sm
+                  text-xs
                   font-bold
-                  text-white
+                  text-indigo-600
                 ">
 
-                Try again
+                Page {currentPage}
+                {' '}of{' '}
+                {totalPages}
 
               </Text>
 
-            </Pressable>
+            </View>
 
-          </View>
+          )}
 
-        ) : pdfSource ? (
+        </View>
 
-          // =================================================
-          // PDF
-          // =================================================
+      ) : (
 
-          <View
-            className="
-              flex-1
-              bg-slate-100
-            ">
+        <ScreenState
+          title="PDF unavailable"
+        />
 
-            <Pdf
-              source={
-                pdfSource
-              }
-
-              style={{
-                flex:
-                  1,
-
-                width:
-                  '100%',
-
-                backgroundColor:
-                  '#F1F5F9',
-              }}
-
-              trustAllCerts={
-                false
-              }
-
-              enablePaging={
-                false
-              }
-
-              horizontal={
-                false
-              }
-
-              spacing={
-                10
-              }
-
-              minScale={
-                1
-              }
-
-              maxScale={
-                4
-              }
-
-              onLoadComplete={(
-                numberOfPages,
-              ) => {
-
-                setTotalPages(
-                  numberOfPages,
-                );
-
-
-                setCurrentPage(
-                  1,
-                );
-              }}
-
-              onPageChanged={(
-                page,
-                numberOfPages,
-              ) => {
-
-                setCurrentPage(
-                  page,
-                );
-
-
-                setTotalPages(
-                  numberOfPages,
-                );
-              }}
-
-              onError={(
-                pdfError,
-              ) => {
-
-                console.error(
-                  'PDF renderer error:',
-                  pdfError,
-                );
-
-
-                setError(
-                  'The PDF was downloaded, '
-                  + 'but it could not be displayed.',
-                );
-              }}
-            />
-
-
-            {/* =============================================
-                PAGE NUMBER
-            ============================================== */}
-
-            {totalPages > 0 && (
-
-              <View
-                pointerEvents="none"
-                className="
-                  absolute
-                  bottom-5
-                  self-center
-                  rounded-full
-                  border
-                  border-indigo-100
-                  bg-white
-                  px-4
-                  py-2
-                  shadow-sm
-                ">
-
-                <Text
-                  className="
-                    text-xs
-                    font-bold
-                    text-indigo-600
-                  ">
-
-                  Page {currentPage}
-                  {' '}of{' '}
-                  {totalPages}
-
-                </Text>
-
-              </View>
-
-            )}
-
-          </View>
-
-        ) : (
-
-          // =================================================
-          // Empty
-          // =================================================
-
-          <View
-            className="
-              flex-1
-              items-center
-              justify-center
-            ">
-
-            <Text
-              className="
-                text-sm
-                text-slate-500
-              ">
-
-              PDF unavailable.
-
-            </Text>
-
-          </View>
-
-        )}
-
-      </View>
+      )}
 
     </SafeAreaView>
   );

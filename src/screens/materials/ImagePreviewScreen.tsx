@@ -1,28 +1,35 @@
 import React, {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
 import {
-  ActivityIndicator,
   Image,
   SafeAreaView,
-  Text,
   View,
 } from 'react-native';
 
 import {
+  FileImage,
+} from 'lucide-react-native';
+
+import {
   NativeStackScreenProps,
 } from '@react-navigation/native-stack';
+
+import ScreenState
+  from '../../components/common/ScreenState';
 
 import {
   SubjectsStackParamList,
 } from '../../navigation/navigationTypes';
 
 import {
-  ImageDownloadService,
-} from '../../services/storage/ImageDownloadService';
+  MaterialFileDownloadService,
+} from '../../services/storage/MaterialFileDownloadService';
 
 
 type Props =
@@ -38,14 +45,13 @@ const ImagePreviewScreen = ({
 
   const {
     materialId,
-    subjectName,
   } = route.params;
 
 
   const downloadService =
     useMemo(
       () =>
-        new ImageDownloadService(),
+        new MaterialFileDownloadService(),
       [],
     );
 
@@ -74,226 +80,190 @@ const ImagePreviewScreen = ({
   >(null);
 
 
+  const currentImageUri =
+    useRef<
+      string | null
+    >(null);
+
+
+  // =========================================================
+  // LOAD IMAGE
+  // =========================================================
+
+  const loadImage =
+    useCallback(
+      async () => {
+
+        try {
+
+          setLoading(
+            true,
+          );
+
+
+          setError(
+            null,
+          );
+
+
+          if (
+            currentImageUri.current
+          ) {
+
+            await downloadService
+              .deleteCachedFile(
+                currentImageUri.current,
+              );
+
+
+            currentImageUri.current =
+              null;
+
+
+            setImageUri(
+              null,
+            );
+          }
+
+
+          const uri =
+            await downloadService
+              .download(
+                materialId,
+              );
+
+
+          currentImageUri.current =
+            uri;
+
+
+          setImageUri(
+            uri,
+          );
+
+        } catch (
+          loadError
+        ) {
+
+          console.error(
+            'Image preview error:',
+            loadError,
+          );
+
+
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'Unable to load image.',
+          );
+
+        } finally {
+
+          setLoading(
+            false,
+          );
+        }
+      },
+      [
+        downloadService,
+        materialId,
+      ],
+    );
+
+
   useEffect(
     () => {
 
-      let active =
-        true;
+      void loadImage();
+
+    },
+    [
+      loadImage,
+    ],
+  );
 
 
-      let cachedUri:
-        string | null =
-          null;
+  // =========================================================
+  // CLEANUP
+  // =========================================================
 
-
-      const load =
-        async () => {
-
-          try {
-
-            setLoading(
-              true,
-            );
-
-
-            setError(
-              null,
-            );
-
-
-            const uri =
-              await downloadService
-                .downloadImage(
-                  materialId,
-                );
-
-
-            cachedUri =
-              uri;
-
-
-            if (active) {
-
-              setImageUri(
-                uri,
-              );
-            }
-
-          } catch (
-            loadError
-          ) {
-
-            if (active) {
-
-              setError(
-                loadError instanceof Error
-                  ? loadError.message
-                  : 'Unable to load image.',
-              );
-            }
-
-          } finally {
-
-            if (active) {
-
-              setLoading(
-                false,
-              );
-            }
-          }
-        };
-
-
-      void load();
-
+  useEffect(
+    () => {
 
       return () => {
 
-        active =
-          false;
-
-
-        if (cachedUri) {
-
-          void downloadService
-            .deleteCachedImage(
-              cachedUri,
-            );
-        }
+        void downloadService
+          .deleteCachedFile(
+            currentImageUri.current,
+          );
       };
 
     },
     [
       downloadService,
-      materialId,
     ],
   );
 
+
+  // =========================================================
+  // UI
+  // =========================================================
 
   return (
     <SafeAreaView
       className="
         flex-1
-        bg-slate-950
+        bg-black
       ">
 
-      <View
-        className="
-          border-b
-          border-slate-800
-          bg-slate-900
-          px-5
-          py-3
-        ">
-
-        <Text
-          className="
-            text-[11px]
-            font-bold
-            uppercase
-            tracking-wider
-            text-sky-400
-          ">
-
-          Image preview
-
-        </Text>
-
-
-        <Text
-          className="
-            mt-1
-            text-sm
-            text-slate-300
-          ">
-
-          {subjectName}
-
-        </Text>
-
-      </View>
-
-
-      {loading && (
+      {loading ? (
 
         <View
           className="
             flex-1
-            items-center
-            justify-center
+            bg-slate-950
           ">
 
-          <ActivityIndicator
-            size="large"
-            color="#38BDF8"
+          <ScreenState
+            loading
+            title="Loading image"
+            description="Securely loading your study material..."
+            dark
           />
 
+        </View>
 
-          <Text
-            className="
-              mt-4
-              text-sm
-              text-slate-300
-            ">
+      ) : error ? (
 
-            Loading image...
+        <View
+          className="
+            flex-1
+            bg-slate-950
+          ">
 
-          </Text>
+          <ScreenState
+            title="Couldn't open image"
+            description={error}
+            icon={
+              FileImage
+            }
+            iconColor="#38BDF8"
+            actionTitle="Try again"
+            onAction={
+              loadImage
+            }
+            dark
+          />
 
         </View>
 
-      )}
-
-
-      {!loading &&
-      !!error && (
+      ) : imageUri ? (
 
         <View
           className="
             flex-1
             items-center
             justify-center
-            px-8
-          ">
-
-          <Text
-            className="
-              text-center
-              text-base
-              font-bold
-              text-white
-            ">
-
-            Unable to preview image
-
-          </Text>
-
-
-          <Text
-            className="
-              mt-3
-              text-center
-              text-sm
-              leading-5
-              text-slate-400
-            ">
-
-            {error}
-
-          </Text>
-
-        </View>
-
-      )}
-
-
-      {!loading &&
-      !error &&
-      imageUri && (
-
-        <View
-          className="
-            flex-1
             bg-black
           ">
 
@@ -307,6 +277,21 @@ const ImagePreviewScreen = ({
               h-full
               w-full
             "
+          />
+
+        </View>
+
+      ) : (
+
+        <View
+          className="
+            flex-1
+            bg-slate-950
+          ">
+
+          <ScreenState
+            title="Image unavailable"
+            dark
           />
 
         </View>
