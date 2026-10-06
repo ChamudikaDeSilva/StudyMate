@@ -33,6 +33,9 @@ import ImagePreviewScreen
 import MaterialSummaryScreen
   from '../screens/ai/MaterialSummaryScreen';
 
+import MaterialFlashcardsScreen
+  from '../screens/ai/MaterialFlashcardsScreen';
+
 import {
   SubjectsStackParamList,
 } from './navigationTypes';
@@ -48,6 +51,7 @@ const SubjectsNavigator =
   () => {
 
     return (
+
       <Stack.Navigator
         initialRouteName="SubjectsHome"
         screenOptions={{
@@ -111,6 +115,18 @@ const SubjectsNavigator =
           name="MaterialSummary"
           component={
             MaterialSummaryScreen
+          }
+        />
+
+
+        {/* ===============================================
+            AI MATERIAL FLASHCARDS
+        ================================================ */}
+
+        <Stack.Screen
+          name="MaterialFlashcards"
+          component={
+            MaterialFlashcardsScreen
           }
         />
 

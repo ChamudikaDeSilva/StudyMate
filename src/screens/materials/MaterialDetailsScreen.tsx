@@ -156,7 +156,8 @@ const MaterialDetailsScreen = ({
             title="Material not found"
 
             description={
-              screen.error ??
+              screen.error
+              ??
               'The material may have been removed.'
             }
 
@@ -179,7 +180,7 @@ const MaterialDetailsScreen = ({
 
 
   // =========================================================
-  // GENERATE AI SUMMARY
+  // OPEN AI SUMMARY
   // =========================================================
 
   const handleGenerateSummary =
@@ -211,6 +212,86 @@ const MaterialDetailsScreen = ({
 
 
   // =========================================================
+  // OPEN AI FLASHCARDS
+  // =========================================================
+
+  const handleGenerateFlashcards =
+    () => {
+
+      if (
+        screen.busy
+      ) {
+
+        return;
+      }
+
+
+      navigation.navigate(
+        'MaterialFlashcards',
+        {
+          materialId:
+            material.id,
+
+          subjectId,
+
+          subjectName,
+
+          materialTitle:
+            material.title,
+        },
+      );
+    };
+
+
+  // =========================================================
+  // PDF PREVIEW
+  // =========================================================
+
+  const handlePreviewPdf =
+    () => {
+
+      navigation.navigate(
+        'PdfPreview',
+        {
+          materialId:
+            material.id,
+
+          subjectId,
+
+          subjectName,
+
+          title:
+            material.title,
+        },
+      );
+    };
+
+
+  // =========================================================
+  // IMAGE PREVIEW
+  // =========================================================
+
+  const handlePreviewImage =
+    () => {
+
+      navigation.navigate(
+        'ImagePreview',
+        {
+          materialId:
+            material.id,
+
+          subjectId,
+
+          subjectName,
+
+          title:
+            material.title,
+        },
+      );
+    };
+
+
+  // =========================================================
   // UI
   // =========================================================
 
@@ -226,7 +307,6 @@ const MaterialDetailsScreen = ({
         className="
           flex-1
         "
-
         behavior={
           Platform.OS ===
           'ios'
@@ -238,14 +318,11 @@ const MaterialDetailsScreen = ({
           className="
             flex-1
           "
-
           contentContainerStyle={{
             paddingBottom:
               120,
           }}
-
           keyboardShouldPersistTaps="handled"
-
           showsVerticalScrollIndicator={
             false
           }>
@@ -272,7 +349,8 @@ const MaterialDetailsScreen = ({
               }
 
               right={
-                !screen.editing &&
+                !screen.editing
+                &&
                 screen.canEdit
                   ? (
 
@@ -302,6 +380,7 @@ const MaterialDetailsScreen = ({
                       style={({
                         pressed,
                       }) => ({
+
                         opacity:
                           screen.busy
                             ? 0.4
@@ -318,7 +397,6 @@ const MaterialDetailsScreen = ({
                     </Pressable>
 
                   )
-
                   : undefined
               }
             />
@@ -377,6 +455,10 @@ const MaterialDetailsScreen = ({
                 screen.deleteCurrentMaterial
               }
 
+              // ===============================================
+              // AI SUMMARY
+              // ===============================================
+
               onGenerateSummary={
                 handleGenerateSummary
               }
@@ -385,43 +467,33 @@ const MaterialDetailsScreen = ({
                 !screen.canGenerateSummary
               }
 
-              onPreviewPdf={() => {
+              // ===============================================
+              // AI FLASHCARDS
+              // ===============================================
 
-                navigation.navigate(
-                  'PdfPreview',
+              onGenerateFlashcards={
+                handleGenerateFlashcards
+              }
 
-                  {
-                    materialId:
-                      material.id,
+              aiFlashcardsDisabled={
+                !screen.canGenerateSummary
+              }
 
-                    subjectId,
+              // ===============================================
+              // PDF PREVIEW
+              // ===============================================
 
-                    subjectName,
+              onPreviewPdf={
+                handlePreviewPdf
+              }
 
-                    title:
-                      material.title,
-                  },
-                );
-              }}
+              // ===============================================
+              // IMAGE PREVIEW
+              // ===============================================
 
-              onPreviewImage={() => {
-
-                navigation.navigate(
-                  'ImagePreview',
-
-                  {
-                    materialId:
-                      material.id,
-
-                    subjectId,
-
-                    subjectName,
-
-                    title:
-                      material.title,
-                  },
-                );
-              }}
+              onPreviewImage={
+                handlePreviewImage
+              }
             />
 
           </View>

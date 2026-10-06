@@ -43,4 +43,10 @@ MaterialSummary: {
   subjectName: string;
   materialTitle: string;
 };
+MaterialFlashcards: {
+  materialId: string;
+  subjectId: string;
+  subjectName: string;
+  materialTitle: string;
+};
 };
