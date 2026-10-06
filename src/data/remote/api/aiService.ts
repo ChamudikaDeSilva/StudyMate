@@ -9,23 +9,30 @@ import {
 
 
 type MaterialSummaryApiResponse = {
-  material_id: number;
 
-  title: string;
+  material_id:
+    number;
+
+  title:
+    string;
 
   source_type:
     MaterialSummarySourceType;
 
-  provider: string;
+  provider:
+    string;
 
   extracted_character_count:
     number;
 
-  summary: string;
+  summary:
+    string;
 
-  key_points: string[];
+  key_points:
+    string[];
 
-  study_tips: string[];
+  study_tips:
+    string[];
 };
 
 
@@ -41,6 +48,7 @@ const mapMaterialSummary =
   ): MaterialSummary => {
 
     return {
+
       materialId:
         String(
           response.material_id,
@@ -72,7 +80,123 @@ const mapMaterialSummary =
 
 
 // ============================================================
-// GENERATE SUMMARY
+// CHECK WHETHER GET FAILED BECAUSE NO SUMMARY EXISTS
+//
+// We deliberately check the backend message rather than
+// blindly treating every 404/network error as "not generated".
+//
+// This prevents a JWT/network/server problem from causing
+// an unnecessary Gemini request.
+// ============================================================
+
+
+const isMissingSummaryError =
+  (
+    error:
+      unknown,
+  ): boolean => {
+
+    if (
+      !(
+        error
+        instanceof Error
+      )
+    ) {
+
+      return false;
+    }
+
+
+    const message = (
+      error.message
+      .toLowerCase()
+    );
+
+
+    return (
+      message.includes(
+        'no saved summary exists'
+      )
+      ||
+      message.includes(
+        'no saved summary'
+      )
+    );
+  };
+
+
+// ============================================================
+// GET SAVED SUMMARY
+// ============================================================
+
+
+export const getSavedMaterialSummary =
+  async (
+    materialId:
+      string | number,
+  ): Promise<
+    MaterialSummary | null
+  > => {
+
+    try {
+
+      const response =
+        await apiRequest<
+          MaterialSummaryApiResponse
+        >(
+          `/ai/materials/${materialId}/summary`,
+          {
+            method:
+              'GET',
+
+            authenticated:
+              true,
+          },
+        );
+
+
+      return (
+        mapMaterialSummary(
+          response,
+        )
+      );
+
+
+    } catch (
+      error
+    ) {
+
+      // ======================================================
+      // SUMMARY HAS NEVER BEEN GENERATED
+      // ======================================================
+
+      if (
+        isMissingSummaryError(
+          error
+        )
+      ) {
+
+        return null;
+      }
+
+
+      // ======================================================
+      // REAL FAILURE
+      //
+      // Examples:
+      // - JWT expired
+      // - Backend unavailable
+      // - Material missing
+      // - Network error
+      // ======================================================
+
+      throw error;
+    }
+  };
+
+
+// ============================================================
+// GENERATE / REGENERATE SUMMARY
 // ============================================================
 
 
@@ -80,7 +204,9 @@ export const generateMaterialSummary =
   async (
     materialId:
       string | number,
-  ): Promise<MaterialSummary> => {
+  ): Promise<
+    MaterialSummary
+  > => {
 
     const response =
       await apiRequest<
@@ -97,7 +223,9 @@ export const generateMaterialSummary =
       );
 
 
-    return mapMaterialSummary(
-      response,
+    return (
+      mapMaterialSummary(
+        response,
+      )
     );
   };

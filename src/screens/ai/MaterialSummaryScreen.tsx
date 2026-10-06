@@ -49,10 +49,15 @@ const MaterialSummaryScreen = ({
 }: Props) => {
 
   const {
+
     materialId,
+
     subjectId,
+
     subjectName,
+
     materialTitle,
+
   } = route.params;
 
 
@@ -75,7 +80,8 @@ const MaterialSummaryScreen = ({
       () => {
 
         if (
-          navigation.canGoBack()
+          navigation
+            .canGoBack()
         ) {
 
           navigation.goBack();
@@ -87,6 +93,7 @@ const MaterialSummaryScreen = ({
         navigation.replace(
           'MaterialDetails',
           {
+
             materialId,
 
             subjectId,
@@ -117,6 +124,10 @@ const MaterialSummaryScreen = ({
         bg-slate-50
       ">
 
+      {/* =====================================================
+          HEADER
+      ====================================================== */}
+
       <View
         className="
           px-6
@@ -124,6 +135,7 @@ const MaterialSummaryScreen = ({
         ">
 
         <ScreenHeader
+
           title="AI Summary"
 
           subtitle={
@@ -161,11 +173,18 @@ const MaterialSummaryScreen = ({
 
 
       {/* =====================================================
-          LOADING
+          INITIAL LOADING
+
+          This may mean:
+
+          - checking saved summary
+          OR
+          - generating first summary
       ====================================================== */}
 
       {
-        screen.generating &&
+        screen.initializing
+        &&
         !screen.summary
           ? (
 
@@ -182,22 +201,25 @@ const MaterialSummaryScreen = ({
       ====================================================== */}
 
       {
-        !screen.generating &&
-        !screen.summary &&
+        !screen.initializing
+        &&
+        !screen.summary
+        &&
         screen.error
           ? (
 
             <AiSummaryErrorState
+
               error={
                 screen.error
               }
 
               generating={
-                screen.generating
+                screen.busy
               }
 
               onRetry={
-                screen.generateSummary
+                screen.retry
               }
             />
 
@@ -216,6 +238,7 @@ const MaterialSummaryScreen = ({
           ? (
 
             <AiSummaryResult
+
               summary={
                 screen.summary
               }

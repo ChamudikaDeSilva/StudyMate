@@ -9,19 +9,42 @@ import {
 
 import {
   generateMaterialSummary,
+  getSavedMaterialSummary,
 } from '../data/remote/api/aiService';
 
 
 export const useMaterialSummary =
   () => {
 
+    // ========================================================
+    // SUMMARY
+    // ========================================================
+
     const [
       summary,
       setSummary,
     ] = useState<
       MaterialSummary | null
-    >(null);
+    >(
+      null,
+    );
 
+
+    // ========================================================
+    // SAVED SUMMARY LOADING STATE
+    // ========================================================
+
+    const [
+      loading,
+      setLoading,
+    ] = useState(
+      false,
+    );
+
+
+    // ========================================================
+    // GENERATION STATE
+    // ========================================================
 
     const [
       generating,
@@ -31,16 +54,142 @@ export const useMaterialSummary =
     );
 
 
+    // ========================================================
+    // ERROR
+    // ========================================================
+
     const [
       error,
       setError,
     ] = useState<
       string | null
-    >(null);
+    >(
+      null,
+    );
 
 
     // ========================================================
-    // GENERATE
+    // ERROR MESSAGE HELPER
+    // ========================================================
+
+    const resolveErrorMessage =
+      useCallback(
+        (
+          requestError:
+            unknown,
+
+          fallback:
+            string,
+        ): string => {
+
+          if (
+            requestError
+            instanceof Error
+          ) {
+
+            return (
+              requestError.message
+            );
+          }
+
+
+          return fallback;
+        },
+        [],
+      );
+
+
+    // ========================================================
+    // LOAD SAVED SUMMARY
+    // ========================================================
+
+    const loadSaved =
+      useCallback(
+        async (
+          materialId:
+            string | number,
+        ): Promise<
+          MaterialSummary | null
+        > => {
+
+          try {
+
+            setLoading(
+              true,
+            );
+
+
+            setError(
+              null,
+            );
+
+
+            const result =
+              await getSavedMaterialSummary(
+                materialId,
+              );
+
+
+            // =================================================
+            // SAVED SUMMARY FOUND
+            // =================================================
+
+            if (
+              result
+            ) {
+
+              setSummary(
+                result,
+              );
+            }
+
+
+            return result;
+
+
+          } catch (
+            loadError
+          ) {
+
+            console.warn(
+              'Load saved material '
+              + 'summary error:',
+              loadError,
+            );
+
+
+            const message =
+              resolveErrorMessage(
+                loadError,
+
+                'Unable to load '
+                + 'the saved summary.',
+              );
+
+
+            setError(
+              message,
+            );
+
+
+            throw loadError;
+
+
+          } finally {
+
+            setLoading(
+              false,
+            );
+          }
+        },
+        [
+          resolveErrorMessage,
+        ],
+      );
+
+
+    // ========================================================
+    // GENERATE / REGENERATE
     // ========================================================
 
     const generate =
@@ -48,13 +197,16 @@ export const useMaterialSummary =
         async (
           materialId:
             string | number,
-        ) => {
+        ): Promise<
+          MaterialSummary
+        > => {
 
           try {
 
             setGenerating(
               true,
             );
+
 
             setError(
               null,
@@ -74,6 +226,7 @@ export const useMaterialSummary =
 
             return result;
 
+
           } catch (
             generateError
           ) {
@@ -86,16 +239,12 @@ export const useMaterialSummary =
 
 
             const message =
-              generateError
-                instanceof Error
+              resolveErrorMessage(
+                generateError,
 
-                ? generateError
-                    .message
-
-                : (
-                    'Unable to generate '
-                    + 'the material summary.'
-                  );
+                'Unable to generate '
+                + 'the material summary.',
+              );
 
 
             setError(
@@ -105,6 +254,7 @@ export const useMaterialSummary =
 
             throw generateError;
 
+
           } finally {
 
             setGenerating(
@@ -112,7 +262,9 @@ export const useMaterialSummary =
             );
           }
         },
-        [],
+        [
+          resolveErrorMessage,
+        ],
       );
 
 
@@ -128,23 +280,42 @@ export const useMaterialSummary =
             null,
           );
 
+
           setError(
             null,
+          );
+
+
+          setLoading(
+            false,
+          );
+
+
+          setGenerating(
+            false,
           );
         },
         [],
       );
 
 
+    // ========================================================
+    // RETURN
+    // ========================================================
+
     return {
+
+      // Data
       summary,
 
+      // States
+      loading,
       generating,
-
       error,
 
+      // Actions
+      loadSaved,
       generate,
-
       clear,
     };
   };
