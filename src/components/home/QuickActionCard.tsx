@@ -2,7 +2,6 @@ import React from 'react';
 
 import {
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -12,15 +11,15 @@ import {
   LucideIcon,
 } from 'lucide-react-native';
 
-import {colors} from '../../constants/colors';
-import {spacing} from '../../constants/spacing';
-
 interface QuickActionCardProps {
   title: string;
+
   description: string;
+
   icon: LucideIcon;
 
   iconColor: string;
+
   iconBackground: string;
 
   onPress?: () => void;
@@ -42,109 +41,90 @@ const QuickActionCard = ({
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
-      style={({pressed}) => [
-        styles.card,
-        disabled && styles.disabled,
-        pressed && !disabled && styles.pressed,
-      ]}>
+      className={`
+        mb-4
+        min-h-[145px]
+        w-[48%]
+        justify-between
+        rounded-[18px]
+        border
+        border-slate-200
+        bg-white
+        p-4
+
+        ${
+          disabled
+            ? 'opacity-50'
+            : 'active:scale-[0.98] active:opacity-80'
+        }
+      `}>
 
       <View
-        style={[
-          styles.iconContainer,
-          {backgroundColor: iconBackground},
-        ]}>
+        className="
+          h-11
+          w-11
+          items-center
+          justify-center
+          rounded-[13px]
+        "
+        style={{
+          backgroundColor:
+            iconBackground,
+        }}>
+
         <Icon
           size={22}
           color={iconColor}
           strokeWidth={2.2}
         />
+
       </View>
 
-      <View style={styles.bottomRow}>
-        <View style={styles.textContainer}>
-          <Text style={styles.title}>
+      <View
+        className="
+          flex-row
+          items-end
+        ">
+
+        <View
+          className="
+            flex-1
+            pr-1
+          ">
+
+          <Text
+            className="
+              text-base
+              font-bold
+              text-slate-900
+            ">
             {title}
           </Text>
 
           <Text
-            style={styles.description}
+            className="
+              mt-1
+              text-xs
+              leading-[17px]
+              text-slate-500
+            "
             numberOfLines={2}>
             {description}
           </Text>
+
         </View>
 
         {!disabled && (
           <ChevronRight
             size={18}
-            color={colors.textMuted}
+            color="#94A3B8"
           />
         )}
+
       </View>
+
     </Pressable>
   );
 };
-
-const styles = StyleSheet.create({
-  card: {
-    width: '48%',
-
-    minHeight: 145,
-
-    backgroundColor: colors.surface,
-
-    borderRadius: 18,
-
-    padding: spacing.md,
-
-    borderWidth: 1,
-    borderColor: colors.border,
-
-    justifyContent: 'space-between',
-  },
-
-  disabled: {
-    opacity: 0.55,
-  },
-
-  pressed: {
-    opacity: 0.82,
-    transform: [{scale: 0.98}],
-  },
-
-  iconContainer: {
-    width: 44,
-    height: 44,
-
-    borderRadius: 13,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-
-  textContainer: {
-    flex: 1,
-    paddingRight: spacing.xs,
-  },
-
-  title: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-
-  description: {
-    marginTop: spacing.xs,
-
-    fontSize: 12,
-    lineHeight: 17,
-
-    color: colors.textSecondary,
-  },
-});
 
 export default QuickActionCard;

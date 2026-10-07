@@ -1,657 +1,368 @@
-import React, {
-  useMemo,
-  useState,
-} from 'react';
+import React from 'react';
 
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
 import {
   BookOpen,
-  Plus,
-  RefreshCw,
-  Search,
-  Sparkles,
-  X,
 } from 'lucide-react-native';
 
-import AccountMenu from '../../components/home/AccountMenu';
-import SubjectCard from '../../components/subjects/SubjectCard';
+import {
+  NativeStackScreenProps,
+} from '@react-navigation/native-stack';
 
-import {useAuth} from '../../hooks/useAuth';
-import {useSubjects} from '../../hooks/useSubjects';
+import BottomActionBar
+  from '../../components/common/BottomActionBar';
 
-import {subjectStyles as styles} from './styles/subjectStyles';
+import OverviewCard
+  from '../../components/common/OverviewCard';
 
-const subjectPalette = [
-  {
-    background: '#EEF2FF',
-    foreground: '#4F46E5',
-  },
-  {
-    background: '#F3E8FF',
-    foreground: '#7C3AED',
-  },
-  {
-    background: '#E0F2FE',
-    foreground: '#0284C7',
-  },
-  {
-    background: '#DCFCE7',
-    foreground: '#16A34A',
-  },
-  {
-    background: '#FEF3C7',
-    foreground: '#D97706',
-  },
-  {
-    background: '#FFE4E6',
-    foreground: '#E11D48',
-  },
-];
+import ScreenHeader
+  from '../../components/common/ScreenHeader';
 
-const SubjectsScreen = () => {
-  const {user} = useAuth();
+import SearchBar
+  from '../../components/common/SearchBar';
 
-  const {
-    subjects,
-    loading,
-    creating,
-    error,
-    loadSubjects,
-    createSubject,
-  } = useSubjects();
+import AccountMenu
+  from '../../components/home/AccountMenu';
 
-  const [searchText, setSearchText] =
-    useState('');
+import SubjectActionsSheet
+  from '../../components/subjects/SubjectActionsSheet';
 
-  const [
-    addModalVisible,
-    setAddModalVisible,
-  ] = useState(false);
+import SubjectFormModal
+  from '../../components/subjects/SubjectFormModal';
 
-  const [name, setName] =
-    useState('');
+import SubjectsList
+  from '../../components/subjects/SubjectsList';
 
-  const [description, setDescription] =
-    useState('');
+import {
+  SubjectsStackParamList,
+} from '../../navigation/navigationTypes';
 
-  const displayName =
-    user?.displayName?.trim() ||
-    user?.email?.split('@')[0] ||
-    'Student';
+import {
+  useSubjectsScreen,
+} from '../../hooks/useSubjectsScreen';
 
-  const filteredSubjects = useMemo(() => {
-    const query =
-      searchText.trim().toLowerCase();
 
-    if (!query) {
-      return subjects;
-    }
+type Props =
+  NativeStackScreenProps<
+    SubjectsStackParamList,
+    'SubjectsHome'
+  >;
 
-    return subjects.filter(subject => {
-      const nameMatches =
-        subject.name
-          .toLowerCase()
-          .includes(query);
 
-      const descriptionMatches =
-        subject.description
-          ?.toLowerCase()
-          .includes(query) ?? false;
+const SubjectsScreen = ({
+  navigation,
+}: Props) => {
 
-      return (
-        nameMatches ||
-        descriptionMatches
-      );
-    });
-  }, [subjects, searchText]);
+  const screen =
+    useSubjectsScreen();
 
-  const closeAddModal = () => {
-    if (creating) {
-      return;
-    }
-
-    setName('');
-    setDescription('');
-    setAddModalVisible(false);
-  };
-
-  const handleCreateSubject = async () => {
-    const trimmedName = name.trim();
-
-    if (!trimmedName) {
-      Alert.alert(
-        'Subject name required',
-        'Please enter a name for your subject.',
-      );
-
-      return;
-    }
-
-    try {
-      await createSubject(
-        trimmedName,
-        description.trim() || undefined,
-      );
-
-      setName('');
-      setDescription('');
-      setAddModalVisible(false);
-    } catch (createError) {
-      console.error(
-        'Create subject error:',
-        createError,
-      );
-
-      Alert.alert(
-        'Unable to create subject',
-        'Something went wrong while creating the subject. Please try again.',
-      );
-    }
-  };
-
-  /*
-   * The same error state is also used when creating
-   * a subject.
-   *
-   * Therefore we only show the full-page load error
-   * when there are no subjects available.
-   */
-  const showLoadError =
-    !loading &&
-    !!error &&
-    subjects.length === 0;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.screen}>
+    <SafeAreaView
+      className="
+        flex-1
+        bg-slate-50
+      ">
+
+      <View
+        className="
+          flex-1
+        ">
+
+        {/* ===================================================
+            PAGE CONTENT
+        ==================================================== */}
 
         <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
+          className="
+            flex-1
+          "
+
+          showsVerticalScrollIndicator={
+            false
+          }
+
           keyboardShouldPersistTaps="handled">
 
-          {/* =================================================
-              HEADER
-          ================================================== */}
+          <View
+            className="
+              px-6
+              pb-6
+              pt-6
+            ">
 
-          <View style={styles.header}>
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>
-                Subjects
-              </Text>
+            {/* Header */}
 
-              <Text style={styles.headerSubtitle}>
-                Organize everything you're learning.
-              </Text>
-            </View>
+            <ScreenHeader
+              title="Subjects"
 
-            <AccountMenu
-              displayName={displayName}
-            />
-          </View>
+              subtitle="Organize everything you're learning."
 
-          {/* =================================================
-              LIBRARY OVERVIEW
-          ================================================== */}
-
-          <View style={styles.overviewCard}>
-
-            <View style={styles.overviewDecorationOne} />
-            <View style={styles.overviewDecorationTwo} />
-
-            <View style={styles.overviewIcon}>
-              <BookOpen
-                size={23}
-                color="#FFFFFF"
-                strokeWidth={2.1}
-              />
-            </View>
-
-            <View style={styles.overviewContent}>
-              <Text style={styles.overviewLabel}>
-                YOUR LEARNING LIBRARY
-              </Text>
-
-              <Text style={styles.overviewNumber}>
-                {subjects.length}
-              </Text>
-
-              <Text style={styles.overviewDescription}>
-                {subjects.length === 1
-                  ? 'subject ready for your learning materials'
-                  : 'subjects ready for your learning materials'}
-              </Text>
-            </View>
-
-          </View>
-
-          {/* =================================================
-              SEARCH
-          ================================================== */}
-
-          <View style={styles.searchContainer}>
-            <Search
-              size={20}
-              color="#64748B"
-              strokeWidth={2}
-            />
-
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search your subjects..."
-              placeholderTextColor="#94A3B8"
-              value={searchText}
-              onChangeText={setSearchText}
-              returnKeyType="search"
-            />
-
-            {searchText.length > 0 && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Clear search"
-                onPress={() =>
-                  setSearchText('')
-                }
-                hitSlop={10}
-                style={({pressed}) => [
-                  styles.clearSearchButton,
-                  pressed &&
-                    styles.clearSearchPressed,
-                ]}>
-                <X
-                  size={17}
-                  color="#64748B"
-                />
-              </Pressable>
-            )}
-          </View>
-
-          {/* =================================================
-              SECTION HEADING
-          ================================================== */}
-
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              Your subjects
-            </Text>
-
-            {!loading && (
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>
-                  {filteredSubjects.length}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* =================================================
-              LOADING
-          ================================================== */}
-
-          {loading ? (
-            <View style={styles.stateContainer}>
-
-              <View style={styles.loadingIcon}>
-                <ActivityIndicator
-                  size="small"
-                  color="#4F46E5"
-                />
-              </View>
-
-              <Text style={styles.stateTitle}>
-                Loading your subjects
-              </Text>
-
-              <Text style={styles.stateDescription}>
-                Preparing your learning library...
-              </Text>
-
-            </View>
-          ) : showLoadError ? (
-
-            /* ===============================================
-                ERROR
-            ================================================ */
-
-            <View style={styles.stateContainer}>
-
-              <View style={styles.errorIcon}>
-                <RefreshCw
-                  size={26}
-                  color="#DC2626"
-                />
-              </View>
-
-              <Text style={styles.stateTitle}>
-                Couldn't load subjects
-              </Text>
-
-              <Text style={styles.stateDescription}>
-                Check your connection and try again.
-              </Text>
-
-              <Pressable
-                accessibilityRole="button"
-                onPress={loadSubjects}
-                style={({pressed}) => [
-                  styles.retryButton,
-                  pressed &&
-                    styles.buttonPressed,
-                ]}>
-
-                <RefreshCw
-                  size={17}
-                  color="#4F46E5"
-                />
-
-                <Text style={styles.retryButtonText}>
-                  Try again
-                </Text>
-
-              </Pressable>
-
-            </View>
-          ) : filteredSubjects.length === 0 ? (
-
-            /* ===============================================
-                EMPTY / SEARCH STATE
-            ================================================ */
-
-            <View style={styles.emptyState}>
-
-              <View style={styles.emptyIconOuter}>
-                <View style={styles.emptyIconInner}>
-                  {searchText.trim() ? (
-                    <Search
-                      size={30}
-                      color="#4F46E5"
-                    />
-                  ) : (
-                    <BookOpen
-                      size={30}
-                      color="#4F46E5"
-                    />
-                  )}
-                </View>
-              </View>
-
-              <Text style={styles.emptyTitle}>
-                {searchText.trim()
-                  ? 'No subjects found'
-                  : 'Create your first subject'}
-              </Text>
-
-              <Text style={styles.emptyDescription}>
-                {searchText.trim()
-                  ? `We couldn't find anything matching "${searchText.trim()}".`
-                  : 'Subjects help you organize notes, PDFs, images and other learning materials.'}
-              </Text>
-
-              {!searchText.trim() && (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() =>
-                    setAddModalVisible(true)
+              right={
+                <AccountMenu
+                  displayName={
+                    screen.displayName
                   }
-                  style={({pressed}) => [
-                    styles.emptyButton,
-                    pressed &&
-                      styles.buttonPressed,
-                  ]}>
+                />
+              }
+            />
 
-                  <Plus
-                    size={18}
-                    color="#FFFFFF"
-                  />
 
-                  <Text style={styles.emptyButtonText}>
-                    Add subject
+            {/* Overview */}
+
+            <View
+              className="
+                mb-6
+              ">
+
+              <OverviewCard
+                kicker="YOUR LEARNING LIBRARY"
+
+                value={
+                  screen.subjects.length
+                }
+
+                description={
+                  screen.subjects.length ===
+                  1
+                    ? 'subject ready for your learning materials'
+                    : 'subjects ready for your learning materials'
+                }
+
+                icon={
+                  BookOpen
+                }
+              />
+
+            </View>
+
+
+            {/* Search */}
+
+            <View
+              className="
+                mb-8
+              ">
+
+              <SearchBar
+                value={
+                  screen.searchText
+                }
+
+                onChangeText={
+                  screen.setSearchText
+                }
+
+                placeholder="Search your subjects..."
+              />
+
+            </View>
+
+
+            {/* Section heading */}
+
+            <View
+              className="
+                mb-4
+                flex-row
+                items-center
+              ">
+
+              <Text
+                className="
+                  text-lg
+                  font-bold
+                  text-slate-900
+                ">
+
+                Your subjects
+
+              </Text>
+
+
+              {!screen.loading && (
+
+                <View
+                  className="
+                    ml-2
+                    min-w-[28px]
+                    items-center
+                    rounded-full
+                    bg-indigo-50
+                    px-2
+                    py-1
+                  ">
+
+                  <Text
+                    className="
+                      text-xs
+                      font-bold
+                      text-indigo-600
+                    ">
+
+                    {
+                      screen
+                        .filteredSubjects
+                        .length
+                    }
+
                   </Text>
 
-                </Pressable>
+                </View>
+
               )}
 
             </View>
-          ) : (
 
-            /* ===============================================
-                SUBJECT CARDS
-            ================================================ */
 
-            <View>
-              {filteredSubjects.map(
-                (subject, index) => {
+            {/* Subject list */}
 
-                  const accent =
-                    subjectPalette[
-                      index %
-                        subjectPalette.length
-                    ];
+            <SubjectsList
+              subjects={
+                screen.filteredSubjects
+              }
 
-                  return (
-                    <SubjectCard
-                      key={subject.id}
-                      subject={subject}
-                      accent={accent}
-                    />
+              loading={
+                screen.loading
+              }
+
+              showLoadError={
+                screen.showLoadError
+              }
+
+              searchText={
+                screen.searchText
+              }
+
+              onRetry={
+                screen.loadSubjects
+              }
+
+              isSubjectBusy={
+                screen.isSubjectBusy
+              }
+
+              onOptionsPress={
+                screen.openActions
+              }
+
+              onOpenSubject={
+                subject => {
+
+                  navigation.navigate(
+                    'SubjectMaterials',
+
+                    {
+                      subjectId:
+                        subject.id,
+
+                      subjectName:
+                        subject.name,
+                    },
                   );
-                },
-              )}
-            </View>
-          )}
+                }
+              }
+            />
 
-          {/* Bottom breathing room */}
-
-          <View style={styles.bottomSpace} />
+          </View>
 
         </ScrollView>
 
-        {/* =================================================
-            FLOATING ADD BUTTON
-        ================================================== */}
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Add subject"
-          onPress={() =>
-            setAddModalVisible(true)
+        {/* ===================================================
+            PRIMARY ACTION
+        ==================================================== */}
+
+        <BottomActionBar
+          title="Add subject"
+
+          onPress={
+            screen.openCreateSubject
           }
-          style={({pressed}) => [
-            styles.floatingButton,
-            pressed &&
-              styles.floatingButtonPressed,
-          ]}>
-
-          <Plus
-            size={28}
-            color="#FFFFFF"
-            strokeWidth={2.2}
-          />
-
-        </Pressable>
+        />
 
       </View>
 
-      {/* ===================================================
-          ADD SUBJECT MODAL
-      ==================================================== */}
 
-      <Modal
-        transparent
-        animationType="fade"
-        visible={addModalVisible}
-        statusBarTranslucent
-        onRequestClose={closeAddModal}>
+      {/* =====================================================
+          SUBJECT ACTIONS
+      ====================================================== */}
 
-        <KeyboardAvoidingView
-          style={styles.modalKeyboardView}
-          behavior={
-            Platform.OS === 'ios'
-              ? 'padding'
-              : undefined
-          }>
+      <SubjectActionsSheet
+        visible={
+          screen.actionsVisible
+        }
 
-          <Pressable
-            style={styles.modalOverlay}
-            onPress={closeAddModal}>
+        subject={
+          screen.selectedSubject
+        }
 
-            <Pressable
-              style={styles.modalCard}
-              onPress={event =>
-                event.stopPropagation()
-              }>
+        onClose={
+          screen.closeActions
+        }
 
-              {/* Modal icon */}
+        onEdit={
+          screen.openEdit
+        }
 
-              <View style={styles.modalIcon}>
-                <Sparkles
-                  size={24}
-                  color="#4F46E5"
-                  strokeWidth={2}
-                />
-              </View>
+        onDelete={
+          screen.confirmDelete
+        }
+      />
 
-              <Text style={styles.modalTitle}>
-                Create a subject
-              </Text>
 
-              <Text style={styles.modalSubtitle}>
-                Create a learning space for your
-                materials and AI study tools.
-              </Text>
+      {/* =====================================================
+          CREATE / EDIT MODAL
+      ====================================================== */}
 
-              {/* Name */}
+      <SubjectFormModal
+        visible={
+          screen.formVisible
+        }
 
-              <Text style={styles.inputLabel}>
-                Subject name
-              </Text>
+        editing={
+          screen.editingSubject !==
+          null
+        }
 
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g. Operating Systems"
-                placeholderTextColor="#94A3B8"
-                value={name}
-                onChangeText={setName}
-                editable={!creating}
-                autoFocus
-                maxLength={80}
-                returnKeyType="next"
-              />
+        name={
+          screen.name
+        }
 
-              {/* Description */}
+        description={
+          screen.description
+        }
 
-              <Text style={styles.inputLabel}>
-                Description
-                <Text style={styles.optionalText}>
-                  {' '}optional
-                </Text>
-              </Text>
+        submitting={
+          screen.submitting
+        }
 
-              <TextInput
-                style={[
-                  styles.modalInput,
-                  styles.descriptionInput,
-                ]}
-                placeholder="What will you study here?"
-                placeholderTextColor="#94A3B8"
-                value={description}
-                onChangeText={setDescription}
-                editable={!creating}
-                multiline
-                maxLength={200}
-                textAlignVertical="top"
-              />
+        onNameChange={
+          screen.setName
+        }
 
-              <Text style={styles.characterCount}>
-                {description.length}/200
-              </Text>
+        onDescriptionChange={
+          screen.setDescription
+        }
 
-              {/* Actions */}
+        onClose={
+          screen.closeForm
+        }
 
-              <View style={styles.modalActions}>
-
-                <Pressable
-                  disabled={creating}
-                  onPress={closeAddModal}
-                  style={({pressed}) => [
-                    styles.cancelButton,
-                    pressed &&
-                      styles.secondaryPressed,
-                  ]}>
-
-                  <Text style={styles.cancelButtonText}>
-                    Cancel
-                  </Text>
-
-                </Pressable>
-
-                <Pressable
-                  disabled={
-                    creating ||
-                    !name.trim()
-                  }
-                  onPress={handleCreateSubject}
-                  style={({pressed}) => [
-                    styles.createButton,
-
-                    (!name.trim() ||
-                      creating) &&
-                      styles.createButtonDisabled,
-
-                    pressed &&
-                      !creating &&
-                      !!name.trim() &&
-                      styles.buttonPressed,
-                  ]}>
-
-                  {creating ? (
-                    <ActivityIndicator
-                      size="small"
-                      color="#FFFFFF"
-                    />
-                  ) : (
-                    <>
-                      <Plus
-                        size={18}
-                        color="#FFFFFF"
-                      />
-
-                      <Text
-                        style={
-                          styles.createButtonText
-                        }>
-                        Create subject
-                      </Text>
-                    </>
-                  )}
-
-                </Pressable>
-
-              </View>
-
-            </Pressable>
-          </Pressable>
-
-        </KeyboardAvoidingView>
-
-      </Modal>
+        onSave={
+          screen.saveSubject
+        }
+      />
 
     </SafeAreaView>
   );
 };
+
 
 export default SubjectsScreen;

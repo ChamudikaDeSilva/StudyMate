@@ -1,122 +1,179 @@
-import React from 'react';
+import React, {
+  ReactNode,
+} from 'react';
+
 import {
-  ActivityIndicator,
-  Pressable,
+  StyleProp,
   StyleSheet,
-  Text,
+  View,
   ViewStyle,
 } from 'react-native';
 
-import {theme} from '../../theme/theme';
+import ActionButton, {
+  ActionButtonTone,
+  ActionButtonVariant,
+} from './ActionButton';
 
-type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
+
+type ButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'solid'
+  | 'soft'
+  | 'outline'
+  | 'ghost';
+
 
 interface AppButtonProps {
   title: string;
+
   onPress: () => void;
+
   disabled?: boolean;
+
   loading?: boolean;
+
   variant?: ButtonVariant;
-  style?: ViewStyle;
+
+  tone?: ActionButtonTone;
+
+  icon?: ReactNode;
+
+  style?: StyleProp<ViewStyle>;
+
+  className?: string;
 }
+
 
 const AppButton = ({
   title,
   onPress,
+
   disabled = false,
+
   loading = false,
+
   variant = 'primary',
+
+  tone = 'primary',
+
+  icon,
+
   style,
+
+  className = '',
 }: AppButtonProps) => {
-  const isDisabled = disabled || loading;
+
+  let mappedVariant:
+    ActionButtonVariant;
+
+
+  switch (variant) {
+
+    case 'secondary':
+
+      mappedVariant =
+        'soft';
+
+      break;
+
+
+    case 'outline':
+
+      mappedVariant =
+        'outline';
+
+      break;
+
+
+    case 'ghost':
+
+      mappedVariant =
+        'ghost';
+
+      break;
+
+
+    case 'soft':
+
+      mappedVariant =
+        'soft';
+
+      break;
+
+
+    case 'solid':
+
+    case 'primary':
+
+    default:
+
+      mappedVariant =
+        'solid';
+
+      break;
+  }
+
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{
-        disabled: isDisabled,
-        busy: loading,
-      }}
-      onPress={onPress}
-      disabled={isDisabled}
-      style={({pressed}) => [
-        styles.base,
-        styles[variant],
-        pressed && !isDisabled && styles.pressed,
-        isDisabled && styles.disabled,
+
+    <View
+      className={
+        className
+      }
+
+      style={[
+        styles.container,
         style,
       ]}>
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={
-            variant === 'primary'
-              ? theme.colors.textOnPrimary
-              : theme.colors.primary
-          }
-        />
-      ) : (
-        <Text
-          style={[
-            styles.text,
-            variant === 'primary'
-              ? styles.primaryText
-              : styles.secondaryText,
-          ]}>
-          {title}
-        </Text>
-      )}
-    </Pressable>
+
+      <ActionButton
+        title={
+          title
+        }
+
+        onPress={
+          onPress
+        }
+
+        disabled={
+          disabled
+        }
+
+        loading={
+          loading
+        }
+
+        tone={
+          tone
+        }
+
+        variant={
+          mappedVariant
+        }
+
+        icon={
+          icon
+        }
+      />
+
+    </View>
   );
 };
 
-const styles = StyleSheet.create({
-  base: {
-    minHeight: 52,
-    borderRadius: theme.radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.lg,
-  },
 
-  primary: {
-    backgroundColor: theme.colors.primary,
-  },
+const styles =
+  StyleSheet.create({
 
-  secondary: {
-    backgroundColor: theme.colors.primaryLight,
-  },
+    container: {
 
-  outline: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
+      alignSelf:
+        'stretch',
 
-  ghost: {
-    backgroundColor: 'transparent',
-  },
+      minWidth:
+        0,
+    },
+  });
 
-  pressed: {
-    opacity: 0.82,
-  },
-
-  disabled: {
-    opacity: 0.5,
-  },
-
-  text: {
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: theme.typography.fontWeight.semiBold,
-  },
-
-  primaryText: {
-    color: theme.colors.textOnPrimary,
-  },
-
-  secondaryText: {
-    color: theme.colors.primary,
-  },
-});
 
 export default AppButton;

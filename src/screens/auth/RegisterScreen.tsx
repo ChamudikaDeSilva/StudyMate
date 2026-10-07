@@ -1,322 +1,151 @@
 import React, {useState} from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-
+import {Alert, Pressable, Text, View} from 'react-native';
+import {Eye, EyeOff, LockKeyhole, Mail, UserRound} from 'lucide-react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-
 import AppButton from '../../components/common/AppButton';
 import AppInput from '../../components/common/AppInput';
-import {colors} from '../../constants/colors';
-import {spacing} from '../../constants/spacing';
+import AuthScreenLayout from '../../components/auth/AuthScreenLayout';
 import {useAuth} from '../../hooks/useAuth';
 import {AuthStackParamList} from '../../navigation/navigationTypes';
 
-type Props =
-  NativeStackScreenProps<
-    AuthStackParamList,
-    'Register'
-  >;
+type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
 const RegisterScreen = ({navigation}: Props) => {
   const {register} = useAuth();
-
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] =
-    useState('');
-  const [confirmPassword, setConfirmPassword] =
-    useState('');
-
-  const [nameError, setNameError] =
-    useState('');
-  const [emailError, setEmailError] =
-    useState('');
-  const [passwordError, setPasswordError] =
-    useState('');
-  const [
-    confirmPasswordError,
-    setConfirmPasswordError,
-  ] = useState('');
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const validateForm = () => {
-    let isValid = true;
-
-    setNameError('');
-    setEmailError('');
-    setPasswordError('');
-    setConfirmPasswordError('');
-
-    if (!name.trim()) {
-      setNameError('Name is required.');
-      isValid = false;
-    }
-
-    if (!email.trim()) {
-      setEmailError('Email is required.');
-      isValid = false;
-    } else if (
-      !/^\S+@\S+\.\S+$/.test(email.trim())
-    ) {
-      setEmailError(
-        'Enter a valid email address.',
-      );
-      isValid = false;
-    }
-
-    if (!password) {
-      setPasswordError(
-        'Password is required.',
-      );
-      isValid = false;
-    } else if (password.length < 6) {
-      setPasswordError(
-        'Password must contain at least 6 characters.',
-      );
-      isValid = false;
-    }
-
-    if (!confirmPassword) {
-      setConfirmPasswordError(
-        'Please confirm your password.',
-      );
-      isValid = false;
-    } else if (
-      password !== confirmPassword
-    ) {
-      setConfirmPasswordError(
-        'Passwords do not match.',
-      );
-      isValid = false;
-    }
-
-    return isValid;
-  };
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleRegister = async () => {
-    if (!validateForm()) {
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (normalizedName.length < 2) {
+      Alert.alert('Name Required', 'Please enter your name.');
+      return;
+    }
+    if (!normalizedEmail) {
+      Alert.alert('Email Required', 'Please enter your email address.');
+      return;
+    }
+    if (password.length < 8) {
+      Alert.alert('Password Too Short', 'Your password must contain at least 8 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Passwords Do Not Match', 'Please make sure both passwords are the same.');
       return;
     }
 
     try {
-      setLoading(true);
-
-      await register(
-        name,
-        email,
-        password,
-      );
-
-      // No navigation call is needed here.
-      // AuthContext detects the logged-in user
-      // and AppNavigator switches to MainNavigator.
-    } catch (error: unknown) {
-      console.error(
-        'Registration error:',
-        error,
-      );
-
-      let message =
-        'Unable to create your account. Please try again.';
-
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error
-      ) {
-        const firebaseError =
-          error as {code?: string};
-
-        switch (firebaseError.code) {
-          case 'auth/email-already-in-use':
-            message =
-              'An account already exists with this email address.';
-            break;
-
-          case 'auth/invalid-email':
-            message =
-              'The email address is invalid.';
-            break;
-
-          case 'auth/weak-password':
-            message =
-              'Please choose a stronger password.';
-            break;
-
-          case 'auth/network-request-failed':
-            message =
-              'Network error. Check your internet connection and try again.';
-            break;
-        }
-      }
-
+      setSubmitting(true);
+      await register(normalizedName, normalizedEmail, password);
+    } catch (error) {
       Alert.alert(
         'Registration Failed',
-        message,
+        error instanceof Error
+          ? error.message
+          : 'Unable to create your account. Please try again.',
       );
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
+  const passwordToggle = (
+    visible: boolean,
+    setVisible: React.Dispatch<React.SetStateAction<boolean>>,
+  ) => (
+    <Pressable onPress={() => setVisible(current => !current)} hitSlop={10}>
+      {visible ? <EyeOff size={20} color="#64748B" /> : <Eye size={20} color="#64748B" />}
+    </Pressable>
+  );
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={
-          Platform.OS === 'ios'
-            ? 'padding'
-            : undefined
-        }>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <Text style={styles.title}>
-              Create your account
-            </Text>
+    <AuthScreenLayout onBack={() => navigation.goBack()}>
+      <View className="mb-7">
+        <Text className="text-4xl font-bold leading-[44px] text-slate-950">
+          Create your{`\n`}learning space
+        </Text>
+        <Text className="mt-3 text-base leading-6 text-slate-500">
+          Create an account to organize subjects and turn your study materials into smarter
+          learning resources.
+        </Text>
+      </View>
 
-            <Text style={styles.subtitle}>
-              Start building your personal study space.
-            </Text>
-          </View>
+      <View className="rounded-[28px] border border-slate-200 bg-white p-5">
+        <AppInput
+          label="Full Name"
+          value={name}
+          onChangeText={setName}
+          placeholder="Your full name"
+          autoCapitalize="words"
+          autoCorrect={false}
+          editable={!submitting}
+          leftIcon={<UserRound size={19} color="#64748B" />}
+        />
 
-          <View style={styles.card}>
-            <AppInput
-              label="Name"
-              placeholder="Enter your name"
-              value={name}
-              onChangeText={value => {
-                setName(value);
-                setNameError('');
-              }}
-              error={nameError}
-            />
+        <AppInput
+          label="Email Address"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!submitting}
+          leftIcon={<Mail size={19} color="#64748B" />}
+        />
 
-            <AppInput
-              label="Email"
-              placeholder="Enter your email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={value => {
-                setEmail(value);
-                setEmailError('');
-              }}
-              error={emailError}
-            />
+        <AppInput
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Minimum 8 characters"
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!submitting}
+          helperText="Use at least 8 characters."
+          leftIcon={<LockKeyhole size={19} color="#64748B" />}
+          rightAccessory={passwordToggle(showPassword, setShowPassword)}
+        />
 
-            <AppInput
-              label="Password"
-              placeholder="Create a password"
-              secureTextEntry
-              value={password}
-              onChangeText={value => {
-                setPassword(value);
-                setPasswordError('');
-              }}
-              error={passwordError}
-            />
+        <AppInput
+          label="Confirm Password"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          placeholder="Re-enter password"
+          secureTextEntry={!showConfirmPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!submitting}
+          returnKeyType="done"
+          onSubmitEditing={handleRegister}
+          leftIcon={<LockKeyhole size={19} color="#64748B" />}
+          rightAccessory={passwordToggle(showConfirmPassword, setShowConfirmPassword)}
+        />
 
-            <AppInput
-              label="Confirm Password"
-              placeholder="Confirm your password"
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={value => {
-                setConfirmPassword(value);
-                setConfirmPasswordError('');
-              }}
-              error={confirmPasswordError}
-            />
+        <AppButton
+          title="Create Account"
+          onPress={handleRegister}
+          loading={submitting}
+          className="mt-2"
+        />
+      </View>
 
-            <AppButton
-              title={
-                loading
-                  ? 'Creating Account...'
-                  : 'Create Account'
-              }
-              onPress={handleRegister}
-              disabled={loading}
-            />
-
-            <View style={styles.loginRow}>
-              <Text style={styles.loginText}>
-                Already have an account?
-              </Text>
-
-              <Pressable
-                disabled={loading}
-                onPress={() =>
-                  navigation.goBack()
-                }>
-                <Text style={styles.loginLink}>
-                  Sign In
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <View className="mt-7 flex-row items-center justify-center">
+        <Text className="text-sm text-slate-500">Already have an account?</Text>
+        <Pressable className="ml-1.5" disabled={submitting} onPress={() => navigation.goBack()}>
+          <Text className="text-sm font-bold text-indigo-600">Sign in</Text>
+        </Pressable>
+      </View>
+    </AuthScreenLayout>
   );
 };
-
-const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: spacing.lg,
-  },
-  header: {
-    marginBottom: spacing.xl,
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  subtitle: {
-    marginTop: spacing.sm,
-    fontSize: 15,
-    color: colors.textSecondary,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: spacing.lg,
-  },
-  loginRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: spacing.lg,
-  },
-  loginText: {
-    color: colors.textSecondary,
-  },
-  loginLink: {
-    color: colors.primary,
-    fontWeight: '600',
-    marginLeft: spacing.xs,
-  },
-});
 
 export default RegisterScreen;

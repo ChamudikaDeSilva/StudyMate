@@ -1,21 +1,34 @@
 import React from 'react';
+
 import {
-  StyleSheet,
   View,
 } from 'react-native';
 
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {
+  createBottomTabNavigator,
+} from '@react-navigation/bottom-tabs';
+
+import {
+  BookOpen,
+  BrainCircuit,
+  Home,
+  UserRound,
+} from 'lucide-react-native';
 
 import HomeScreen from '../screens/home/HomeScreen';
-import SubjectsScreen from '../screens/subjects/SubjectsScreen';
-
 import QuizScreen from '../screens/quiz/QuizScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 
-import {colors} from '../constants/colors';
-import {MainTabParamList} from './navigationTypes';
+import SubjectsNavigator from './SubjectsNavigator';
 
-const Tab = createBottomTabNavigator<MainTabParamList>();
+import {
+  MainTabParamList,
+} from './navigationTypes';
+
+const Tab =
+  createBottomTabNavigator<
+    MainTabParamList
+  >();
 
 const MainNavigator = () => {
   return (
@@ -23,32 +36,89 @@ const MainNavigator = () => {
       screenOptions={({route}) => ({
         headerShown: false,
 
-        tabBarActiveTintColor: colors.textPrimary,
-        tabBarInactiveTintColor: colors.textMuted,
+        tabBarActiveTintColor:
+          '#4F46E5',
+
+        tabBarInactiveTintColor:
+          '#94A3B8',
 
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '500',
+          fontWeight: '600',
           marginBottom: 4,
         },
 
         tabBarStyle: {
           height: 76,
-          paddingTop: 10,
+          paddingTop: 9,
           paddingBottom: 8,
+
           borderTopWidth: 1,
-          borderTopColor: colors.border,
-          backgroundColor: colors.surface,
+          borderTopColor:
+            '#E2E8F0',
+
+          backgroundColor:
+            '#FFFFFF',
         },
 
-        tabBarIcon: ({focused}) => (
-          <View
-            style={[
-              styles.tabIcon,
-              focused && styles.tabIconActive,
-            ]}
-          />
-        ),
+        tabBarIcon: ({
+          focused,
+          color,
+        }) => {
+          let Icon;
+
+          switch (route.name) {
+            case 'Home':
+              Icon = Home;
+              break;
+
+            case 'Subjects':
+              Icon = BookOpen;
+              break;
+
+            case 'Quiz':
+              Icon =
+                BrainCircuit;
+              break;
+
+            case 'Profile':
+              Icon =
+                UserRound;
+              break;
+
+            default:
+              Icon = Home;
+          }
+
+          return (
+            <View
+              className={`
+                h-8
+                w-8
+                items-center
+                justify-center
+                rounded-lg
+
+                ${
+                  focused
+                    ? 'bg-indigo-50'
+                    : 'bg-transparent'
+                }
+              `}>
+
+              <Icon
+                size={20}
+                color={color}
+                strokeWidth={
+                  focused
+                    ? 2.4
+                    : 2
+                }
+              />
+
+            </View>
+          );
+        },
       })}>
 
       <Tab.Screen
@@ -58,7 +128,9 @@ const MainNavigator = () => {
 
       <Tab.Screen
         name="Subjects"
-        component={SubjectsScreen}
+        component={
+          SubjectsNavigator
+        }
       />
 
       <Tab.Screen
@@ -68,24 +140,13 @@ const MainNavigator = () => {
 
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={
+          ProfileScreen
+        }
       />
 
     </Tab.Navigator>
   );
 };
-
-const styles = StyleSheet.create({
-  tabIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    backgroundColor: colors.border,
-  },
-
-  tabIconActive: {
-    backgroundColor: colors.primary,
-  },
-});
 
 export default MainNavigator;

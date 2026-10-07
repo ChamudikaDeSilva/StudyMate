@@ -1,92 +1,169 @@
 import React from 'react';
+
 import {
   SafeAreaView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
 
 import AccountMenu from '../../components/home/AccountMenu';
 
-import {colors} from '../../constants/colors';
-import {useAuth} from '../../hooks/useAuth';
+import {
+  useAuth,
+} from '../../hooks/useAuth';
+
 
 const ProfileScreen = () => {
-  const {user} = useAuth();
+
+  const {
+    user,
+  } = useAuth();
+
+
+  // =========================================================
+  // Display Name
+  // =========================================================
 
   const displayName =
-    user?.displayName?.trim() ||
-    user?.email?.split('@')[0] ||
+    user?.name?.trim() ||
+    user?.email
+      ?.split('@')[0] ||
     'Student';
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
 
-        <View style={styles.header}>
-          <Text style={styles.title}>
+  const profileInitial =
+    displayName
+      .charAt(0)
+      .toUpperCase() ||
+    'U';
+
+
+  return (
+    <SafeAreaView
+      className="
+        flex-1
+        bg-slate-50
+      ">
+
+      <View
+        className="
+          flex-1
+          px-6
+          pt-6
+        ">
+
+        {/* ===================================================
+            HEADER
+        ==================================================== */}
+
+        <View
+          className="
+            flex-row
+            items-center
+            justify-between
+          ">
+
+          <Text
+            className="
+              text-[26px]
+              font-bold
+              text-slate-900
+            ">
+
             Profile
+
           </Text>
+
 
           <AccountMenu
-            displayName={displayName}
+            displayName={
+              displayName
+            }
           />
+
         </View>
 
-        <Text style={styles.name}>
-          {displayName}
-        </Text>
 
-        {!!user?.email && (
-          <Text style={styles.email}>
-            {user.email}
+        {/* ===================================================
+            PROFILE CARD
+        ==================================================== */}
+
+        <View
+          className="
+            mt-10
+            items-center
+            rounded-3xl
+            border
+            border-slate-200
+            bg-white
+            p-6
+          ">
+
+          {/* Avatar */}
+
+          <View
+            className="
+              h-20
+              w-20
+              items-center
+              justify-center
+              rounded-full
+              bg-indigo-100
+            ">
+
+            <Text
+              className="
+                text-3xl
+                font-bold
+                text-indigo-600
+              ">
+
+              {profileInitial}
+
+            </Text>
+
+          </View>
+
+
+          {/* Name */}
+
+          <Text
+            className="
+              mt-5
+              text-xl
+              font-bold
+              text-slate-900
+            ">
+
+            {displayName}
+
           </Text>
-        )}
+
+
+          {/* Email */}
+
+          {!!user?.email && (
+
+            <Text
+              className="
+                mt-1
+                text-sm
+                text-slate-500
+              ">
+
+              {user.email}
+
+            </Text>
+
+          )}
+
+        </View>
 
       </View>
+
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
-  container: {
-    flex: 1,
-    padding: 24,
-  },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-
-  name: {
-    marginTop: 40,
-
-    fontSize: 20,
-    fontWeight: '700',
-
-    color: colors.textPrimary,
-  },
-
-  email: {
-    marginTop: 6,
-
-    fontSize: 14,
-
-    color: colors.textSecondary,
-  },
-});
 
 export default ProfileScreen;

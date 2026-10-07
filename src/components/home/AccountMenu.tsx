@@ -1,4 +1,5 @@
 import React, {useState} from 'react';
+
 import {
   Alert,
   Pressable,
@@ -6,19 +7,25 @@ import {
 } from 'react-native';
 
 import {useAuth} from '../../hooks/useAuth';
-import {homeStyles as styles} from '../../screens/home/styles/homeStyles';
 
 interface AccountMenuProps {
   displayName: string;
 }
 
-const AccountMenu = ({displayName}: AccountMenuProps) => {
+const AccountMenu = ({
+  displayName,
+}: AccountMenuProps) => {
   const {logout} = useAuth();
 
-  const [loggingOut, setLoggingOut] = useState(false);
+  const [
+    loggingOut,
+    setLoggingOut,
+  ] = useState(false);
 
   const profileInitial =
-    displayName.charAt(0).toUpperCase() || 'U';
+    displayName
+      .charAt(0)
+      .toUpperCase() || 'U';
 
   const handleLogout = () => {
     Alert.alert(
@@ -32,13 +39,17 @@ const AccountMenu = ({displayName}: AccountMenuProps) => {
         {
           text: 'Sign Out',
           style: 'destructive',
+
           onPress: async () => {
             try {
               setLoggingOut(true);
 
               await logout();
             } catch (error) {
-              console.error('Logout error:', error);
+              console.error(
+                'Logout error:',
+                error,
+              );
 
               Alert.alert(
                 'Sign Out Failed',
@@ -62,14 +73,30 @@ const AccountMenu = ({displayName}: AccountMenuProps) => {
       accessibilityLabel="Sign out"
       disabled={loggingOut}
       onPress={handleLogout}
-      style={({pressed}) => [
-        styles.profileButton,
-        pressed && styles.profileButtonPressed,
-        loggingOut && styles.profileButtonDisabled,
-      ]}>
-      <Text style={styles.profileText}>
+      className={`
+        h-[46px]
+        w-[46px]
+        items-center
+        justify-center
+        rounded-full
+        bg-indigo-600
+
+        ${
+          loggingOut
+            ? 'opacity-60'
+            : 'active:scale-95 active:opacity-80'
+        }
+      `}>
+
+      <Text
+        className="
+          text-lg
+          font-bold
+          text-white
+        ">
         {profileInitial}
       </Text>
+
     </Pressable>
   );
 };
