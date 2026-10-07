@@ -20,6 +20,13 @@ import {
 } from '../data/local/storage/offlineCache';
 
 import {
+  createLocalEntityId,
+  enqueueSyncOperation,
+  isLocalEntityId,
+  removeLocalEntityOperations,
+} from '../data/local/sync/pendingSyncQueue';
+
+import {
   useAuth,
 } from './useAuth';
 
@@ -29,7 +36,11 @@ import {
 
 
 export const useSubjects = () => {
-  const {user} = useAuth();
+
+  const {
+    user,
+  } = useAuth();
+
 
   const {
     isOnline,
@@ -37,12 +48,10 @@ export const useSubjects = () => {
   } = useNetwork();
 
 
-  /*
-   * FastAPI repository.
-   *
-   * Do not use the old
-   * Firestore repository.
-   */
+  // =========================================================
+  // REPOSITORY
+  // =========================================================
+
   const repository =
     useMemo(
       () =>
@@ -50,6 +59,10 @@ export const useSubjects = () => {
       [],
     );
 
+
+  // =========================================================
+  // STATE
+  // =========================================================
 
   const [
     subjects,
@@ -100,52 +113,42 @@ export const useSubjects = () => {
 
 
   // =========================================================
-  // Online requirement
-  // =========================================================
-
-  const requireOnline =
-    useCallback(() => {
-      if (
-        networkInitialized &&
-        !isOnline
-      ) {
-        throw new Error(
-          'This action requires an internet connection.',
-        );
-      }
-    }, [
-      networkInitialized,
-      isOnline,
-    ]);
-
-
-  // =========================================================
-  // Load
+  // LOAD SUBJECTS
   // =========================================================
 
   const loadSubjects =
     useCallback(
       async () => {
+
         if (!userId) {
-          setSubjects([]);
-          setLoading(false);
+
+          setSubjects(
+            [],
+          );
+
+          setLoading(
+            false,
+          );
 
           return;
         }
 
 
         try {
-          setLoading(true);
-          setError(null);
+
+          setLoading(
+            true,
+          );
+
+          setError(
+            null,
+          );
 
 
-          /*
-           * Read local data first.
-           *
-           * This allows previously loaded
-           * subjects to remain available
-           * without internet.
-           */
+          // ===================================================
+          // LOCAL CACHE FIRST
+          // ===================================================
+
           const cachedSubjects =
             await getSubjectsCache(
               userId,
@@ -155,31 +158,33 @@ export const useSubjects = () => {
           if (
             cachedSubjects.length > 0
           ) {
+
             setSubjects(
               cachedSubjects,
             );
           }
 
 
-          /*
-           * NetInfo has not determined
-           * connectivity yet.
-           *
-           * The hook will run again when
-           * networkInitialized changes.
-           */
-          if (!networkInitialized) {
+          // ===================================================
+          // NETWORK STATUS NOT READY
+          // ===================================================
+
+          if (
+            !networkInitialized
+          ) {
+
             return;
           }
 
 
-          /*
-           * Offline:
-           *
-           * Do not attempt FastAPI.
-           * Keep/show cached subjects.
-           */
-          if (!isOnline) {
+          // ===================================================
+          // OFFLINE
+          // ===================================================
+
+          if (
+            !isOnline
+          ) {
+
             setSubjects(
               cachedSubjects,
             );
@@ -188,13 +193,12 @@ export const useSubjects = () => {
           }
 
 
-          /*
-           * Online:
-           *
-           * Get fresh data from FastAPI,
-           * then update the local cache.
-           */
+          // ===================================================
+          // ONLINE
+          // ===================================================
+
           try {
+
             const result =
               await repository
                 .getSubjects(
@@ -212,20 +216,20 @@ export const useSubjects = () => {
               result,
             );
 
-          } catch (remoteError) {
+          } catch (
+            remoteError
+          ) {
+
             console.warn(
               'Load subjects API error:',
               remoteError,
             );
 
 
-            /*
-             * If FastAPI is unavailable,
-             * continue using cached data.
-             */
             if (
               cachedSubjects.length > 0
             ) {
+
               setSubjects(
                 cachedSubjects,
               );
@@ -245,7 +249,10 @@ export const useSubjects = () => {
             );
           }
 
-        } catch (loadError) {
+        } catch (
+          loadError
+        ) {
+
           console.warn(
             'Load subjects error:',
             loadError,
@@ -263,7 +270,10 @@ export const useSubjects = () => {
           );
 
         } finally {
-          setLoading(false);
+
+          setLoading(
+            false,
+          );
         }
       },
       [
@@ -275,13 +285,20 @@ export const useSubjects = () => {
     );
 
 
-  useEffect(() => {
-    void loadSubjects();
-  }, [loadSubjects]);
+  useEffect(
+    () => {
+
+      void loadSubjects();
+
+    },
+    [
+      loadSubjects,
+    ],
+  );
 
 
   // =========================================================
-  // Create
+  // CREATE SUBJECT
   // =========================================================
 
   const createSubject =
@@ -292,31 +309,146 @@ export const useSubjects = () => {
       ): Promise<Subject> => {
 
         if (!userId) {
+
           throw new Error(
             'You must be logged in.',
           );
         }
 
 
-        requireOnline();
-
-
         try {
-          setCreating(true);
-          setError(null);
 
+          setCreating(
+            true,
+          );
+
+          setError(
+            null,
+          );
+
+
+          // ===================================================
+          // OFFLINE CREATE
+          // ===================================================
+
+          if (
+            networkInitialized
+            &&
+            !isOnline
+          ) {
+
+            const localId =
+              createLocalEntityId(
+                'subject',
+              );
+
+
+            const now =
+              Date.now();
+
+
+            const localSubject:
+              Subject = {
+
+                id:
+                  localId,
+
+                userId,
+
+                name,
+
+                description,
+
+                createdAt:
+                  now,
+
+                updatedAt:
+                  now,
+
+                syncStatus:
+                  'pending',
+              };
+
+
+            // -----------------------------------------------
+            // Queue first
+            // -----------------------------------------------
+
+            await enqueueSyncOperation(
+              userId,
+              {
+                entity:
+                  'subject',
+
+                action:
+                  'create',
+
+                payload: {
+                  localId,
+
+                  name,
+
+                  description,
+                },
+              },
+            );
+
+
+            // -----------------------------------------------
+            // Update local UI + cache
+            // -----------------------------------------------
+
+            setSubjects(
+              current => {
+
+                const next = [
+                  localSubject,
+                  ...current,
+                ];
+
+
+                void saveSubjectsCache(
+                  userId,
+                  next,
+                );
+
+
+                return next;
+              },
+            );
+
+
+            console.log(
+              '[OFFLINE SUBJECT] Created locally',
+              {
+                localId,
+                name,
+              },
+            );
+
+
+            return localSubject;
+          }
+
+
+          // ===================================================
+          // ONLINE CREATE
+          // ===================================================
 
           const createdSubject =
             await repository
               .createSubject({
                 userId,
+
                 name,
+
                 description,
               });
 
 
           setSubjects(
             current => {
+
               const next = [
                 createdSubject,
                 ...current,
@@ -336,7 +468,10 @@ export const useSubjects = () => {
 
           return createdSubject;
 
-        } catch (createError) {
+        } catch (
+          createError
+        ) {
+
           console.warn(
             'Create subject error:',
             createError,
@@ -360,19 +495,23 @@ export const useSubjects = () => {
           throw createError;
 
         } finally {
-          setCreating(false);
+
+          setCreating(
+            false,
+          );
         }
       },
       [
         repository,
         userId,
-        requireOnline,
+        networkInitialized,
+        isOnline,
       ],
     );
 
 
   // =========================================================
-  // Update
+  // UPDATE SUBJECT
   // =========================================================
 
   const updateSubject =
@@ -384,28 +523,136 @@ export const useSubjects = () => {
       ): Promise<void> => {
 
         if (!userId) {
+
           throw new Error(
             'You must be logged in.',
           );
         }
 
 
-        requireOnline();
-
-
         try {
+
           setUpdatingSubjectId(
             subjectId,
           );
 
-          setError(null);
 
+          setError(
+            null,
+          );
+
+
+          /*
+           * Queue the update when:
+           *
+           * 1. Device is offline
+           *
+           * OR
+           *
+           * 2. Subject still has a temporary
+           *    local ID and has not reached
+           *    FastAPI yet.
+           */
+
+          const shouldQueue =
+            (
+              networkInitialized
+              &&
+              !isOnline
+            )
+            ||
+            isLocalEntityId(
+              subjectId,
+            );
+
+
+          // ===================================================
+          // OFFLINE / LOCAL UPDATE
+          // ===================================================
+
+          if (
+            shouldQueue
+          ) {
+
+            await enqueueSyncOperation(
+              userId,
+              {
+                entity:
+                  'subject',
+
+                action:
+                  'update',
+
+                payload: {
+                  subjectId,
+
+                  name,
+
+                  description,
+                },
+              },
+            );
+
+
+            setSubjects(
+              current => {
+
+                const next:
+                  Subject[] =
+                  current.map(
+                    subject =>
+                      subject.id ===
+                      subjectId
+                        ? {
+                            ...subject,
+
+                            name,
+
+                            description,
+
+                            updatedAt:
+                              Date.now(),
+
+                            syncStatus:
+                              'pending' as const,
+                          }
+                        : subject,
+                  );
+
+
+                void saveSubjectsCache(
+                  userId,
+                  next,
+                );
+
+
+                return next;
+              },
+            );
+
+
+            console.log(
+              '[OFFLINE SUBJECT] Update queued',
+              {
+                subjectId,
+              },
+            );
+
+
+            return;
+          }
+
+
+          // ===================================================
+          // ONLINE UPDATE
+          // ===================================================
 
           await repository
             .updateSubject(
               subjectId,
               {
                 name,
+
                 description,
               },
             );
@@ -413,6 +660,7 @@ export const useSubjects = () => {
 
           setSubjects(
             current => {
+
               const next:
                 Subject[] =
                 current.map(
@@ -446,7 +694,10 @@ export const useSubjects = () => {
             },
           );
 
-        } catch (updateError) {
+        } catch (
+          updateError
+        ) {
+
           console.warn(
             'Update subject error:',
             updateError,
@@ -470,6 +721,7 @@ export const useSubjects = () => {
           throw updateError;
 
         } finally {
+
           setUpdatingSubjectId(
             null,
           );
@@ -478,13 +730,14 @@ export const useSubjects = () => {
       [
         repository,
         userId,
-        requireOnline,
+        networkInitialized,
+        isOnline,
       ],
     );
 
 
   // =========================================================
-  // Delete
+  // DELETE SUBJECT
   // =========================================================
 
   const deleteSubject =
@@ -494,22 +747,161 @@ export const useSubjects = () => {
       ): Promise<void> => {
 
         if (!userId) {
+
           throw new Error(
             'You must be logged in.',
           );
         }
 
 
-        requireOnline();
-
-
         try {
+
           setDeletingSubjectId(
             subjectId,
           );
 
-          setError(null);
 
+          setError(
+            null,
+          );
+
+
+          // ===================================================
+          // LOCAL-ONLY SUBJECT
+          // ===================================================
+          //
+          // Created offline and deleted before
+          // ever reaching FastAPI.
+          //
+          // No server operation is required.
+          //
+
+          if (
+            isLocalEntityId(
+              subjectId,
+            )
+          ) {
+
+            await removeLocalEntityOperations(
+              userId,
+              subjectId,
+            );
+
+
+            setSubjects(
+              current => {
+
+                const next =
+                  current.filter(
+                    subject =>
+                      subject.id !==
+                      subjectId,
+                  );
+
+
+                void saveSubjectsCache(
+                  userId,
+                  next,
+                );
+
+
+                return next;
+              },
+            );
+
+
+            await removeMaterialsCache(
+              userId,
+              subjectId,
+            );
+
+
+            console.log(
+              '[OFFLINE SUBJECT] Local subject removed',
+              {
+                subjectId,
+              },
+            );
+
+
+            return;
+          }
+
+
+          // ===================================================
+          // OFFLINE DELETE
+          // ===================================================
+
+          if (
+            networkInitialized
+            &&
+            !isOnline
+          ) {
+
+            await enqueueSyncOperation(
+              userId,
+              {
+                entity:
+                  'subject',
+
+                action:
+                  'delete',
+
+                payload: {
+                  subjectId,
+                },
+              },
+            );
+
+
+            /*
+             * Remove from the local UI
+             * immediately.
+             */
+
+            setSubjects(
+              current => {
+
+                const next =
+                  current.filter(
+                    subject =>
+                      subject.id !==
+                      subjectId,
+                  );
+
+
+                void saveSubjectsCache(
+                  userId,
+                  next,
+                );
+
+
+                return next;
+              },
+            );
+
+
+            await removeMaterialsCache(
+              userId,
+              subjectId,
+            );
+
+
+            console.log(
+              '[OFFLINE SUBJECT] Delete queued',
+              {
+                subjectId,
+              },
+            );
+
+
+            return;
+          }
+
+
+          // ===================================================
+          // ONLINE DELETE
+          // ===================================================
 
           await repository
             .deleteSubject(
@@ -519,6 +911,7 @@ export const useSubjects = () => {
 
           setSubjects(
             current => {
+
               const next =
                 current.filter(
                   subject =>
@@ -538,17 +931,15 @@ export const useSubjects = () => {
           );
 
 
-          /*
-           * The subject was deleted,
-           * so its local material cache
-           * is no longer required.
-           */
           await removeMaterialsCache(
             userId,
             subjectId,
           );
 
-        } catch (deleteError) {
+        } catch (
+          deleteError
+        ) {
+
           console.warn(
             'Delete subject error:',
             deleteError,
@@ -572,6 +963,7 @@ export const useSubjects = () => {
           throw deleteError;
 
         } finally {
+
           setDeletingSubjectId(
             null,
           );
@@ -580,10 +972,15 @@ export const useSubjects = () => {
       [
         repository,
         userId,
-        requireOnline,
+        networkInitialized,
+        isOnline,
       ],
     );
 
+
+  // =========================================================
+  // RETURN
+  // =========================================================
 
   return {
     subjects,

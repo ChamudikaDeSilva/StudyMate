@@ -17,39 +17,32 @@ import {
 import OfflineStatusBanner
   from './src/components/offline/OfflineStatusBanner';
 
+import OfflineSyncBridge
+  from './src/components/offline/OfflineSyncBridge';
+
 import AppNavigator
   from './src/navigation/AppNavigator';
 
 
 const App = () => {
-
   return (
-
     <NetworkProvider>
 
       <View
-        className="
-          flex-1
-        ">
-
-        {/* ===================================================
-            GLOBAL NETWORK STATUS
-
-            Offline:
-            Amber banner remains visible.
-
-            Reconnected:
-            Green "Back online" banner appears briefly.
-        ==================================================== */}
+        className="flex-1">
 
         <OfflineStatusBanner />
 
 
-        {/* ===================================================
-            APPLICATION
-        ==================================================== */}
-
         <AuthProvider>
+
+          {/*
+           * Watches connectivity and
+           * processes pending offline
+           * operations when online.
+           */}
+          <OfflineSyncBridge />
+
 
           <AppNavigator />
 
