@@ -22,6 +22,9 @@ import AiSummaryActionCard
 import FlashcardsActionCard
   from '../ai/FlashcardsActionCard';
 
+import QuizActionCard
+  from '../ai/QuizActionCard';
+
 import AppButton
   from '../common/AppButton';
 
@@ -133,6 +136,17 @@ interface MaterialDetailsContentProps {
 
 
   // ========================================================
+  // AI QUIZ
+  // ========================================================
+
+  onOpenQuiz:
+    () => void;
+
+  aiQuizDisabled?:
+    boolean;
+
+
+  // ========================================================
   // DELETE
   // ========================================================
 
@@ -166,6 +180,9 @@ const MaterialDetailsContent = ({
 
   onGenerateFlashcards,
   aiFlashcardsDisabled,
+
+  onOpenQuiz,
+  aiQuizDisabled,
 
   onDelete,
 
@@ -448,6 +465,23 @@ const MaterialDetailsContent = ({
 
                   disabled={
                     aiFlashcardsDisabled
+                    ||
+                    busy
+                  }
+                />
+
+
+                {/* ===============================================
+                    AI QUIZ
+                ================================================ */}
+
+                <QuizActionCard
+                  onPress={
+                    onOpenQuiz
+                  }
+
+                  disabled={
+                    aiQuizDisabled
                     ||
                     busy
                   }

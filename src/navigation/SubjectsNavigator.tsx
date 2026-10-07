@@ -36,16 +36,30 @@ import MaterialSummaryScreen
 import MaterialFlashcardsScreen
   from '../screens/ai/MaterialFlashcardsScreen';
 
+import MaterialQuizScreen
+  from '../screens/ai/MaterialQuizScreen';
+
+import MaterialQuizResultScreen
+  from '../screens/ai/MaterialQuizResultScreen';
+
 import {
   SubjectsStackParamList,
 } from './navigationTypes';
 
+
+// ============================================================
+// STACK
+// ============================================================
 
 const Stack =
   createNativeStackNavigator<
     SubjectsStackParamList
   >();
 
+
+// ============================================================
+// SUBJECTS NAVIGATOR
+// ============================================================
 
 const SubjectsNavigator =
   () => {
@@ -54,92 +68,127 @@ const SubjectsNavigator =
 
       <Stack.Navigator
         initialRouteName="SubjectsHome"
+
         screenOptions={{
           headerShown:
             false,
         }}>
 
-        {/* ===============================================
+        {/* ===================================================
             SUBJECTS
-        ================================================ */}
+        ==================================================== */}
 
         <Stack.Screen
           name="SubjectsHome"
+
           component={
             SubjectsScreen
           }
         />
 
 
-        {/* ===============================================
+        {/* ===================================================
             SUBJECT MATERIALS
-        ================================================ */}
+        ==================================================== */}
 
         <Stack.Screen
           name="SubjectMaterials"
+
           component={
             SubjectMaterialsScreen
           }
         />
 
 
-        {/* ===============================================
+        {/* ===================================================
             ADD MATERIAL
-        ================================================ */}
+        ==================================================== */}
 
         <Stack.Screen
           name="AddMaterial"
+
           component={
             AddMaterialScreen
           }
         />
 
 
-        {/* ===============================================
+        {/* ===================================================
             MATERIAL DETAILS
-        ================================================ */}
+        ==================================================== */}
 
         <Stack.Screen
           name="MaterialDetails"
+
           component={
             MaterialDetailsScreen
           }
         />
 
 
-        {/* ===============================================
+        {/* ===================================================
             AI MATERIAL SUMMARY
-        ================================================ */}
+        ==================================================== */}
 
         <Stack.Screen
           name="MaterialSummary"
+
           component={
             MaterialSummaryScreen
           }
         />
 
 
-        {/* ===============================================
+        {/* ===================================================
             AI MATERIAL FLASHCARDS
-        ================================================ */}
+        ==================================================== */}
 
         <Stack.Screen
           name="MaterialFlashcards"
+
           component={
             MaterialFlashcardsScreen
           }
         />
 
 
-        {/* ===============================================
+        {/* ===================================================
+            AI MATERIAL QUIZ
+        ==================================================== */}
+
+        <Stack.Screen
+          name="MaterialQuiz"
+
+          component={
+            MaterialQuizScreen
+          }
+        />
+
+
+        {/* ===================================================
+            AI QUIZ RESULT
+        ==================================================== */}
+
+        <Stack.Screen
+          name="MaterialQuizResult"
+
+          component={
+            MaterialQuizResultScreen
+          }
+        />
+
+
+        {/* ===================================================
             PDF PREVIEW
-        ================================================ */}
+        ==================================================== */}
 
         <Stack.Screen
           name="PdfPreview"
+
           component={
             PdfPreviewScreen
           }
+
           options={({
             navigation,
             route,
@@ -158,6 +207,11 @@ const SubjectsNavigator =
               backgroundColor:
                 '#FFFFFF',
             },
+
+
+            // ===============================================
+            // BACK BUTTON
+            // ===============================================
 
             headerLeft:
               () => (
@@ -184,13 +238,16 @@ const SubjectsNavigator =
                         'MaterialDetails',
                         {
                           materialId:
-                            route.params.materialId,
+                            route.params
+                              .materialId,
 
                           subjectId:
-                            route.params.subjectId,
+                            route.params
+                              .subjectId,
 
                           subjectName:
-                            route.params.subjectName,
+                            route.params
+                              .subjectName,
                         },
                       );
                     }}
@@ -199,13 +256,21 @@ const SubjectsNavigator =
                 </View>
               ),
 
+
+            // ===============================================
+            // HEADER TITLE
+            // ===============================================
+
             headerTitle:
               () => (
 
                 <View>
 
                   <Text
-                    numberOfLines={1}
+                    numberOfLines={
+                      1
+                    }
+
                     className="
                       max-w-[240px]
                       text-base
@@ -213,13 +278,19 @@ const SubjectsNavigator =
                       text-slate-900
                     ">
 
-                    {route.params.title}
+                    {
+                      route.params
+                        .title
+                    }
 
                   </Text>
 
 
                   <Text
-                    numberOfLines={1}
+                    numberOfLines={
+                      1
+                    }
+
                     className="
                       mt-0.5
                       text-xs
@@ -239,15 +310,17 @@ const SubjectsNavigator =
         />
 
 
-        {/* ===============================================
+        {/* ===================================================
             IMAGE PREVIEW
-        ================================================ */}
+        ==================================================== */}
 
         <Stack.Screen
           name="ImagePreview"
+
           component={
             ImagePreviewScreen
           }
+
           options={({
             navigation,
             route,
@@ -266,6 +339,11 @@ const SubjectsNavigator =
               backgroundColor:
                 '#FFFFFF',
             },
+
+
+            // ===============================================
+            // BACK BUTTON
+            // ===============================================
 
             headerLeft:
               () => (
@@ -292,13 +370,16 @@ const SubjectsNavigator =
                         'MaterialDetails',
                         {
                           materialId:
-                            route.params.materialId,
+                            route.params
+                              .materialId,
 
                           subjectId:
-                            route.params.subjectId,
+                            route.params
+                              .subjectId,
 
                           subjectName:
-                            route.params.subjectName,
+                            route.params
+                              .subjectName,
                         },
                       );
                     }}
@@ -307,13 +388,21 @@ const SubjectsNavigator =
                 </View>
               ),
 
+
+            // ===============================================
+            // HEADER TITLE
+            // ===============================================
+
             headerTitle:
               () => (
 
                 <View>
 
                   <Text
-                    numberOfLines={1}
+                    numberOfLines={
+                      1
+                    }
+
                     className="
                       max-w-[240px]
                       text-base
@@ -321,13 +410,19 @@ const SubjectsNavigator =
                       text-slate-900
                     ">
 
-                    {route.params.title}
+                    {
+                      route.params
+                        .title
+                    }
 
                   </Text>
 
 
                   <Text
-                    numberOfLines={1}
+                    numberOfLines={
+                      1
+                    }
+
                     className="
                       mt-0.5
                       text-xs

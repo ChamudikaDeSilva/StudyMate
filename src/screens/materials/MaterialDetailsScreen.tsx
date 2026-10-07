@@ -244,6 +244,38 @@ const MaterialDetailsScreen = ({
 
 
   // =========================================================
+  // OPEN AI QUIZ
+  // =========================================================
+
+  const handleOpenQuiz =
+    () => {
+
+      if (
+        screen.busy
+      ) {
+
+        return;
+      }
+
+
+      navigation.navigate(
+        'MaterialQuiz',
+        {
+          materialId:
+            material.id,
+
+          subjectId,
+
+          subjectName,
+
+          materialTitle:
+            material.title,
+        },
+      );
+    };
+
+
+  // =========================================================
   // PDF PREVIEW
   // =========================================================
 
@@ -307,6 +339,7 @@ const MaterialDetailsScreen = ({
         className="
           flex-1
         "
+
         behavior={
           Platform.OS ===
           'ios'
@@ -318,11 +351,14 @@ const MaterialDetailsScreen = ({
           className="
             flex-1
           "
+
           contentContainerStyle={{
             paddingBottom:
               120,
           }}
+
           keyboardShouldPersistTaps="handled"
+
           showsVerticalScrollIndicator={
             false
           }>
@@ -455,6 +491,7 @@ const MaterialDetailsScreen = ({
                 screen.deleteCurrentMaterial
               }
 
+
               // ===============================================
               // AI SUMMARY
               // ===============================================
@@ -466,6 +503,7 @@ const MaterialDetailsScreen = ({
               aiSummaryDisabled={
                 !screen.canGenerateSummary
               }
+
 
               // ===============================================
               // AI FLASHCARDS
@@ -479,6 +517,20 @@ const MaterialDetailsScreen = ({
                 !screen.canGenerateSummary
               }
 
+
+              // ===============================================
+              // AI QUIZ
+              // ===============================================
+
+              onOpenQuiz={
+                handleOpenQuiz
+              }
+
+              aiQuizDisabled={
+                !screen.canGenerateSummary
+              }
+
+
               // ===============================================
               // PDF PREVIEW
               // ===============================================
@@ -486,6 +538,7 @@ const MaterialDetailsScreen = ({
               onPreviewPdf={
                 handlePreviewPdf
               }
+
 
               // ===============================================
               // IMAGE PREVIEW
