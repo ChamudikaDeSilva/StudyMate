@@ -45,19 +45,57 @@ const MaterialQuizResultScreen = ({
 }: Props) => {
 
   const {
-
     materialId,
-
     subjectId,
-
     subjectName,
-
     materialTitle,
-
     result,
-
   } = route.params;
 
+
+  // =========================================================
+  // BACK TO MATERIAL
+  //
+  // Current stack:
+  //
+  // SubjectMaterials
+  //      ↓
+  // MaterialDetails
+  //      ↓
+  // MaterialQuiz
+  //      ↓
+  // MaterialQuizResult
+  //
+  // We need to remove:
+  //
+  // MaterialQuizResult
+  // MaterialQuiz
+  //
+  // leaving MaterialDetails on top.
+  // =========================================================
+
+  const handleMaterial =
+    useCallback(
+      () => {
+
+        navigation.pop(
+          2,
+        );
+
+      },
+      [
+        navigation,
+      ],
+    );
+
+
+  // =========================================================
+  // GENERATE NEW QUIZ
+  //
+  // Replace result screen with Quiz screen.
+  //
+  // This keeps MaterialDetails underneath it.
+  // =========================================================
 
   const handleNewQuiz =
     useCallback(
@@ -90,30 +128,9 @@ const MaterialQuizResultScreen = ({
     );
 
 
-  const handleMaterial =
-    useCallback(
-      () => {
-
-        navigation.navigate(
-          'MaterialDetails',
-          {
-            materialId,
-
-            subjectId,
-
-            subjectName,
-          },
-        );
-
-      },
-      [
-        navigation,
-        materialId,
-        subjectId,
-        subjectName,
-      ],
-    );
-
+  // =========================================================
+  // UI
+  // =========================================================
 
   return (
 
@@ -122,6 +139,10 @@ const MaterialQuizResultScreen = ({
         flex-1
         bg-slate-50
       ">
+
+      {/* =====================================================
+          HEADER
+      ====================================================== */}
 
       <View
         className="
@@ -144,10 +165,15 @@ const MaterialQuizResultScreen = ({
       </View>
 
 
+      {/* =====================================================
+          CONTENT
+      ====================================================== */}
+
       <ScrollView
         className="
           flex-1
         "
+
         showsVerticalScrollIndicator={
           false
         }>
@@ -158,6 +184,10 @@ const MaterialQuizResultScreen = ({
             pb-10
             pt-4
           ">
+
+          {/* =================================================
+              SCORE
+          ================================================== */}
 
           <QuizScoreCard
             score={
@@ -173,6 +203,10 @@ const MaterialQuizResultScreen = ({
             }
           />
 
+
+          {/* =================================================
+              ANSWER REVIEW
+          ================================================== */}
 
           <Text
             className="
@@ -207,7 +241,13 @@ const MaterialQuizResultScreen = ({
           }
 
 
+          {/* =================================================
+              NEW QUIZ
+          ================================================== */}
+
           <Pressable
+            accessibilityRole="button"
+
             onPress={
               handleNewQuiz
             }
@@ -221,7 +261,17 @@ const MaterialQuizResultScreen = ({
               bg-indigo-600
               px-5
               py-4
-            ">
+            "
+
+            style={({
+              pressed,
+            }) => ({
+
+              opacity:
+                pressed
+                  ? 0.8
+                  : 1,
+            })}>
 
             <RefreshCw
               size={18}
@@ -244,7 +294,13 @@ const MaterialQuizResultScreen = ({
           </Pressable>
 
 
+          {/* =================================================
+              BACK TO MATERIAL
+          ================================================== */}
+
           <Pressable
+            accessibilityRole="button"
+
             onPress={
               handleMaterial
             }
@@ -259,7 +315,17 @@ const MaterialQuizResultScreen = ({
               bg-white
               px-5
               py-4
-            ">
+            "
+
+            style={({
+              pressed,
+            }) => ({
+
+              opacity:
+                pressed
+                  ? 0.75
+                  : 1,
+            })}>
 
             <Text
               className="
