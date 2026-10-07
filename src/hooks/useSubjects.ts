@@ -14,25 +14,34 @@ import {
 } from '../data/repositories/SubjectApiRepositoryImpl';
 
 import {
+  getSubjectsCache,
+  removeMaterialsCache,
+  saveSubjectsCache,
+} from '../data/local/storage/offlineCache';
+
+import {
   useAuth,
 } from './useAuth';
+
+import {
+  useNetwork,
+} from './useNetwork';
 
 
 export const useSubjects = () => {
   const {user} = useAuth();
 
+  const {
+    isOnline,
+    initialized: networkInitialized,
+  } = useNetwork();
+
 
   /*
-   * IMPORTANT:
+   * FastAPI repository.
    *
-   * We are now using FastAPI.
-   *
-   * Do NOT import:
-   *
-   * SubjectRepositoryImpl
-   *
-   * because that is the old
-   * Firestore implementation.
+   * Do not use the old
+   * Firestore repository.
    */
   const repository =
     useMemo(
@@ -91,6 +100,26 @@ export const useSubjects = () => {
 
 
   // =========================================================
+  // Online requirement
+  // =========================================================
+
+  const requireOnline =
+    useCallback(() => {
+      if (
+        networkInitialized &&
+        !isOnline
+      ) {
+        throw new Error(
+          'This action requires an internet connection.',
+        );
+      }
+    }, [
+      networkInitialized,
+      isOnline,
+    ]);
+
+
+  // =========================================================
   // Load
   // =========================================================
 
@@ -110,19 +139,114 @@ export const useSubjects = () => {
           setError(null);
 
 
-          const result =
-            await repository
-              .getSubjects(
-                userId,
+          /*
+           * Read local data first.
+           *
+           * This allows previously loaded
+           * subjects to remain available
+           * without internet.
+           */
+          const cachedSubjects =
+            await getSubjectsCache(
+              userId,
+            );
+
+
+          if (
+            cachedSubjects.length > 0
+          ) {
+            setSubjects(
+              cachedSubjects,
+            );
+          }
+
+
+          /*
+           * NetInfo has not determined
+           * connectivity yet.
+           *
+           * The hook will run again when
+           * networkInitialized changes.
+           */
+          if (!networkInitialized) {
+            return;
+          }
+
+
+          /*
+           * Offline:
+           *
+           * Do not attempt FastAPI.
+           * Keep/show cached subjects.
+           */
+          if (!isOnline) {
+            setSubjects(
+              cachedSubjects,
+            );
+
+            return;
+          }
+
+
+          /*
+           * Online:
+           *
+           * Get fresh data from FastAPI,
+           * then update the local cache.
+           */
+          try {
+            const result =
+              await repository
+                .getSubjects(
+                  userId,
+                );
+
+
+            setSubjects(
+              result,
+            );
+
+
+            await saveSubjectsCache(
+              userId,
+              result,
+            );
+
+          } catch (remoteError) {
+            console.warn(
+              'Load subjects API error:',
+              remoteError,
+            );
+
+
+            /*
+             * If FastAPI is unavailable,
+             * continue using cached data.
+             */
+            if (
+              cachedSubjects.length > 0
+            ) {
+              setSubjects(
+                cachedSubjects,
               );
 
+              return;
+            }
 
-          setSubjects(
-            result,
-          );
+
+            const message =
+              remoteError instanceof Error
+                ? remoteError.message
+                : 'Unable to load subjects.';
+
+
+            setError(
+              message,
+            );
+          }
 
         } catch (loadError) {
-          console.error(
+          console.warn(
             'Load subjects error:',
             loadError,
           );
@@ -145,6 +269,8 @@ export const useSubjects = () => {
       [
         repository,
         userId,
+        networkInitialized,
+        isOnline,
       ],
     );
 
@@ -172,6 +298,9 @@ export const useSubjects = () => {
         }
 
 
+        requireOnline();
+
+
         try {
           setCreating(true);
           setError(null);
@@ -187,17 +316,28 @@ export const useSubjects = () => {
 
 
           setSubjects(
-            current => [
-              createdSubject,
-              ...current,
-            ],
+            current => {
+              const next = [
+                createdSubject,
+                ...current,
+              ];
+
+
+              void saveSubjectsCache(
+                userId,
+                next,
+              );
+
+
+              return next;
+            },
           );
 
 
           return createdSubject;
 
         } catch (createError) {
-          console.error(
+          console.warn(
             'Create subject error:',
             createError,
           );
@@ -216,6 +356,7 @@ export const useSubjects = () => {
             message,
           );
 
+
           throw createError;
 
         } finally {
@@ -225,6 +366,7 @@ export const useSubjects = () => {
       [
         repository,
         userId,
+        requireOnline,
       ],
     );
 
@@ -248,6 +390,9 @@ export const useSubjects = () => {
         }
 
 
+        requireOnline();
+
+
         try {
           setUpdatingSubjectId(
             subjectId,
@@ -267,30 +412,42 @@ export const useSubjects = () => {
 
 
           setSubjects(
-            current =>
-              current.map(
-                subject =>
-                  subject.id ===
-                  subjectId
-                    ? {
-                        ...subject,
+            current => {
+              const next:
+                Subject[] =
+                current.map(
+                  subject =>
+                    subject.id ===
+                    subjectId
+                      ? {
+                          ...subject,
 
-                        name,
+                          name,
 
-                        description,
+                          description,
 
-                        updatedAt:
-                          Date.now(),
+                          updatedAt:
+                            Date.now(),
 
-                        syncStatus:
-                          'synced',
-                      }
-                    : subject,
-              ),
+                          syncStatus:
+                            'synced' as const,
+                        }
+                      : subject,
+                );
+
+
+              void saveSubjectsCache(
+                userId,
+                next,
+              );
+
+
+              return next;
+            },
           );
 
         } catch (updateError) {
-          console.error(
+          console.warn(
             'Update subject error:',
             updateError,
           );
@@ -309,6 +466,7 @@ export const useSubjects = () => {
             message,
           );
 
+
           throw updateError;
 
         } finally {
@@ -320,6 +478,7 @@ export const useSubjects = () => {
       [
         repository,
         userId,
+        requireOnline,
       ],
     );
 
@@ -341,6 +500,9 @@ export const useSubjects = () => {
         }
 
 
+        requireOnline();
+
+
         try {
           setDeletingSubjectId(
             subjectId,
@@ -356,16 +518,38 @@ export const useSubjects = () => {
 
 
           setSubjects(
-            current =>
-              current.filter(
-                subject =>
-                  subject.id !==
-                  subjectId,
-              ),
+            current => {
+              const next =
+                current.filter(
+                  subject =>
+                    subject.id !==
+                    subjectId,
+                );
+
+
+              void saveSubjectsCache(
+                userId,
+                next,
+              );
+
+
+              return next;
+            },
+          );
+
+
+          /*
+           * The subject was deleted,
+           * so its local material cache
+           * is no longer required.
+           */
+          await removeMaterialsCache(
+            userId,
+            subjectId,
           );
 
         } catch (deleteError) {
-          console.error(
+          console.warn(
             'Delete subject error:',
             deleteError,
           );
@@ -384,6 +568,7 @@ export const useSubjects = () => {
             message,
           );
 
+
           throw deleteError;
 
         } finally {
@@ -395,6 +580,7 @@ export const useSubjects = () => {
       [
         repository,
         userId,
+        requireOnline,
       ],
     );
 
