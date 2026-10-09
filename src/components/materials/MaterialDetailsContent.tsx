@@ -207,6 +207,46 @@ const MaterialDetailsContent = ({
 
 
   // =========================================================
+  // IMAGE / CAMERA PREVIEW
+  // =========================================================
+  //
+  // Image and camera files now support permanent local storage.
+  // Therefore preview must NOT be guarded by connectivity.
+  //
+  // ImagePreviewScreen decides:
+  //
+  // local copy exists -> open it
+  // no local copy + online -> download and persist it
+  // no local copy + offline -> show friendly unavailable state
+  // =========================================================
+
+
+  // =========================================================
+  // AI SUMMARY
+  // =========================================================
+  //
+  // Opening the Summary screen is allowed offline.
+  //
+  // The Summary screen decides whether to use local cache,
+  // FastAPI, or online Gemini generation.
+  // =========================================================
+
+
+  // =========================================================
+  // AI FLASHCARDS
+  // =========================================================
+  //
+  // Opening the Flashcards screen is allowed offline now.
+  //
+  // The Flashcards screen decides whether to use local cache,
+  // FastAPI, or online Gemini generation.
+  //
+  // Generate Again remains online-only inside the Flashcards
+  // screen hook.
+  // =========================================================
+
+
+  // =========================================================
   // UI
   // =========================================================
 

@@ -12,13 +12,31 @@ import {
   getSavedMaterialSummary,
 } from '../data/remote/api/aiService';
 
+import {
+  getMaterialSummaryCache,
+  saveMaterialSummaryCache,
+} from '../data/local/storage/aiSummaryCache';
+
+import {
+  useAuth,
+} from './useAuth';
+
 
 export const useMaterialSummary =
   () => {
 
-    // ========================================================
-    // SUMMARY
-    // ========================================================
+    const {
+      user,
+    } = useAuth();
+
+
+    const userId =
+      user
+        ? String(
+            user.id,
+          )
+        : null;
+
 
     const [
       summary,
@@ -30,10 +48,6 @@ export const useMaterialSummary =
     );
 
 
-    // ========================================================
-    // SAVED SUMMARY LOADING STATE
-    // ========================================================
-
     const [
       loading,
       setLoading,
@@ -42,10 +56,6 @@ export const useMaterialSummary =
     );
 
 
-    // ========================================================
-    // GENERATION STATE
-    // ========================================================
-
     const [
       generating,
       setGenerating,
@@ -53,10 +63,6 @@ export const useMaterialSummary =
       false,
     );
 
-
-    // ========================================================
-    // ERROR
-    // ========================================================
 
     const [
       error,
@@ -67,10 +73,6 @@ export const useMaterialSummary =
       null,
     );
 
-
-    // ========================================================
-    // ERROR MESSAGE HELPER
-    // ========================================================
 
     const resolveErrorMessage =
       useCallback(
@@ -99,9 +101,125 @@ export const useMaterialSummary =
       );
 
 
-    // ========================================================
-    // LOAD SAVED SUMMARY
-    // ========================================================
+    const cacheSummary =
+      useCallback(
+        async (
+          result:
+            MaterialSummary,
+        ): Promise<void> => {
+
+          if (
+            !userId
+          ) {
+            return;
+          }
+
+
+          try {
+
+            await saveMaterialSummaryCache(
+              userId,
+              result,
+            );
+
+
+            console.log(
+              '[AI SUMMARY CACHE] Saved',
+              {
+                materialId:
+                  result.materialId,
+              },
+            );
+
+
+          } catch (
+            cacheError
+          ) {
+
+            console.warn(
+              '[AI SUMMARY CACHE] Save failed:',
+              cacheError,
+            );
+          }
+        },
+        [
+          userId,
+        ],
+      );
+
+
+    const loadCached =
+      useCallback(
+        async (
+          materialId:
+            string | number,
+        ): Promise<
+          MaterialSummary | null
+        > => {
+
+          if (
+            !userId
+          ) {
+            return null;
+          }
+
+
+          try {
+
+            const cached =
+              await getMaterialSummaryCache(
+                userId,
+                materialId,
+              );
+
+
+            if (
+              cached
+            ) {
+
+              setSummary(
+                cached,
+              );
+
+
+              setError(
+                null,
+              );
+
+
+              console.log(
+                '[AI SUMMARY CACHE] Loaded',
+                {
+                  materialId:
+                    String(
+                      materialId,
+                    ),
+                },
+              );
+            }
+
+
+            return cached;
+
+
+          } catch (
+            cacheError
+          ) {
+
+            console.warn(
+              '[AI SUMMARY CACHE] Load failed:',
+              cacheError,
+            );
+
+
+            return null;
+          }
+        },
+        [
+          userId,
+        ],
+      );
+
 
     const loadSaved =
       useCallback(
@@ -130,15 +248,16 @@ export const useMaterialSummary =
               );
 
 
-            // =================================================
-            // SAVED SUMMARY FOUND
-            // =================================================
-
             if (
               result
             ) {
 
               setSummary(
+                result,
+              );
+
+
+              await cacheSummary(
                 result,
               );
             }
@@ -183,14 +302,11 @@ export const useMaterialSummary =
           }
         },
         [
+          cacheSummary,
           resolveErrorMessage,
         ],
       );
 
-
-    // ========================================================
-    // GENERATE / REGENERATE
-    // ========================================================
 
     const generate =
       useCallback(
@@ -220,6 +336,11 @@ export const useMaterialSummary =
 
 
             setSummary(
+              result,
+            );
+
+
+            await cacheSummary(
               result,
             );
 
@@ -263,14 +384,23 @@ export const useMaterialSummary =
           }
         },
         [
+          cacheSummary,
           resolveErrorMessage,
         ],
       );
 
 
-    // ========================================================
-    // CLEAR
-    // ========================================================
+    const clearError =
+      useCallback(
+        () => {
+
+          setError(
+            null,
+          );
+        },
+        [],
+      );
+
 
     const clear =
       useCallback(
@@ -299,23 +429,18 @@ export const useMaterialSummary =
       );
 
 
-    // ========================================================
-    // RETURN
-    // ========================================================
-
     return {
 
-      // Data
       summary,
 
-      // States
       loading,
       generating,
       error,
 
-      // Actions
+      loadCached,
       loadSaved,
       generate,
+      clearError,
       clear,
     };
   };

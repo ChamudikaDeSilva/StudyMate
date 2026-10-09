@@ -11,6 +11,10 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 
+import {
+  useOnlineGuard,
+} from '../../hooks/useOnlineGuard';
+
 
 interface Props {
 
@@ -27,17 +31,46 @@ const QuizActionCard = ({
   onPress,
 }: Props) => {
 
+  // =========================================================
+  // ONLINE GUARD
+  // =========================================================
+
+  const {
+    runOnlineAction,
+  } = useOnlineGuard();
+
+
+  // =========================================================
+  // HANDLE PRESS
+  // =========================================================
+
+  const handlePress =
+    () => {
+
+      runOnlineAction(
+        'AI Quiz',
+        onPress,
+      );
+    };
+
+
+  // =========================================================
+  // UI
+  // =========================================================
+
   return (
 
     <Pressable
       accessibilityRole="button"
+
+      accessibilityLabel="Open AI Quiz"
 
       disabled={
         disabled
       }
 
       onPress={
-        onPress
+        handlePress
       }
 
       className="
@@ -63,6 +96,10 @@ const QuizActionCard = ({
               : 1,
       })}>
 
+      {/* =====================================================
+          ICON
+      ====================================================== */}
+
       <View
         className="
           h-12
@@ -80,6 +117,10 @@ const QuizActionCard = ({
 
       </View>
 
+
+      {/* =====================================================
+          TEXT
+      ====================================================== */}
 
       <View
         className="
@@ -113,6 +154,10 @@ const QuizActionCard = ({
 
       </View>
 
+
+      {/* =====================================================
+          ARROW
+      ====================================================== */}
 
       <ChevronRight
         size={20}

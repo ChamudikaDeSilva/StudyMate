@@ -282,6 +282,17 @@ const MaterialDetailsScreen = ({
   const handlePreviewPdf =
     () => {
 
+      if (
+        screen.busy
+        ||
+        material.sourceType !==
+          'pdf'
+      ) {
+
+        return;
+      }
+
+
       navigation.navigate(
         'PdfPreview',
         {
@@ -305,6 +316,22 @@ const MaterialDetailsScreen = ({
 
   const handlePreviewImage =
     () => {
+
+      if (
+        screen.busy
+        ||
+        (
+          material.sourceType !==
+            'image'
+          &&
+          material.sourceType !==
+            'camera'
+        )
+      ) {
+
+        return;
+      }
+
 
       navigation.navigate(
         'ImagePreview',

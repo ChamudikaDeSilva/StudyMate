@@ -1,0 +1,1118 @@
+import {
+  MaterialCreatePayload,
+  MaterialDeletePayload,
+  MaterialUpdatePayload,
+  PendingSyncOperation,
+  SubjectCreatePayload,
+  SubjectDeletePayload,
+  SubjectUpdatePayload,
+  getPendingSyncOperations,
+  markSyncOperationFailed,
+  removeSyncOperation,
+  replaceLocalEntityIdInQueue,
+} from '../../data/local/sync/pendingSyncQueue';
+
+import {
+  getMaterialsCache,
+  getSubjectsCache,
+  removeMaterialsCache,
+  saveMaterialsCache,
+  saveSubjectsCache,
+} from '../../data/local/storage/offlineCache';
+
+import {
+  MaterialApiRepositoryImpl,
+} from '../../data/repositories/MaterialApiRepositoryImpl';
+
+import {
+  SubjectApiRepositoryImpl,
+} from '../../data/repositories/SubjectApiRepositoryImpl';
+
+
+// =========================================================
+// SYNC RESULT
+// =========================================================
+
+export interface OfflineSyncResult {
+
+  processed:
+    number;
+
+  succeeded:
+    number;
+
+  failed:
+    number;
+
+  remaining:
+    number;
+}
+
+
+// =========================================================
+// OFFLINE SYNC SERVICE
+// =========================================================
+
+export class OfflineSyncService {
+
+
+  // =========================================================
+  // REPOSITORIES
+  // =========================================================
+
+  private readonly subjectRepository =
+    new SubjectApiRepositoryImpl();
+
+
+  private readonly materialRepository =
+    new MaterialApiRepositoryImpl();
+
+
+  // =========================================================
+  // SYNC
+  // =========================================================
+
+  async sync(
+    userId:
+      string,
+  ): Promise<OfflineSyncResult> {
+
+    const cleanUserId =
+      String(
+        userId,
+      );
+
+
+    let processed =
+      0;
+
+    let succeeded =
+      0;
+
+    let failed =
+      0;
+
+
+    console.log(
+      '[OFFLINE SYNC] Starting',
+      {
+        userId:
+          cleanUserId,
+      },
+    );
+
+
+    // =======================================================
+    // PROCESS QUEUE
+    // =======================================================
+    //
+    // We intentionally re-read the queue after every
+    // successful operation.
+    //
+    // Example:
+    //
+    // local-subject-123
+    //        ↓
+    // server subject ID = 25
+    //        ↓
+    // later queued Material must receive subjectId = 25
+    //
+    // =======================================================
+
+    while (
+      true
+    ) {
+
+      const operations =
+        await getPendingSyncOperations(
+          cleanUserId,
+        );
+
+
+      // -------------------------------------------------------
+      // Nothing left to sync
+      // -------------------------------------------------------
+
+      if (
+        operations.length ===
+        0
+      ) {
+
+        break;
+      }
+
+
+      const operation =
+        operations[0];
+
+
+      processed +=
+        1;
+
+
+      console.log(
+        '[OFFLINE SYNC] Processing',
+        {
+          operationId:
+            operation.id,
+
+          entity:
+            operation.entity,
+
+          action:
+            operation.action,
+        },
+      );
+
+
+      try {
+
+        // -----------------------------------------------------
+        // Execute operation
+        // -----------------------------------------------------
+
+        await this.processOperation(
+          cleanUserId,
+          operation,
+        );
+
+
+        // -----------------------------------------------------
+        // Remove successful operation
+        // -----------------------------------------------------
+
+        await removeSyncOperation(
+          cleanUserId,
+          operation.id,
+        );
+
+
+        succeeded +=
+          1;
+
+
+        console.log(
+          '[OFFLINE SYNC] Operation succeeded',
+          {
+            operationId:
+              operation.id,
+
+            entity:
+              operation.entity,
+
+            action:
+              operation.action,
+          },
+        );
+
+      } catch (
+        error
+      ) {
+
+        // =====================================================
+        // ERROR NORMALIZATION
+        // =====================================================
+        //
+        // TypeScript treats catch(error) as unknown.
+        //
+        // markSyncOperationFailed()
+        // requires a string.
+        //
+        // =====================================================
+
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : String(
+                error,
+              );
+
+
+        // -----------------------------------------------------
+        // Keep failed operation in queue
+        // -----------------------------------------------------
+
+        await markSyncOperationFailed(
+          cleanUserId,
+          operation.id,
+          errorMessage,
+        );
+
+
+        console.warn(
+          '[OFFLINE SYNC] Operation failed',
+          {
+            operationId:
+              operation.id,
+
+            entity:
+              operation.entity,
+
+            action:
+              operation.action,
+
+            error:
+              errorMessage,
+          },
+        );
+
+
+        failed +=
+          1;
+
+
+        // -----------------------------------------------------
+        // Stop queue processing
+        // -----------------------------------------------------
+        //
+        // We preserve dependency order.
+        //
+        // Example:
+        //
+        // CREATE Subject
+        //      ↓
+        // CREATE Material
+        //
+        // If Subject creation fails, we must not continue
+        // with the Material creation.
+        //
+        // -----------------------------------------------------
+
+        break;
+      }
+    }
+
+
+    // =========================================================
+    // GET REMAINING COUNT
+    // =========================================================
+
+    const remainingOperations =
+      await getPendingSyncOperations(
+        cleanUserId,
+      );
+
+
+    const result:
+      OfflineSyncResult = {
+
+        processed,
+
+        succeeded,
+
+        failed,
+
+        remaining:
+          remainingOperations.length,
+      };
+
+
+    console.log(
+      '[OFFLINE SYNC] Finished',
+      result,
+    );
+
+
+    return result;
+  }
+
+
+  // =========================================================
+  // PROCESS OPERATION
+  // =========================================================
+
+  private async processOperation(
+    userId:
+      string,
+
+    operation:
+      PendingSyncOperation,
+  ): Promise<void> {
+
+
+    // =======================================================
+    // SUBJECT
+    // =======================================================
+
+    if (
+      operation.entity ===
+      'subject'
+    ) {
+
+
+      // -------------------------------------------------------
+      // CREATE SUBJECT
+      // -------------------------------------------------------
+
+      if (
+        operation.action ===
+        'create'
+      ) {
+
+        await this.processSubjectCreate(
+          userId,
+          operation.payload as SubjectCreatePayload,
+        );
+
+
+        return;
+      }
+
+
+      // -------------------------------------------------------
+      // UPDATE SUBJECT
+      // -------------------------------------------------------
+
+      if (
+        operation.action ===
+        'update'
+      ) {
+
+        await this.processSubjectUpdate(
+          userId,
+          operation.payload as SubjectUpdatePayload,
+        );
+
+
+        return;
+      }
+
+
+      // -------------------------------------------------------
+      // DELETE SUBJECT
+      // -------------------------------------------------------
+
+      if (
+        operation.action ===
+        'delete'
+      ) {
+
+        await this.processSubjectDelete(
+          userId,
+          operation.payload as SubjectDeletePayload,
+        );
+
+
+        return;
+      }
+    }
+
+
+    // =======================================================
+    // MATERIAL
+    // =======================================================
+
+    if (
+      operation.entity ===
+      'material'
+    ) {
+
+
+      // -------------------------------------------------------
+      // CREATE MATERIAL
+      // -------------------------------------------------------
+
+      if (
+        operation.action ===
+        'create'
+      ) {
+
+        await this.processMaterialCreate(
+          userId,
+          operation.payload as MaterialCreatePayload,
+        );
+
+
+        return;
+      }
+
+
+      // -------------------------------------------------------
+      // UPDATE MATERIAL
+      // -------------------------------------------------------
+
+      if (
+        operation.action ===
+        'update'
+      ) {
+
+        await this.processMaterialUpdate(
+          userId,
+          operation.payload as MaterialUpdatePayload,
+        );
+
+
+        return;
+      }
+
+
+      // -------------------------------------------------------
+      // DELETE MATERIAL
+      // -------------------------------------------------------
+
+      if (
+        operation.action ===
+        'delete'
+      ) {
+
+        await this.processMaterialDelete(
+          userId,
+          operation.payload as MaterialDeletePayload,
+        );
+
+
+        return;
+      }
+    }
+
+
+    // =======================================================
+    // UNSUPPORTED OPERATION
+    // =======================================================
+
+    throw new Error(
+      `Unsupported sync operation: ${operation.entity}/${operation.action}`,
+    );
+  }
+
+
+  // =========================================================
+  // SUBJECT CREATE
+  // =========================================================
+
+  private async processSubjectCreate(
+    userId:
+      string,
+
+    payload:
+      SubjectCreatePayload,
+  ): Promise<void> {
+
+    const {
+      localId,
+      name,
+      description,
+    } = payload;
+
+
+    // =======================================================
+    // CREATE SUBJECT ON SERVER
+    // =======================================================
+
+    const createdSubject =
+      await this.subjectRepository
+        .createSubject({
+          userId,
+
+          name,
+
+          description,
+        });
+
+
+    const serverId =
+      String(
+        createdSubject.id,
+      );
+
+
+    // =======================================================
+    // UPDATE SUBJECT CACHE
+    // =======================================================
+
+    const cachedSubjects =
+      await getSubjectsCache(
+        userId,
+      );
+
+
+    const localExists =
+      cachedSubjects.some(
+        subject =>
+          String(
+            subject.id,
+          ) ===
+          localId,
+      );
+
+
+    const nextSubjects =
+      localExists
+        ? cachedSubjects.map(
+            subject => {
+
+              if (
+                String(
+                  subject.id,
+                ) !==
+                localId
+              ) {
+
+                return subject;
+              }
+
+
+              return {
+                ...createdSubject,
+
+                syncStatus:
+                  'synced' as const,
+              };
+            },
+          )
+        : [
+            {
+              ...createdSubject,
+
+              syncStatus:
+                'synced' as const,
+            },
+
+            ...cachedSubjects,
+          ];
+
+
+    await saveSubjectsCache(
+      userId,
+      nextSubjects,
+    );
+
+
+    // =======================================================
+    // MIGRATE MATERIAL CACHE
+    // =======================================================
+    //
+    // Materials may have been created offline under:
+    //
+    // local-subject-123
+    //
+    // After Subject sync they must move to:
+    //
+    // real server Subject ID
+    //
+    // =======================================================
+
+    const localMaterials =
+      await getMaterialsCache(
+        userId,
+        localId,
+      );
+
+
+    if (
+      localMaterials.length >
+      0
+    ) {
+
+      const migratedMaterials =
+        localMaterials.map(
+          material => ({
+            ...material,
+
+            subjectId:
+              serverId,
+          }),
+        );
+
+
+      await saveMaterialsCache(
+        userId,
+        serverId,
+        migratedMaterials,
+      );
+    }
+
+
+    // -------------------------------------------------------
+    // Remove old local Subject material cache
+    // -------------------------------------------------------
+
+    await removeMaterialsCache(
+      userId,
+      localId,
+    );
+
+
+    // =======================================================
+    // UPDATE QUEUED REFERENCES
+    // =======================================================
+
+    await replaceLocalEntityIdInQueue(
+      userId,
+      localId,
+      serverId,
+    );
+
+
+    console.log(
+      '[OFFLINE SYNC] Subject created',
+      {
+        localId,
+
+        serverId,
+      },
+    );
+  }
+
+
+  // =========================================================
+  // SUBJECT UPDATE
+  // =========================================================
+
+  private async processSubjectUpdate(
+    userId:
+      string,
+
+    payload:
+      SubjectUpdatePayload,
+  ): Promise<void> {
+
+    const {
+      subjectId,
+      name,
+      description,
+    } = payload;
+
+
+    // =======================================================
+    // UPDATE SERVER
+    // =======================================================
+
+    await this.subjectRepository
+      .updateSubject(
+        subjectId,
+        {
+          name,
+
+          description,
+        },
+      );
+
+
+    // =======================================================
+    // UPDATE LOCAL CACHE
+    // =======================================================
+
+    const cachedSubjects =
+      await getSubjectsCache(
+        userId,
+      );
+
+
+    const nextSubjects =
+      cachedSubjects.map(
+        subject => {
+
+          if (
+            String(
+              subject.id,
+            ) !==
+            subjectId
+          ) {
+
+            return subject;
+          }
+
+
+          return {
+            ...subject,
+
+            name,
+
+            description,
+
+            updatedAt:
+              Date.now(),
+
+            syncStatus:
+              'synced' as const,
+          };
+        },
+      );
+
+
+    await saveSubjectsCache(
+      userId,
+      nextSubjects,
+    );
+
+
+    console.log(
+      '[OFFLINE SYNC] Subject updated',
+      {
+        subjectId,
+      },
+    );
+  }
+
+
+  // =========================================================
+  // SUBJECT DELETE
+  // =========================================================
+
+  private async processSubjectDelete(
+    userId:
+      string,
+
+    payload:
+      SubjectDeletePayload,
+  ): Promise<void> {
+
+    const {
+      subjectId,
+    } = payload;
+
+
+    // =======================================================
+    // DELETE FROM SERVER
+    // =======================================================
+
+    await this.subjectRepository
+      .deleteSubject(
+        subjectId,
+      );
+
+
+    // =======================================================
+    // UPDATE SUBJECT CACHE
+    // =======================================================
+
+    const cachedSubjects =
+      await getSubjectsCache(
+        userId,
+      );
+
+
+    const nextSubjects =
+      cachedSubjects.filter(
+        subject =>
+          String(
+            subject.id,
+          ) !==
+          subjectId,
+      );
+
+
+    await saveSubjectsCache(
+      userId,
+      nextSubjects,
+    );
+
+
+    // =======================================================
+    // REMOVE MATERIAL CACHE
+    // =======================================================
+
+    await removeMaterialsCache(
+      userId,
+      subjectId,
+    );
+
+
+    console.log(
+      '[OFFLINE SYNC] Subject deleted',
+      {
+        subjectId,
+      },
+    );
+  }
+
+
+  // =========================================================
+  // TEXT MATERIAL CREATE
+  // =========================================================
+
+  private async processMaterialCreate(
+    userId:
+      string,
+
+    payload:
+      MaterialCreatePayload,
+  ): Promise<void> {
+
+    const {
+      localId,
+      subjectId,
+      title,
+      content,
+    } = payload;
+
+
+    // =======================================================
+    // CREATE MATERIAL ON SERVER
+    // =======================================================
+
+    const createdMaterial =
+      await this.materialRepository
+        .createMaterial({
+          userId,
+
+          subjectId,
+
+          title,
+
+          sourceType:
+            'text',
+
+          content,
+        });
+
+
+    const serverId =
+      String(
+        createdMaterial.id,
+      );
+
+
+    // =======================================================
+    // UPDATE MATERIAL CACHE
+    // =======================================================
+
+    const cachedMaterials =
+      await getMaterialsCache(
+        userId,
+        subjectId,
+      );
+
+
+    const localExists =
+      cachedMaterials.some(
+        material =>
+          String(
+            material.id,
+          ) ===
+          localId,
+      );
+
+
+    const nextMaterials =
+      localExists
+        ? cachedMaterials.map(
+            material => {
+
+              if (
+                String(
+                  material.id,
+                ) !==
+                localId
+              ) {
+
+                return material;
+              }
+
+
+              return {
+                ...createdMaterial,
+
+                syncStatus:
+                  'synced' as const,
+              };
+            },
+          )
+        : [
+            {
+              ...createdMaterial,
+
+              syncStatus:
+                'synced' as const,
+            },
+
+            ...cachedMaterials,
+          ];
+
+
+    await saveMaterialsCache(
+      userId,
+      subjectId,
+      nextMaterials,
+    );
+
+
+    // =======================================================
+    // UPDATE LATER QUEUE REFERENCES
+    // =======================================================
+
+    await replaceLocalEntityIdInQueue(
+      userId,
+      localId,
+      serverId,
+    );
+
+
+    console.log(
+      '[OFFLINE SYNC] Material created',
+      {
+        localId,
+
+        serverId,
+      },
+    );
+  }
+
+
+  // =========================================================
+  // MATERIAL UPDATE
+  // =========================================================
+
+  private async processMaterialUpdate(
+    userId:
+      string,
+
+    payload:
+      MaterialUpdatePayload,
+  ): Promise<void> {
+
+    const {
+      materialId,
+      subjectId,
+      title,
+      content,
+    } = payload;
+
+
+    // =======================================================
+    // UPDATE SERVER
+    // =======================================================
+
+    await this.materialRepository
+      .updateMaterial(
+        materialId,
+        {
+          title,
+
+          content,
+        },
+      );
+
+
+    // =======================================================
+    // UPDATE LOCAL CACHE
+    // =======================================================
+
+    const cachedMaterials =
+      await getMaterialsCache(
+        userId,
+        subjectId,
+      );
+
+
+    const nextMaterials =
+      cachedMaterials.map(
+        material => {
+
+          if (
+            String(
+              material.id,
+            ) !==
+            materialId
+          ) {
+
+            return material;
+          }
+
+
+          return {
+            ...material,
+
+            title,
+
+            content,
+
+            updatedAt:
+              Date.now(),
+
+            syncStatus:
+              'synced' as const,
+          };
+        },
+      );
+
+
+    await saveMaterialsCache(
+      userId,
+      subjectId,
+      nextMaterials,
+    );
+
+
+    console.log(
+      '[OFFLINE SYNC] Material updated',
+      {
+        materialId,
+      },
+    );
+  }
+
+
+  // =========================================================
+  // MATERIAL DELETE
+  // =========================================================
+
+  private async processMaterialDelete(
+    userId:
+      string,
+
+    payload:
+      MaterialDeletePayload,
+  ): Promise<void> {
+
+    const {
+      materialId,
+      subjectId,
+    } = payload;
+
+
+    // =======================================================
+    // DELETE FROM SERVER
+    // =======================================================
+
+    await this.materialRepository
+      .deleteMaterial(
+        materialId,
+      );
+
+
+    // =======================================================
+    // UPDATE LOCAL CACHE
+    // =======================================================
+
+    const cachedMaterials =
+      await getMaterialsCache(
+        userId,
+        subjectId,
+      );
+
+
+    const nextMaterials =
+      cachedMaterials.filter(
+        material =>
+          String(
+            material.id,
+          ) !==
+          materialId,
+      );
+
+
+    await saveMaterialsCache(
+      userId,
+      subjectId,
+      nextMaterials,
+    );
+
+
+    console.log(
+      '[OFFLINE SYNC] Material deleted',
+      {
+        materialId,
+      },
+    );
+  }
+}
+
+
+// =========================================================
+// SINGLETON
+// =========================================================
+
+export const offlineSyncService =
+  new OfflineSyncService();

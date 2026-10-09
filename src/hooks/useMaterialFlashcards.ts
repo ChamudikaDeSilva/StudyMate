@@ -12,13 +12,31 @@ import {
   getSavedMaterialFlashcards,
 } from '../data/remote/api/flashcardService';
 
+import {
+  getMaterialFlashcardsCache,
+  saveMaterialFlashcardsCache,
+} from '../data/local/storage/flashcardCache';
+
+import {
+  useAuth,
+} from './useAuth';
+
 
 export const useMaterialFlashcards =
   () => {
 
-    // ========================================================
-    // DECK
-    // ========================================================
+    const {
+      user,
+    } = useAuth();
+
+
+    const userId =
+      user
+        ? String(
+            user.id,
+          )
+        : null;
+
 
     const [
       deck,
@@ -30,10 +48,6 @@ export const useMaterialFlashcards =
     );
 
 
-    // ========================================================
-    // LOAD STATE
-    // ========================================================
-
     const [
       loading,
       setLoading,
@@ -42,10 +56,6 @@ export const useMaterialFlashcards =
     );
 
 
-    // ========================================================
-    // GENERATE STATE
-    // ========================================================
-
     const [
       generating,
       setGenerating,
@@ -53,10 +63,6 @@ export const useMaterialFlashcards =
       false,
     );
 
-
-    // ========================================================
-    // ERROR
-    // ========================================================
 
     const [
       error,
@@ -67,10 +73,6 @@ export const useMaterialFlashcards =
       null,
     );
 
-
-    // ========================================================
-    // ERROR MESSAGE
-    // ========================================================
 
     const resolveErrorMessage =
       useCallback(
@@ -100,7 +102,147 @@ export const useMaterialFlashcards =
 
 
     // ========================================================
-    // LOAD SAVED DECK
+    // CACHE DECK SAFELY
+    // ========================================================
+    //
+    // A successful FastAPI request must remain successful even
+    // if AsyncStorage fails.
+    // ========================================================
+
+    const cacheDeck =
+      useCallback(
+        async (
+          materialId:
+            string | number,
+
+          result:
+            MaterialFlashcards,
+        ): Promise<void> => {
+
+          if (
+            !userId
+          ) {
+
+            return;
+          }
+
+
+          try {
+
+            await saveMaterialFlashcardsCache(
+              userId,
+              materialId,
+              result,
+            );
+
+
+            console.log(
+              '[FLASHCARDS CACHE] Saved',
+              {
+                materialId:
+                  String(
+                    materialId,
+                  ),
+              },
+            );
+
+
+          } catch (
+            cacheError
+          ) {
+
+            console.warn(
+              '[FLASHCARDS CACHE] Save failed:',
+              cacheError,
+            );
+          }
+        },
+        [
+          userId,
+        ],
+      );
+
+
+    // ========================================================
+    // LOAD CACHED DECK
+    // ========================================================
+
+    const loadCached =
+      useCallback(
+        async (
+          materialId:
+            string | number,
+        ): Promise<
+          MaterialFlashcards | null
+        > => {
+
+          if (
+            !userId
+          ) {
+
+            return null;
+          }
+
+
+          try {
+
+            const cached =
+              await getMaterialFlashcardsCache(
+                userId,
+                materialId,
+              );
+
+
+            if (
+              cached
+            ) {
+
+              setDeck(
+                cached,
+              );
+
+
+              setError(
+                null,
+              );
+
+
+              console.log(
+                '[FLASHCARDS CACHE] Loaded',
+                {
+                  materialId:
+                    String(
+                      materialId,
+                    ),
+                },
+              );
+            }
+
+
+            return cached;
+
+
+          } catch (
+            cacheError
+          ) {
+
+            console.warn(
+              '[FLASHCARDS CACHE] Load failed:',
+              cacheError,
+            );
+
+
+            return null;
+          }
+        },
+        [
+          userId,
+        ],
+      );
+
+
+    // ========================================================
+    // LOAD SAVED DECK FROM FASTAPI
     // ========================================================
 
     const loadSaved =
@@ -135,6 +277,12 @@ export const useMaterialFlashcards =
             ) {
 
               setDeck(
+                result,
+              );
+
+
+              await cacheDeck(
+                materialId,
                 result,
               );
             }
@@ -178,6 +326,7 @@ export const useMaterialFlashcards =
           }
         },
         [
+          cacheDeck,
           resolveErrorMessage,
         ],
       );
@@ -223,6 +372,12 @@ export const useMaterialFlashcards =
             );
 
 
+            await cacheDeck(
+              materialId,
+              result,
+            );
+
+
             return result;
 
 
@@ -261,14 +416,23 @@ export const useMaterialFlashcards =
           }
         },
         [
+          cacheDeck,
           resolveErrorMessage,
         ],
       );
 
 
-    // ========================================================
-    // CLEAR
-    // ========================================================
+    const clearError =
+      useCallback(
+        () => {
+
+          setError(
+            null,
+          );
+        },
+        [],
+      );
+
 
     const clear =
       useCallback(
@@ -278,13 +442,16 @@ export const useMaterialFlashcards =
             null,
           );
 
+
           setError(
             null,
           );
 
+
           setLoading(
             false,
           );
+
 
           setGenerating(
             false,
@@ -304,9 +471,13 @@ export const useMaterialFlashcards =
 
       error,
 
+      loadCached,
+
       loadSaved,
 
       generate,
+
+      clearError,
 
       clear,
     };

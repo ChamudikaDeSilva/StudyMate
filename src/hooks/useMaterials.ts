@@ -19,6 +19,13 @@ import {
 } from '../data/local/storage/offlineCache';
 
 import {
+  createLocalEntityId,
+  enqueueSyncOperation,
+  isLocalEntityId,
+  removeLocalEntityOperations,
+} from '../data/local/sync/pendingSyncQueue';
+
+import {
   useAuth,
 } from './useAuth';
 
@@ -26,17 +33,29 @@ import {
   useNetwork,
 } from './useNetwork';
 
+import {
+  offlineFileStorageService,
+} from '../services/offline/OfflineFileStorageService';
+
 
 export const useMaterials = (
   subjectId: string,
 ) => {
-  const {user} = useAuth();
+
+  const {
+    user,
+  } = useAuth();
+
 
   const {
     isOnline,
     initialized: networkInitialized,
   } = useNetwork();
 
+
+  // =========================================================
+  // REPOSITORY
+  // =========================================================
 
   const repository =
     useMemo(
@@ -45,6 +64,10 @@ export const useMaterials = (
       [],
     );
 
+
+  // =========================================================
+  // STATE
+  // =========================================================
 
   const [
     materials,
@@ -95,19 +118,31 @@ export const useMaterials = (
 
 
   // =========================================================
-  // Online requirement
+  // ONLINE-ONLY CHECK
   // =========================================================
+  //
+  // Used only for:
+  //
+  // Image upload
+  // Camera upload
+  //
+  // Text and PDF materials are allowed offline.
+  //
 
   const requireOnline =
     useCallback(() => {
+
       if (
-        networkInitialized &&
+        networkInitialized
+        &&
         !isOnline
       ) {
+
         throw new Error(
           'This action requires an internet connection.',
         );
       }
+
     }, [
       networkInitialized,
       isOnline,
@@ -115,33 +150,42 @@ export const useMaterials = (
 
 
   // =========================================================
-  // Load materials
+  // LOAD MATERIALS
   // =========================================================
 
   const loadMaterials =
     useCallback(
       async () => {
+
         if (!userId) {
-          setMaterials([]);
-          setLoading(false);
+
+          setMaterials(
+            [],
+          );
+
+          setLoading(
+            false,
+          );
 
           return;
         }
 
 
         try {
-          setLoading(true);
-          setError(null);
+
+          setLoading(
+            true,
+          );
+
+          setError(
+            null,
+          );
 
 
-          /*
-           * Load local materials first.
-           *
-           * Text material content is part
-           * of the Material object, so
-           * text content is also available
-           * offline.
-           */
+          // ===================================================
+          // CACHE FIRST
+          // ===================================================
+
           const cachedMaterials =
             await getMaterialsCache(
               userId,
@@ -152,27 +196,33 @@ export const useMaterials = (
           if (
             cachedMaterials.length > 0
           ) {
+
             setMaterials(
               cachedMaterials,
             );
           }
 
 
-          /*
-           * Wait until NetInfo knows
-           * the connection state.
-           */
-          if (!networkInitialized) {
+          // ===================================================
+          // NETWORK NOT READY
+          // ===================================================
+
+          if (
+            !networkInitialized
+          ) {
+
             return;
           }
 
 
-          /*
-           * Offline:
-           *
-           * Keep cached materials.
-           */
-          if (!isOnline) {
+          // ===================================================
+          // OFFLINE
+          // ===================================================
+
+          if (
+            !isOnline
+          ) {
+
             setMaterials(
               cachedMaterials,
             );
@@ -181,13 +231,38 @@ export const useMaterials = (
           }
 
 
-          /*
-           * Online:
-           *
-           * Refresh from FastAPI and
-           * replace the local cache.
-           */
+          // ===================================================
+          // LOCAL SUBJECT
+          // ===================================================
+          //
+          // A Subject created offline does not
+          // exist in FastAPI yet.
+          //
+          // Therefore we must not request:
+          //
+          // /subjects/local-subject-.../materials
+          //
+
+          if (
+            isLocalEntityId(
+              subjectId,
+            )
+          ) {
+
+            setMaterials(
+              cachedMaterials,
+            );
+
+            return;
+          }
+
+
+          // ===================================================
+          // ONLINE
+          // ===================================================
+
           try {
+
             const result =
               await repository
                 .getMaterials(
@@ -207,21 +282,20 @@ export const useMaterials = (
               result,
             );
 
-          } catch (remoteError) {
+          } catch (
+            remoteError
+          ) {
+
             console.warn(
               'Load materials API error:',
               remoteError,
             );
 
 
-            /*
-             * FastAPI may be temporarily
-             * unavailable even when the
-             * phone has network access.
-             */
             if (
               cachedMaterials.length > 0
             ) {
+
               setMaterials(
                 cachedMaterials,
               );
@@ -237,7 +311,10 @@ export const useMaterials = (
             );
           }
 
-        } catch (loadError) {
+        } catch (
+          loadError
+        ) {
+
           console.warn(
             'Load materials error:',
             loadError,
@@ -251,7 +328,10 @@ export const useMaterials = (
           );
 
         } finally {
-          setLoading(false);
+
+          setLoading(
+            false,
+          );
         }
       },
       [
@@ -264,40 +344,89 @@ export const useMaterials = (
     );
 
 
-  useEffect(() => {
-    void loadMaterials();
-  }, [loadMaterials]);
+  useEffect(
+    () => {
+
+      void loadMaterials();
+
+    },
+    [
+      loadMaterials,
+    ],
+  );
 
 
   // =========================================================
-  // Add material to state + cache
+  // ADD MATERIAL TO STATE + CACHE
   // =========================================================
 
   const addMaterialToState =
     useCallback(
-      (
+      async (
         material: Material,
-      ) => {
+      ): Promise<void> => {
+
+        if (!userId) {
+          return;
+        }
+
+
+        /*
+         * Read the shared cache first.
+         *
+         * This is important because
+         * AddMaterialScreen and
+         * SubjectMaterialsScreen each
+         * have their own useMaterials()
+         * instance.
+         */
+        const cachedMaterials =
+          await getMaterialsCache(
+            userId,
+            subjectId,
+          );
+
+
+        /*
+         * Prevent accidental duplicate
+         * entries if this material already
+         * exists in the cache.
+         */
+        const withoutExisting =
+          cachedMaterials.filter(
+            item =>
+              item.id !==
+              material.id,
+          );
+
+
+        const next = [
+          material,
+          ...withoutExisting,
+        ];
+
+
+        /*
+         * IMPORTANT:
+         *
+         * Await the cache write before
+         * returning.
+         *
+         * AddMaterialScreen calls
+         * navigation.goBack() only after
+         * createTextMaterial() completes,
+         * so the Materials screen will now
+         * read the newly saved material.
+         */
+        await saveMaterialsCache(
+          userId,
+          subjectId,
+          next,
+        );
+
 
         setMaterials(
-          current => {
-            const next = [
-              material,
-              ...current,
-            ];
-
-
-            if (userId) {
-              void saveMaterialsCache(
-                userId,
-                subjectId,
-                next,
-              );
-            }
-
-
-            return next;
-          },
+          next,
         );
       },
       [
@@ -306,9 +435,8 @@ export const useMaterials = (
       ],
     );
 
-
   // =========================================================
-  // Create text
+  // CREATE TEXT MATERIAL
   // =========================================================
 
   const createTextMaterial =
@@ -316,42 +444,177 @@ export const useMaterials = (
       async (
         title: string,
         content: string,
-      ) => {
+      ): Promise<Material> => {
 
         if (!userId) {
+
           throw new Error(
             'You must be logged in.',
           );
         }
 
 
-        requireOnline();
-
-
         try {
-          setCreating(true);
-          setError(null);
 
+          setCreating(
+            true,
+          );
+
+          setError(
+            null,
+          );
+
+
+          /*
+           * Queue when:
+           *
+           * Device is offline
+           *
+           * OR
+           *
+           * parent Subject was itself
+           * created offline and still has
+           * a temporary local ID.
+           */
+
+          const shouldQueue =
+            (
+              networkInitialized
+              &&
+              !isOnline
+            )
+            ||
+            isLocalEntityId(
+              subjectId,
+            );
+
+
+          // ===================================================
+          // OFFLINE CREATE
+          // ===================================================
+
+          if (
+            shouldQueue
+          ) {
+
+            const localId =
+              createLocalEntityId(
+                'material',
+              );
+
+
+            const now =
+              Date.now();
+
+
+            const localMaterial:
+              Material = {
+
+                id:
+                  localId,
+
+                userId,
+
+                subjectId,
+
+                title,
+
+                sourceType:
+                  'text',
+
+                content,
+
+                createdAt:
+                  now,
+
+                updatedAt:
+                  now,
+
+                syncStatus:
+                  'pending',
+              };
+
+
+            // -----------------------------------------------
+            // Queue
+            // -----------------------------------------------
+
+            await enqueueSyncOperation(
+              userId,
+              {
+                entity:
+                  'material',
+
+                action:
+                  'create',
+
+                payload: {
+                  localId,
+
+                  subjectId,
+
+                  title,
+
+                  content,
+                },
+              },
+            );
+
+
+            // -----------------------------------------------
+            // Local state + cache
+            // -----------------------------------------------
+
+            await addMaterialToState(
+              localMaterial,
+            );
+
+
+            console.log(
+              '[OFFLINE MATERIAL] Created locally',
+              {
+                localId,
+                subjectId,
+                title,
+              },
+            );
+
+
+            return localMaterial;
+          }
+
+
+          // ===================================================
+          // ONLINE CREATE
+          // ===================================================
 
           const material =
             await repository
               .createMaterial({
                 userId,
+
                 subjectId,
+
                 title,
-                sourceType: 'text',
+
+                sourceType:
+                  'text',
+
                 content,
               });
 
 
-          addMaterialToState(
+          await addMaterialToState(
             material,
           );
 
 
           return material;
 
-        } catch (createError) {
+        } catch (
+          createError
+        ) {
+
           console.warn(
             'Create text material error:',
             createError,
@@ -368,7 +631,10 @@ export const useMaterials = (
           throw createError;
 
         } finally {
-          setCreating(false);
+
+          setCreating(
+            false,
+          );
         }
       },
       [
@@ -376,27 +642,34 @@ export const useMaterials = (
         subjectId,
         userId,
         addMaterialToState,
-        requireOnline,
+        networkInitialized,
+        isOnline,
       ],
     );
 
 
   // =========================================================
-  // Backward-compatible create alias
+  // BACKWARD-COMPATIBLE CREATE
   // =========================================================
 
   const createMaterial =
     useCallback(
       async (
         title: string,
-        sourceType: 'text',
+
+        sourceType:
+          'text',
+
         content?: string,
       ) => {
 
         if (
-          sourceType !== 'text' ||
+          sourceType !==
+            'text'
+          ||
           !content
         ) {
+
           throw new Error(
             'This createMaterial() compatibility method supports text only.',
           );
@@ -415,8 +688,19 @@ export const useMaterials = (
 
 
   // =========================================================
-  // Create PDF
+  // CREATE PDF
   // =========================================================
+  //
+  // Supports both:
+  //
+  // Online:
+  //   upload immediately to FastAPI
+  //
+  // Offline / local Subject:
+  //   persist PDF locally
+  //   create pending Material
+  //   queue upload for reconnect
+  //
 
   const createPdfMaterial =
     useCallback(
@@ -425,43 +709,265 @@ export const useMaterials = (
         fileUri: string,
         fileName: string,
         mimeType: string,
-      ) => {
+      ): Promise<Material> => {
 
         if (!userId) {
+
           throw new Error(
             'You must be logged in.',
           );
         }
 
 
-        requireOnline();
-
-
         try {
-          setCreating(true);
-          setError(null);
 
+          setCreating(
+            true,
+          );
+
+
+          setError(
+            null,
+          );
+
+
+          const shouldQueue =
+            (
+              networkInitialized
+              &&
+              !isOnline
+            )
+            ||
+            isLocalEntityId(
+              subjectId,
+            );
+
+
+          // ===================================================
+          // OFFLINE CREATE
+          // ===================================================
+
+          if (
+            shouldQueue
+          ) {
+
+            const localId =
+              createLocalEntityId(
+                'material',
+              );
+
+
+            const now =
+              Date.now();
+
+
+            // -------------------------------------------------
+            // Copy the selected PDF into permanent app storage
+            // -------------------------------------------------
+
+            const persistedFile =
+              await offlineFileStorageService
+                .persistFile({
+                  userId,
+
+                  subjectId,
+
+                  materialId:
+                    localId,
+
+                  sourceUri:
+                    fileUri,
+
+                  fileName,
+
+                  sourceType:
+                    'pdf',
+                });
+
+
+            try {
+
+              // -----------------------------------------------
+              // Queue server upload
+              // -----------------------------------------------
+
+              await enqueueSyncOperation(
+                userId,
+                {
+                  entity:
+                    'material',
+
+                  action:
+                    'create',
+
+                  payload: {
+                    localId,
+
+                    subjectId,
+
+                    title,
+
+                    sourceType:
+                      'pdf',
+
+                    localFilePath:
+                      persistedFile.localPath,
+
+                    fileName,
+
+                    mimeType,
+                  },
+                },
+              );
+
+            } catch (
+              queueError
+            ) {
+
+              /*
+               * If queue creation fails, remove the persistent
+               * copy so we do not leave an orphan file behind.
+               */
+
+              try {
+
+                await offlineFileStorageService
+                  .deleteFile(
+                    persistedFile.localPath,
+                  );
+
+              } catch (
+                cleanupError
+              ) {
+
+                console.warn(
+                  '[OFFLINE PDF] Cleanup after queue failure failed:',
+                  cleanupError,
+                );
+              }
+
+
+              throw queueError;
+            }
+
+
+            const localMaterial:
+              Material = {
+
+                id:
+                  localId,
+
+                userId,
+
+                subjectId,
+
+                title,
+
+                sourceType:
+                  'pdf',
+
+                fileName,
+
+                createdAt:
+                  now,
+
+                updatedAt:
+                  now,
+
+                syncStatus:
+                  'pending',
+              };
+
+
+            await addMaterialToState(
+              localMaterial,
+            );
+
+
+            console.log(
+              '[OFFLINE PDF] Created locally',
+              {
+                localId,
+                subjectId,
+                localFilePath:
+                  persistedFile.localPath,
+              },
+            );
+
+
+            return localMaterial;
+          }
+
+
+          // ===================================================
+          // ONLINE CREATE
+          // ===================================================
 
           const material =
             await repository
               .createPdfMaterial({
                 userId,
+
                 subjectId,
+
                 title,
+
                 fileUri,
+
                 fileName,
+
                 mimeType,
               });
 
 
-          addMaterialToState(
+          /*
+           * Keep an offline copy immediately after a successful
+           * online upload. If this local persistence fails, the
+           * server Material is still valid, so we only warn.
+           */
+
+          try {
+
+            await offlineFileStorageService
+              .persistFile({
+                userId,
+
+                subjectId,
+
+                materialId:
+                  material.id,
+
+                sourceUri:
+                  fileUri,
+
+                fileName,
+
+                sourceType:
+                  'pdf',
+              });
+
+          } catch (
+            persistError
+          ) {
+
+            console.warn(
+              '[PDF MATERIAL] Uploaded successfully, but offline copy could not be saved:',
+              persistError,
+            );
+          }
+
+
+          await addMaterialToState(
             material,
           );
 
 
           return material;
 
-        } catch (createError) {
+        } catch (
+          createError
+        ) {
+
           console.warn(
             'Create PDF material error:',
             createError,
@@ -478,7 +984,10 @@ export const useMaterials = (
           throw createError;
 
         } finally {
-          setCreating(false);
+
+          setCreating(
+            false,
+          );
         }
       },
       [
@@ -486,14 +995,31 @@ export const useMaterials = (
         subjectId,
         userId,
         addMaterialToState,
-        requireOnline,
+        networkInitialized,
+        isOnline,
       ],
     );
 
 
   // =========================================================
-  // Create image
+  // CREATE IMAGE / CAMERA
   // =========================================================
+  //
+  // Gallery images and camera photos use the same existing
+  // FastAPI image upload endpoint.
+  //
+  // Online:
+  //   upload immediately
+  //
+  // Offline / local Subject:
+  //   persist locally
+  //   create pending Material
+  //   queue upload for reconnect
+  //
+  // NOTE:
+  // The current backend stores camera captures as sourceType
+  // "image" as well. We preserve that existing behavior here.
+  //
 
   const createImageMaterial =
     useCallback(
@@ -502,43 +1028,265 @@ export const useMaterials = (
         fileUri: string,
         fileName: string,
         mimeType: string,
-      ) => {
+      ): Promise<Material> => {
 
         if (!userId) {
+
           throw new Error(
             'You must be logged in.',
           );
         }
 
 
-        requireOnline();
-
-
         try {
-          setCreating(true);
-          setError(null);
 
+          setCreating(
+            true,
+          );
+
+
+          setError(
+            null,
+          );
+
+
+          const shouldQueue =
+            (
+              networkInitialized
+              &&
+              !isOnline
+            )
+            ||
+            isLocalEntityId(
+              subjectId,
+            );
+
+
+          // ===================================================
+          // OFFLINE CREATE
+          // ===================================================
+
+          if (
+            shouldQueue
+          ) {
+
+            const localId =
+              createLocalEntityId(
+                'material',
+              );
+
+
+            const now =
+              Date.now();
+
+
+            // -------------------------------------------------
+            // Persist image/camera photo in permanent app storage
+            // -------------------------------------------------
+
+            const persistedFile =
+              await offlineFileStorageService
+                .persistFile({
+                  userId,
+
+                  subjectId,
+
+                  materialId:
+                    localId,
+
+                  sourceUri:
+                    fileUri,
+
+                  fileName,
+
+                  sourceType:
+                    'image',
+                });
+
+
+            try {
+
+              // -----------------------------------------------
+              // Queue server upload
+              // -----------------------------------------------
+
+              await enqueueSyncOperation(
+                userId,
+                {
+                  entity:
+                    'material',
+
+                  action:
+                    'create',
+
+                  payload: {
+                    localId,
+
+                    subjectId,
+
+                    title,
+
+                    sourceType:
+                      'image',
+
+                    localFilePath:
+                      persistedFile.localPath,
+
+                    fileName,
+
+                    mimeType,
+                  },
+                },
+              );
+
+            } catch (
+              queueError
+            ) {
+
+              /*
+               * If queue creation fails, remove the persisted
+               * file so we do not leave an orphan behind.
+               */
+
+              try {
+
+                await offlineFileStorageService
+                  .deleteFile(
+                    persistedFile.localPath,
+                  );
+
+              } catch (
+                cleanupError
+              ) {
+
+                console.warn(
+                  '[OFFLINE IMAGE] Cleanup after queue failure failed:',
+                  cleanupError,
+                );
+              }
+
+
+              throw queueError;
+            }
+
+
+            const localMaterial:
+              Material = {
+
+                id:
+                  localId,
+
+                userId,
+
+                subjectId,
+
+                title,
+
+                sourceType:
+                  'image',
+
+                fileName,
+
+                createdAt:
+                  now,
+
+                updatedAt:
+                  now,
+
+                syncStatus:
+                  'pending',
+              };
+
+
+            await addMaterialToState(
+              localMaterial,
+            );
+
+
+            console.log(
+              '[OFFLINE IMAGE] Created locally',
+              {
+                localId,
+                subjectId,
+                localFilePath:
+                  persistedFile.localPath,
+              },
+            );
+
+
+            return localMaterial;
+          }
+
+
+          // ===================================================
+          // ONLINE CREATE
+          // ===================================================
 
           const material =
             await repository
               .createImageMaterial({
                 userId,
+
                 subjectId,
+
                 title,
+
                 fileUri,
+
                 fileName,
+
                 mimeType,
               });
 
 
-          addMaterialToState(
+          /*
+           * Keep an offline copy immediately after successful
+           * online upload. Failure to persist the offline copy
+           * must not invalidate the successful server upload.
+           */
+
+          try {
+
+            await offlineFileStorageService
+              .persistFile({
+                userId,
+
+                subjectId,
+
+                materialId:
+                  material.id,
+
+                sourceUri:
+                  fileUri,
+
+                fileName,
+
+                sourceType:
+                  'image',
+              });
+
+          } catch (
+            persistError
+          ) {
+
+            console.warn(
+              '[IMAGE MATERIAL] Uploaded successfully, but offline copy could not be saved:',
+              persistError,
+            );
+          }
+
+
+          await addMaterialToState(
             material,
           );
 
 
           return material;
 
-        } catch (createError) {
+        } catch (
+          createError
+        ) {
+
           console.warn(
             'Create image material error:',
             createError,
@@ -555,7 +1303,10 @@ export const useMaterials = (
           throw createError;
 
         } finally {
-          setCreating(false);
+
+          setCreating(
+            false,
+          );
         }
       },
       [
@@ -563,13 +1314,14 @@ export const useMaterials = (
         subjectId,
         userId,
         addMaterialToState,
-        requireOnline,
+        networkInitialized,
+        isOnline,
       ],
     );
 
 
   // =========================================================
-  // Update text
+  // UPDATE TEXT MATERIAL
   // =========================================================
 
   const updateTextMaterial =
@@ -581,42 +1333,153 @@ export const useMaterials = (
       ) => {
 
         if (!userId) {
+
           throw new Error(
             'You must be logged in.',
           );
         }
 
 
-        requireOnline();
-
-
         try {
+
           setUpdatingMaterialId(
             materialId,
           );
 
-          setError(null);
 
+          setError(
+            null,
+          );
+
+
+          /*
+           * Queue when:
+           *
+           * Offline
+           *
+           * OR material still has local ID
+           *
+           * OR parent Subject still has local ID
+           */
+
+          const shouldQueue =
+            (
+              networkInitialized
+              &&
+              !isOnline
+            )
+            ||
+            isLocalEntityId(
+              materialId,
+            )
+            ||
+            isLocalEntityId(
+              subjectId,
+            );
+
+
+          // ===================================================
+          // OFFLINE UPDATE
+          // ===================================================
+
+          if (
+            shouldQueue
+          ) {
+
+            await enqueueSyncOperation(
+              userId,
+              {
+                entity:
+                  'material',
+
+                action:
+                  'update',
+
+                payload: {
+                  materialId,
+
+                  subjectId,
+
+                  title,
+
+                  content,
+                },
+              },
+            );
+
+
+            setMaterials(
+              current => {
+
+                const next:
+                  Material[] =
+                  current.map(
+                    material =>
+                      material.id ===
+                      materialId
+                        ? {
+                            ...material,
+
+                            title,
+
+                            content,
+
+                            updatedAt:
+                              Date.now(),
+
+                            syncStatus:
+                              'pending' as const,
+                          }
+                        : material,
+                  );
+
+
+                void saveMaterialsCache(
+                  userId,
+                  subjectId,
+                  next,
+                );
+
+
+                return next;
+              },
+            );
+
+
+            console.log(
+              '[OFFLINE MATERIAL] Update queued',
+              {
+                materialId,
+                subjectId,
+              },
+            );
+
+
+            return;
+          }
+
+
+          // ===================================================
+          // ONLINE UPDATE
+          // ===================================================
 
           await repository
             .updateMaterial(
               materialId,
               {
                 title,
+
                 content,
               },
             );
 
 
-          /*
-           * Refresh server version.
-           *
-           * loadMaterials() also updates
-           * the local cache.
-           */
           await loadMaterials();
 
-        } catch (updateError) {
+        } catch (
+          updateError
+        ) {
+
           console.warn(
             'Update text material error:',
             updateError,
@@ -633,6 +1496,7 @@ export const useMaterials = (
           throw updateError;
 
         } finally {
+
           setUpdatingMaterialId(
             null,
           );
@@ -641,14 +1505,16 @@ export const useMaterials = (
       [
         repository,
         userId,
-        requireOnline,
+        subjectId,
+        networkInitialized,
+        isOnline,
         loadMaterials,
       ],
     );
 
 
   // =========================================================
-  // Backward-compatible update alias
+  // BACKWARD-COMPATIBLE UPDATE
   // =========================================================
 
   const updateMaterial =
@@ -659,7 +1525,10 @@ export const useMaterials = (
         content?: string,
       ) => {
 
-        if (!content) {
+        if (
+          !content
+        ) {
+
           throw new Error(
             'Text material content is required.',
           );
@@ -679,8 +1548,11 @@ export const useMaterials = (
 
 
   // =========================================================
-  // Update image title
+  // UPDATE IMAGE TITLE
   // =========================================================
+  //
+  // Still online-only.
+  //
 
   const updateImageTitle =
     useCallback(
@@ -690,6 +1562,7 @@ export const useMaterials = (
       ) => {
 
         if (!userId) {
+
           throw new Error(
             'You must be logged in.',
           );
@@ -699,12 +1572,32 @@ export const useMaterials = (
         requireOnline();
 
 
+        if (
+          isLocalEntityId(
+            materialId,
+          )
+          ||
+          isLocalEntityId(
+            subjectId,
+          )
+        ) {
+
+          throw new Error(
+            'Please reconnect before updating this image.',
+          );
+        }
+
+
         try {
+
           setUpdatingMaterialId(
             materialId,
           );
 
-          setError(null);
+
+          setError(
+            null,
+          );
 
 
           await repository
@@ -716,7 +1609,10 @@ export const useMaterials = (
 
           await loadMaterials();
 
-        } catch (updateError) {
+        } catch (
+          updateError
+        ) {
+
           console.warn(
             'Update image title error:',
             updateError,
@@ -733,6 +1629,7 @@ export const useMaterials = (
           throw updateError;
 
         } finally {
+
           setUpdatingMaterialId(
             null,
           );
@@ -741,6 +1638,7 @@ export const useMaterials = (
       [
         repository,
         userId,
+        subjectId,
         requireOnline,
         loadMaterials,
       ],
@@ -748,7 +1646,7 @@ export const useMaterials = (
 
 
   // =========================================================
-  // Delete
+  // DELETE MATERIAL
   // =========================================================
 
   const deleteMaterial =
@@ -758,22 +1656,147 @@ export const useMaterials = (
       ) => {
 
         if (!userId) {
+
           throw new Error(
             'You must be logged in.',
           );
         }
 
 
-        requireOnline();
-
-
         try {
+
           setDeletingMaterialId(
             materialId,
           );
 
-          setError(null);
 
+          setError(
+            null,
+          );
+
+
+          // ===================================================
+          // LOCAL-ONLY MATERIAL
+          // ===================================================
+          //
+          // Created offline and deleted
+          // before ever reaching FastAPI.
+          //
+
+          if (
+            isLocalEntityId(
+              materialId,
+            )
+          ) {
+
+            await removeLocalEntityOperations(
+              userId,
+              materialId,
+            );
+
+
+            setMaterials(
+              current => {
+
+                const next =
+                  current.filter(
+                    material =>
+                      material.id !==
+                      materialId,
+                  );
+
+
+                void saveMaterialsCache(
+                  userId,
+                  subjectId,
+                  next,
+                );
+
+
+                return next;
+              },
+            );
+
+
+            console.log(
+              '[OFFLINE MATERIAL] Local material removed',
+              {
+                materialId,
+              },
+            );
+
+
+            return;
+          }
+
+
+          // ===================================================
+          // OFFLINE DELETE
+          // ===================================================
+
+          if (
+            networkInitialized
+            &&
+            !isOnline
+          ) {
+
+            await enqueueSyncOperation(
+              userId,
+              {
+                entity:
+                  'material',
+
+                action:
+                  'delete',
+
+                payload: {
+                  materialId,
+
+                  subjectId,
+                },
+              },
+            );
+
+
+            setMaterials(
+              current => {
+
+                const next =
+                  current.filter(
+                    material =>
+                      material.id !==
+                      materialId,
+                  );
+
+
+                void saveMaterialsCache(
+                  userId,
+                  subjectId,
+                  next,
+                );
+
+
+                return next;
+              },
+            );
+
+
+            console.log(
+              '[OFFLINE MATERIAL] Delete queued',
+              {
+                materialId,
+                subjectId,
+              },
+            );
+
+
+            return;
+          }
+
+
+          // ===================================================
+          // ONLINE DELETE
+          // ===================================================
 
           await repository
             .deleteMaterial(
@@ -783,10 +1806,11 @@ export const useMaterials = (
 
           setMaterials(
             current => {
+
               const next =
                 current.filter(
-                  item =>
-                    item.id !==
+                  material =>
+                    material.id !==
                     materialId,
                 );
 
@@ -802,7 +1826,10 @@ export const useMaterials = (
             },
           );
 
-        } catch (deleteError) {
+        } catch (
+          deleteError
+        ) {
+
           console.warn(
             'Delete material error:',
             deleteError,
@@ -819,6 +1846,7 @@ export const useMaterials = (
           throw deleteError;
 
         } finally {
+
           setDeletingMaterialId(
             null,
           );
@@ -828,10 +1856,15 @@ export const useMaterials = (
         repository,
         userId,
         subjectId,
-        requireOnline,
+        networkInitialized,
+        isOnline,
       ],
     );
 
+
+  // =========================================================
+  // RETURN
+  // =========================================================
 
   return {
     materials,

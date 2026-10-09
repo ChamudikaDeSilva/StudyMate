@@ -9,6 +9,14 @@ import {
   useMaterialSummary,
 } from './useMaterialSummary';
 
+import {
+  useNetwork,
+} from './useNetwork';
+
+import {
+  useOnlineGuard,
+} from './useOnlineGuard';
+
 
 interface UseMaterialSummaryScreenParams {
 
@@ -31,26 +39,42 @@ export const useMaterialSummaryScreen = ({
 
     error,
 
+    loadCached,
+
     loadSaved,
 
     generate,
+
+    clearError,
 
     clear,
 
   } = useMaterialSummary();
 
 
-  // =========================================================
-  // INITIAL SCREEN STATE
-  //
-  // Remains true while:
-  //
-  // GET saved summary
-  //      ↓
-  // possibly POST new summary
-  //
-  // This prevents UI flicker between the two operations.
-  // =========================================================
+  const {
+    isOnline,
+
+    initialized:
+      networkInitialized,
+
+  } = useNetwork();
+
+
+  const {
+    runOnlineAction,
+  } = useOnlineGuard();
+
+
+  const [
+    screenError,
+    setScreenError,
+  ] = useState<
+    string | null
+  >(
+    null,
+  );
+
 
   const [
     initializing,
@@ -59,13 +83,6 @@ export const useMaterialSummaryScreen = ({
     true,
   );
 
-
-  // =========================================================
-  // INITIAL REQUEST GUARD
-  //
-  // Protects against duplicate calls caused by React
-  // development behavior / re-renders.
-  // =========================================================
 
   const initialRequestStarted =
     useRef(
@@ -76,45 +93,89 @@ export const useMaterialSummaryScreen = ({
   // =========================================================
   // GENERATE / REGENERATE
   // =========================================================
+  //
+  // Opening a cached Summary is allowed offline.
+  //
+  // Gemini generation remains online-only.
+  // =========================================================
 
   const generateSummary =
     useCallback(
-      async () => {
+      () => {
 
-        try {
+        runOnlineAction(
+          'AI Summary',
+          async () => {
 
-          await generate(
-            materialId,
-          );
+            setScreenError(
+              null,
+            );
 
 
-        } catch {
+            clearError();
 
-          /*
-           * useMaterialSummary already stores
-           * the correct error state.
-           */
-        }
+
+            try {
+
+              await generate(
+                materialId,
+              );
+
+
+            } catch {
+
+              /*
+               * useMaterialSummary already stores
+               * the correct API error state.
+               */
+            }
+          },
+        );
 
       },
       [
+        clearError,
         generate,
         materialId,
+        runOnlineAction,
       ],
     );
 
 
   // =========================================================
   // INITIAL LOAD
+  // =========================================================
   //
-  // 1. Try saved summary.
-  // 2. If none exists, generate once.
-  // 3. If GET fails for a real reason, do NOT generate.
+  // 1. Read local cache first.
+  //
+  // 2. If offline:
+  //      cache exists -> display it
+  //      no cache -> show friendly offline message
+  //
+  // 3. If online:
+  //      GET latest saved summary from FastAPI
+  //
+  // 4. If no saved summary exists:
+  //      generate once using Gemini
+  //
+  // Successful GET/POST results refresh the local cache.
   // =========================================================
 
   const initializeSummary =
     useCallback(
       async () => {
+
+        if (
+          !networkInitialized
+        ) {
+
+          return;
+        }
+
+
+        let cachedSummaryFound =
+          false;
+
 
         try {
 
@@ -123,9 +184,59 @@ export const useMaterialSummaryScreen = ({
           );
 
 
+          setScreenError(
+            null,
+          );
+
+
+          clearError();
+
+
           // ==================================================
           // STEP 1
-          // CHECK DATABASE
+          // LOCAL CACHE FIRST
+          // ==================================================
+
+          const cachedSummary =
+            await loadCached(
+              materialId,
+            );
+
+
+          cachedSummaryFound =
+            Boolean(
+              cachedSummary,
+            );
+
+
+          // ==================================================
+          // STEP 2
+          // OFFLINE
+          // ==================================================
+
+          if (
+            !isOnline
+          ) {
+
+            if (
+              !cachedSummaryFound
+            ) {
+
+              setScreenError(
+                'No cached AI summary is available offline. '
+                + 'Connect to the internet and open this '
+                + 'summary once to save an offline copy.',
+              );
+            }
+
+
+            return;
+          }
+
+
+          // ==================================================
+          // STEP 3
+          // CHECK FASTAPI DATABASE
           // ==================================================
 
           const savedSummary =
@@ -135,10 +246,8 @@ export const useMaterialSummaryScreen = ({
 
 
           // ==================================================
-          // STEP 2
-          // FOUND IN DB
-          //
-          // Stop here. Gemini is NOT called.
+          // STEP 4
+          // FOUND IN DATABASE
           // ==================================================
 
           if (
@@ -150,11 +259,8 @@ export const useMaterialSummaryScreen = ({
 
 
           // ==================================================
-          // STEP 3
+          // STEP 5
           // NO SAVED SUMMARY
-          //
-          // This is the only automatic path that calls
-          // Gemini.
           // ==================================================
 
           await generate(
@@ -165,18 +271,11 @@ export const useMaterialSummaryScreen = ({
         } catch {
 
           /*
-           * IMPORTANT:
+           * If the online GET fails, do not automatically call
+           * Gemini as a fallback.
            *
-           * If GET failed because of:
-           *
-           * - authentication
-           * - network
-           * - backend failure
-           * - missing material
-           *
-           * loadSaved throws and execution lands here.
-           *
-           * We deliberately DO NOT call Gemini.
+           * If a local cached summary was already loaded, it
+           * remains visible.
            */
 
         } finally {
@@ -188,9 +287,13 @@ export const useMaterialSummaryScreen = ({
 
       },
       [
+        clearError,
         generate,
+        isOnline,
+        loadCached,
         loadSaved,
         materialId,
+        networkInitialized,
       ],
     );
 
@@ -198,9 +301,22 @@ export const useMaterialSummaryScreen = ({
   // =========================================================
   // INITIAL EFFECT
   // =========================================================
+  //
+  // Wait until NetInfo has initialized before marking the
+  // request as started. This avoids locking the screen in an
+  // unknown network state.
+  // =========================================================
 
   useEffect(
     () => {
+
+      if (
+        !networkInitialized
+      ) {
+
+        return;
+      }
+
 
       if (
         initialRequestStarted
@@ -222,46 +338,46 @@ export const useMaterialSummaryScreen = ({
     },
     [
       initializeSummary,
+      networkInitialized,
     ],
   );
 
 
   // =========================================================
-  // RETRY INITIAL FLOW
-  //
-  // Used if the initial GET/generation fails.
+  // RETRY
   // =========================================================
 
   const retry =
     useCallback(
       async () => {
 
+        setScreenError(
+          null,
+        );
+
+
+        clearError();
+
+
         await initializeSummary();
 
       },
       [
+        clearError,
         initializeSummary,
       ],
     );
 
 
-  // =========================================================
-  // RETURN
-  // =========================================================
-
   return {
 
-    // Data
     summary,
 
-    // Initial DB / generate state
     initializing,
 
-    // Detailed states
     loading,
     generating,
 
-    // Combined initial busy state
     busy:
       initializing
       ||
@@ -269,10 +385,11 @@ export const useMaterialSummaryScreen = ({
       ||
       generating,
 
-    // Error
-    error,
+    error:
+      screenError
+      ??
+      error,
 
-    // Actions
     generateSummary,
     retry,
     clear,
