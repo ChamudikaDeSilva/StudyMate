@@ -10,6 +10,14 @@ import {
   useMaterialFlashcards,
 } from './useMaterialFlashcards';
 
+import {
+  useNetwork,
+} from './useNetwork';
+
+import {
+  useOnlineGuard,
+} from './useOnlineGuard';
+
 
 interface UseMaterialFlashcardsScreenParams {
 
@@ -36,16 +44,40 @@ export const useMaterialFlashcardsScreen = ({
 
     error,
 
+    loadCached,
+
     loadSaved,
 
     generate,
 
+    clearError,
+
   } = useMaterialFlashcards();
 
 
-  // =========================================================
-  // INITIALIZING
-  // =========================================================
+  const {
+    isOnline,
+
+    initialized:
+      networkInitialized,
+
+  } = useNetwork();
+
+
+  const {
+    runOnlineAction,
+  } = useOnlineGuard();
+
+
+  const [
+    screenError,
+    setScreenError,
+  ] = useState<
+    string | null
+  >(
+    null,
+  );
+
 
   const [
     initializing,
@@ -55,10 +87,6 @@ export const useMaterialFlashcardsScreen = ({
   );
 
 
-  // =========================================================
-  // CURRENT CARD
-  // =========================================================
-
   const [
     currentIndex,
     setCurrentIndex,
@@ -66,10 +94,6 @@ export const useMaterialFlashcardsScreen = ({
     0,
   );
 
-
-  // =========================================================
-  // QUESTION / ANSWER FACE
-  // =========================================================
 
   const [
     answerVisible,
@@ -79,19 +103,11 @@ export const useMaterialFlashcardsScreen = ({
   );
 
 
-  // =========================================================
-  // INITIAL REQUEST GUARD
-  // =========================================================
-
   const initialRequestStarted =
     useRef(
       false,
     );
 
-
-  // =========================================================
-  // CURRENT CARD
-  // =========================================================
 
   const currentCard =
     useMemo(
@@ -100,7 +116,8 @@ export const useMaterialFlashcardsScreen = ({
         if (
           !deck
           ||
-          deck.cards.length === 0
+          deck.cards.length ===
+            0
         ) {
 
           return null;
@@ -122,10 +139,6 @@ export const useMaterialFlashcardsScreen = ({
     );
 
 
-  // =========================================================
-  // RESET STUDY POSITION
-  // =========================================================
-
   const resetStudyPosition =
     useCallback(
       () => {
@@ -145,17 +158,38 @@ export const useMaterialFlashcardsScreen = ({
 
   // =========================================================
   // INITIAL LOAD
+  // =========================================================
   //
-  // GET saved deck
-  //      ↓
-  // exists → show it
+  // 1. Read cached deck first.
   //
-  // missing → POST generate once
+  // 2. Offline:
+  //      cached -> study normally
+  //      no cache -> friendly message
+  //
+  // 3. Online:
+  //      GET saved deck from FastAPI
+  //
+  // 4. If missing:
+  //      generate once
+  //
+  // Every successful GET/POST refreshes local cache.
   // =========================================================
 
   const initialize =
     useCallback(
       async () => {
+
+        if (
+          !networkInitialized
+        ) {
+
+          return;
+        }
+
+
+        let cachedDeckFound =
+          false;
+
 
         try {
 
@@ -163,6 +197,62 @@ export const useMaterialFlashcardsScreen = ({
             true,
           );
 
+
+          setScreenError(
+            null,
+          );
+
+
+          clearError();
+
+
+          const cached =
+            await loadCached(
+              materialId,
+            );
+
+
+          cachedDeckFound =
+            Boolean(
+              cached,
+            );
+
+
+          if (
+            cached
+          ) {
+
+            resetStudyPosition();
+          }
+
+
+          // ==================================================
+          // OFFLINE
+          // ==================================================
+
+          if (
+            !isOnline
+          ) {
+
+            if (
+              !cachedDeckFound
+            ) {
+
+              setScreenError(
+                'No cached flashcards are available offline. '
+                + 'Connect to the internet and open this deck '
+                + 'once to save an offline copy.',
+              );
+            }
+
+
+            return;
+          }
+
+
+          // ==================================================
+          // ONLINE - CHECK FASTAPI
+          // ==================================================
 
           const saved =
             await loadSaved(
@@ -180,6 +270,10 @@ export const useMaterialFlashcardsScreen = ({
           }
 
 
+          // ==================================================
+          // ONLINE - GENERATE IF MISSING
+          // ==================================================
+
           await generate(
             materialId,
             DEFAULT_CARD_COUNT,
@@ -192,11 +286,10 @@ export const useMaterialFlashcardsScreen = ({
         } catch {
 
           /*
-           * Real GET failures must not
-           * automatically call Gemini.
+           * If online loading fails, do not automatically
+           * trigger another Gemini request.
            *
-           * useMaterialFlashcards()
-           * already owns error state.
+           * Any already-loaded cached deck remains usable.
            */
 
         } finally {
@@ -208,20 +301,28 @@ export const useMaterialFlashcardsScreen = ({
 
       },
       [
+        clearError,
         generate,
+        isOnline,
+        loadCached,
         loadSaved,
         materialId,
+        networkInitialized,
         resetStudyPosition,
       ],
     );
 
 
-  // =========================================================
-  // INITIAL EFFECT
-  // =========================================================
-
   useEffect(
     () => {
+
+      if (
+        !networkInitialized
+      ) {
+
+        return;
+      }
+
 
       if (
         initialRequestStarted
@@ -242,13 +343,10 @@ export const useMaterialFlashcardsScreen = ({
     },
     [
       initialize,
+      networkInitialized,
     ],
   );
 
-
-  // =========================================================
-  // TOGGLE ANSWER
-  // =========================================================
 
   const toggleAnswer =
     useCallback(
@@ -273,10 +371,6 @@ export const useMaterialFlashcardsScreen = ({
     );
 
 
-  // =========================================================
-  // PREVIOUS CARD
-  // =========================================================
-
   const previous =
     useCallback(
       () => {
@@ -285,7 +379,8 @@ export const useMaterialFlashcardsScreen = ({
           current => {
 
             if (
-              current <= 0
+              current <=
+                0
             ) {
 
               return 0;
@@ -306,10 +401,6 @@ export const useMaterialFlashcardsScreen = ({
       [],
     );
 
-
-  // =========================================================
-  // NEXT CARD
-  // =========================================================
 
   const next =
     useCallback(
@@ -332,7 +423,8 @@ export const useMaterialFlashcardsScreen = ({
 
 
             if (
-              current >= finalIndex
+              current >=
+                finalIndex
             ) {
 
               return finalIndex;
@@ -359,58 +451,81 @@ export const useMaterialFlashcardsScreen = ({
   // =========================================================
   // GENERATE AGAIN
   // =========================================================
+  //
+  // Strictly online-only.
+  //
+  // If offline, the current cached deck stays visible.
+  // =========================================================
 
   const generateAgain =
     useCallback(
-      async () => {
+      () => {
 
-        try {
+        runOnlineAction(
+          'AI Flashcards',
+          async () => {
 
-          await generate(
-            materialId,
-            DEFAULT_CARD_COUNT,
-          );
+            setScreenError(
+              null,
+            );
 
 
-          resetStudyPosition();
+            clearError();
 
-        } catch {
 
-          /*
-           * Hook already stores
-           * the error.
-           */
-        }
+            try {
+
+              await generate(
+                materialId,
+                DEFAULT_CARD_COUNT,
+              );
+
+
+              resetStudyPosition();
+
+
+            } catch {
+
+              /*
+               * useMaterialFlashcards already owns API error
+               * state.
+               */
+            }
+          },
+        );
 
       },
       [
+        clearError,
         generate,
         materialId,
         resetStudyPosition,
+        runOnlineAction,
       ],
     );
 
-
-  // =========================================================
-  // RETRY
-  // =========================================================
 
   const retry =
     useCallback(
       async () => {
 
+        setScreenError(
+          null,
+        );
+
+
+        clearError();
+
+
         await initialize();
 
       },
       [
+        clearError,
         initialize,
       ],
     );
 
-
-  // =========================================================
-  // DERIVED STATE
-  // =========================================================
 
   const totalCards =
     deck?.cards.length
@@ -419,18 +534,21 @@ export const useMaterialFlashcardsScreen = ({
 
 
   const displayPosition =
-    totalCards > 0
+    totalCards >
+      0
       ? currentIndex + 1
       : 0;
 
 
   const canGoPrevious =
-    currentIndex > 0;
+    currentIndex >
+    0;
 
 
   const canGoNext =
     (
-      totalCards > 0
+      totalCards >
+        0
       &&
       currentIndex
         <
@@ -465,7 +583,10 @@ export const useMaterialFlashcardsScreen = ({
       ||
       generating,
 
-    error,
+    error:
+      screenError
+      ??
+      error,
 
     canGoPrevious,
 

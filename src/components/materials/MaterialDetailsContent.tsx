@@ -16,10 +16,6 @@ import {
   Material,
 } from '../../domain/models/Material';
 
-import {
-  useOnlineGuard,
-} from '../../hooks/useOnlineGuard';
-
 import AiSummaryActionCard
   from '../ai/AiSummaryActionCard';
 
@@ -194,15 +190,6 @@ const MaterialDetailsContent = ({
 
 
   // =========================================================
-  // ONLINE GUARD
-  // =========================================================
-
-  const {
-    runOnlineAction,
-  } = useOnlineGuard();
-
-
-  // =========================================================
   // MATERIAL TYPES
   // =========================================================
 
@@ -237,29 +224,26 @@ const MaterialDetailsContent = ({
   // =========================================================
   // AI SUMMARY
   // =========================================================
-
-  const handleSummaryPress =
-    () => {
-
-      runOnlineAction(
-        'AI Summary',
-        onGenerateSummary,
-      );
-    };
+  //
+  // Opening the Summary screen is allowed offline.
+  //
+  // The Summary screen decides whether to use local cache,
+  // FastAPI, or online Gemini generation.
+  // =========================================================
 
 
   // =========================================================
   // AI FLASHCARDS
   // =========================================================
-
-  const handleFlashcardsPress =
-    () => {
-
-      runOnlineAction(
-        'AI Flashcards',
-        onGenerateFlashcards,
-      );
-    };
+  //
+  // Opening the Flashcards screen is allowed offline now.
+  //
+  // The Flashcards screen decides whether to use local cache,
+  // FastAPI, or online Gemini generation.
+  //
+  // Generate Again remains online-only inside the Flashcards
+  // screen hook.
+  // =========================================================
 
 
   // =========================================================
@@ -499,7 +483,7 @@ const MaterialDetailsContent = ({
 
                 <AiSummaryActionCard
                   onPress={
-                    handleSummaryPress
+                    onGenerateSummary
                   }
 
                   disabled={
@@ -516,7 +500,7 @@ const MaterialDetailsContent = ({
 
                 <FlashcardsActionCard
                   onPress={
-                    handleFlashcardsPress
+                    onGenerateFlashcards
                   }
 
                   disabled={
