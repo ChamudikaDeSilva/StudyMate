@@ -33,6 +33,10 @@ import {
   useNetwork,
 } from './useNetwork';
 
+import {
+  offlineFileStorageService,
+} from '../services/offline/OfflineFileStorageService';
+
 
 export const useMaterials = (
   subjectId: string,
@@ -119,11 +123,10 @@ export const useMaterials = (
   //
   // Used only for:
   //
-  // PDF upload
   // Image upload
   // Camera upload
   //
-  // Text materials are allowed offline.
+  // Text and PDF materials are allowed offline.
   //
 
   const requireOnline =
@@ -688,7 +691,15 @@ export const useMaterials = (
   // CREATE PDF
   // =========================================================
   //
-  // Online only.
+  // Supports both:
+  //
+  // Online:
+  //   upload immediately to FastAPI
+  //
+  // Offline / local Subject:
+  //   persist PDF locally
+  //   create pending Material
+  //   queue upload for reconnect
   //
 
   const createPdfMaterial =
@@ -698,27 +709,12 @@ export const useMaterials = (
         fileUri: string,
         fileName: string,
         mimeType: string,
-      ) => {
+      ): Promise<Material> => {
 
         if (!userId) {
 
           throw new Error(
             'You must be logged in.',
-          );
-        }
-
-
-        requireOnline();
-
-
-        if (
-          isLocalEntityId(
-            subjectId,
-          )
-        ) {
-
-          throw new Error(
-            'Please reconnect and sync this subject before uploading a PDF.',
           );
         }
 
@@ -729,10 +725,183 @@ export const useMaterials = (
             true,
           );
 
+
           setError(
             null,
           );
 
+
+          const shouldQueue =
+            (
+              networkInitialized
+              &&
+              !isOnline
+            )
+            ||
+            isLocalEntityId(
+              subjectId,
+            );
+
+
+          // ===================================================
+          // OFFLINE CREATE
+          // ===================================================
+
+          if (
+            shouldQueue
+          ) {
+
+            const localId =
+              createLocalEntityId(
+                'material',
+              );
+
+
+            const now =
+              Date.now();
+
+
+            // -------------------------------------------------
+            // Copy the selected PDF into permanent app storage
+            // -------------------------------------------------
+
+            const persistedFile =
+              await offlineFileStorageService
+                .persistFile({
+                  userId,
+
+                  subjectId,
+
+                  materialId:
+                    localId,
+
+                  sourceUri:
+                    fileUri,
+
+                  fileName,
+
+                  sourceType:
+                    'pdf',
+                });
+
+
+            try {
+
+              // -----------------------------------------------
+              // Queue server upload
+              // -----------------------------------------------
+
+              await enqueueSyncOperation(
+                userId,
+                {
+                  entity:
+                    'material',
+
+                  action:
+                    'create',
+
+                  payload: {
+                    localId,
+
+                    subjectId,
+
+                    title,
+
+                    sourceType:
+                      'pdf',
+
+                    localFilePath:
+                      persistedFile.localPath,
+
+                    fileName,
+
+                    mimeType,
+                  },
+                },
+              );
+
+            } catch (
+              queueError
+            ) {
+
+              /*
+               * If queue creation fails, remove the persistent
+               * copy so we do not leave an orphan file behind.
+               */
+
+              try {
+
+                await offlineFileStorageService
+                  .deleteFile(
+                    persistedFile.localPath,
+                  );
+
+              } catch (
+                cleanupError
+              ) {
+
+                console.warn(
+                  '[OFFLINE PDF] Cleanup after queue failure failed:',
+                  cleanupError,
+                );
+              }
+
+
+              throw queueError;
+            }
+
+
+            const localMaterial:
+              Material = {
+
+                id:
+                  localId,
+
+                userId,
+
+                subjectId,
+
+                title,
+
+                sourceType:
+                  'pdf',
+
+                fileName,
+
+                createdAt:
+                  now,
+
+                updatedAt:
+                  now,
+
+                syncStatus:
+                  'pending',
+              };
+
+
+            await addMaterialToState(
+              localMaterial,
+            );
+
+
+            console.log(
+              '[OFFLINE PDF] Created locally',
+              {
+                localId,
+                subjectId,
+                localFilePath:
+                  persistedFile.localPath,
+              },
+            );
+
+
+            return localMaterial;
+          }
+
+
+          // ===================================================
+          // ONLINE CREATE
+          // ===================================================
 
           const material =
             await repository
@@ -749,6 +918,43 @@ export const useMaterials = (
 
                 mimeType,
               });
+
+
+          /*
+           * Keep an offline copy immediately after a successful
+           * online upload. If this local persistence fails, the
+           * server Material is still valid, so we only warn.
+           */
+
+          try {
+
+            await offlineFileStorageService
+              .persistFile({
+                userId,
+
+                subjectId,
+
+                materialId:
+                  material.id,
+
+                sourceUri:
+                  fileUri,
+
+                fileName,
+
+                sourceType:
+                  'pdf',
+              });
+
+          } catch (
+            persistError
+          ) {
+
+            console.warn(
+              '[PDF MATERIAL] Uploaded successfully, but offline copy could not be saved:',
+              persistError,
+            );
+          }
 
 
           await addMaterialToState(
@@ -789,7 +995,8 @@ export const useMaterials = (
         subjectId,
         userId,
         addMaterialToState,
-        requireOnline,
+        networkInitialized,
+        isOnline,
       ],
     );
 
@@ -798,7 +1005,20 @@ export const useMaterials = (
   // CREATE IMAGE / CAMERA
   // =========================================================
   //
-  // Online only.
+  // Gallery images and camera photos use the same existing
+  // FastAPI image upload endpoint.
+  //
+  // Online:
+  //   upload immediately
+  //
+  // Offline / local Subject:
+  //   persist locally
+  //   create pending Material
+  //   queue upload for reconnect
+  //
+  // NOTE:
+  // The current backend stores camera captures as sourceType
+  // "image" as well. We preserve that existing behavior here.
   //
 
   const createImageMaterial =
@@ -808,27 +1028,12 @@ export const useMaterials = (
         fileUri: string,
         fileName: string,
         mimeType: string,
-      ) => {
+      ): Promise<Material> => {
 
         if (!userId) {
 
           throw new Error(
             'You must be logged in.',
-          );
-        }
-
-
-        requireOnline();
-
-
-        if (
-          isLocalEntityId(
-            subjectId,
-          )
-        ) {
-
-          throw new Error(
-            'Please reconnect and sync this subject before uploading an image.',
           );
         }
 
@@ -839,10 +1044,183 @@ export const useMaterials = (
             true,
           );
 
+
           setError(
             null,
           );
 
+
+          const shouldQueue =
+            (
+              networkInitialized
+              &&
+              !isOnline
+            )
+            ||
+            isLocalEntityId(
+              subjectId,
+            );
+
+
+          // ===================================================
+          // OFFLINE CREATE
+          // ===================================================
+
+          if (
+            shouldQueue
+          ) {
+
+            const localId =
+              createLocalEntityId(
+                'material',
+              );
+
+
+            const now =
+              Date.now();
+
+
+            // -------------------------------------------------
+            // Persist image/camera photo in permanent app storage
+            // -------------------------------------------------
+
+            const persistedFile =
+              await offlineFileStorageService
+                .persistFile({
+                  userId,
+
+                  subjectId,
+
+                  materialId:
+                    localId,
+
+                  sourceUri:
+                    fileUri,
+
+                  fileName,
+
+                  sourceType:
+                    'image',
+                });
+
+
+            try {
+
+              // -----------------------------------------------
+              // Queue server upload
+              // -----------------------------------------------
+
+              await enqueueSyncOperation(
+                userId,
+                {
+                  entity:
+                    'material',
+
+                  action:
+                    'create',
+
+                  payload: {
+                    localId,
+
+                    subjectId,
+
+                    title,
+
+                    sourceType:
+                      'image',
+
+                    localFilePath:
+                      persistedFile.localPath,
+
+                    fileName,
+
+                    mimeType,
+                  },
+                },
+              );
+
+            } catch (
+              queueError
+            ) {
+
+              /*
+               * If queue creation fails, remove the persisted
+               * file so we do not leave an orphan behind.
+               */
+
+              try {
+
+                await offlineFileStorageService
+                  .deleteFile(
+                    persistedFile.localPath,
+                  );
+
+              } catch (
+                cleanupError
+              ) {
+
+                console.warn(
+                  '[OFFLINE IMAGE] Cleanup after queue failure failed:',
+                  cleanupError,
+                );
+              }
+
+
+              throw queueError;
+            }
+
+
+            const localMaterial:
+              Material = {
+
+                id:
+                  localId,
+
+                userId,
+
+                subjectId,
+
+                title,
+
+                sourceType:
+                  'image',
+
+                fileName,
+
+                createdAt:
+                  now,
+
+                updatedAt:
+                  now,
+
+                syncStatus:
+                  'pending',
+              };
+
+
+            await addMaterialToState(
+              localMaterial,
+            );
+
+
+            console.log(
+              '[OFFLINE IMAGE] Created locally',
+              {
+                localId,
+                subjectId,
+                localFilePath:
+                  persistedFile.localPath,
+              },
+            );
+
+
+            return localMaterial;
+          }
+
+
+          // ===================================================
+          // ONLINE CREATE
+          // ===================================================
 
           const material =
             await repository
@@ -859,6 +1237,43 @@ export const useMaterials = (
 
                 mimeType,
               });
+
+
+          /*
+           * Keep an offline copy immediately after successful
+           * online upload. Failure to persist the offline copy
+           * must not invalidate the successful server upload.
+           */
+
+          try {
+
+            await offlineFileStorageService
+              .persistFile({
+                userId,
+
+                subjectId,
+
+                materialId:
+                  material.id,
+
+                sourceUri:
+                  fileUri,
+
+                fileName,
+
+                sourceType:
+                  'image',
+              });
+
+          } catch (
+            persistError
+          ) {
+
+            console.warn(
+              '[IMAGE MATERIAL] Uploaded successfully, but offline copy could not be saved:',
+              persistError,
+            );
+          }
 
 
           await addMaterialToState(
@@ -899,7 +1314,8 @@ export const useMaterials = (
         subjectId,
         userId,
         addMaterialToState,
-        requireOnline,
+        networkInitialized,
+        isOnline,
       ],
     );
 

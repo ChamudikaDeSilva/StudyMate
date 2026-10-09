@@ -27,9 +27,14 @@ import {
   SubjectDeletePayload,
 
   MaterialCreatePayload,
+  MaterialFileCreatePayload,
   MaterialUpdatePayload,
   MaterialDeletePayload,
 } from '../../data/local/sync/pendingSyncQueue';
+
+import {
+  offlineFileStorageService,
+} from './OfflineFileStorageService';
 
 
 // ============================================================
@@ -353,6 +358,21 @@ export class OfflineSyncService {
         'create'
       ) {
 
+        if (
+          this.isFileMaterialCreatePayload(
+            operation,
+          )
+        ) {
+
+          await this.createFileMaterial(
+            userId,
+            operation,
+          );
+
+          return;
+        }
+
+
         await this.createMaterial(
           userId,
           operation,
@@ -393,6 +413,39 @@ export class OfflineSyncService {
 
     throw new Error(
       'Unsupported offline sync operation.',
+    );
+  }
+
+
+  // =========================================================
+  // FILE MATERIAL TYPE GUARD
+  // =========================================================
+
+  private isFileMaterialCreatePayload(
+    operation:
+      PendingSyncOperation,
+  ): boolean {
+
+    const payload =
+      operation.payload;
+
+
+    return (
+      'sourceType'
+      in
+      payload
+      &&
+      'localFilePath'
+      in
+      payload
+      &&
+      'fileName'
+      in
+      payload
+      &&
+      'mimeType'
+      in
+      payload
     );
   }
 
@@ -817,6 +870,248 @@ export class OfflineSyncService {
           payload.localId,
 
         serverId,
+      },
+    );
+  }
+
+
+  // =========================================================
+  // FILE MATERIAL CREATE
+  // =========================================================
+  //
+  // Supports queued:
+  //   PDF
+  //   Image
+  //   Camera
+  //
+  // Camera currently uses the same existing backend image
+  // upload endpoint, matching the app's current online flow.
+  //
+
+  private async createFileMaterial(
+    userId:
+      string,
+
+    operation:
+      PendingSyncOperation,
+  ): Promise<void> {
+
+    const payload =
+      operation.payload as
+        MaterialFileCreatePayload;
+
+
+    const uploadUri =
+      payload.localFilePath.startsWith(
+        'file://',
+      )
+        ? payload.localFilePath
+        : `file://${payload.localFilePath}`;
+
+
+    // ========================================================
+    // UPLOAD FILE TO FASTAPI
+    // ========================================================
+
+    const createdMaterial =
+      payload.sourceType ===
+      'pdf'
+
+        ? await this
+            .materialRepository
+            .createPdfMaterial({
+              userId,
+
+              subjectId:
+                payload.subjectId,
+
+              title:
+                payload.title,
+
+              fileUri:
+                uploadUri,
+
+              fileName:
+                payload.fileName,
+
+              mimeType:
+                payload.mimeType,
+            })
+
+        : await this
+            .materialRepository
+            .createImageMaterial({
+              userId,
+
+              subjectId:
+                payload.subjectId,
+
+              title:
+                payload.title,
+
+              fileUri:
+                uploadUri,
+
+              fileName:
+                payload.fileName,
+
+              mimeType:
+                payload.mimeType,
+            });
+
+
+    const serverId =
+      String(
+        createdMaterial.id,
+      );
+
+
+    // ========================================================
+    // UPDATE MATERIAL CACHE
+    // ========================================================
+
+    const cachedMaterials =
+      await getMaterialsCache(
+        userId,
+        payload.subjectId,
+      );
+
+
+    const hasLocalMaterial =
+      cachedMaterials.some(
+        material =>
+          material.id ===
+          payload.localId,
+      );
+
+
+    const syncedMaterial = {
+      ...createdMaterial,
+
+      syncStatus:
+        'synced' as const,
+    };
+
+
+    const updatedMaterials =
+      hasLocalMaterial
+
+        ? cachedMaterials.map(
+            material =>
+              material.id ===
+              payload.localId
+                ? syncedMaterial
+                : material,
+          )
+
+        : [
+            syncedMaterial,
+            ...cachedMaterials,
+          ];
+
+
+    await saveMaterialsCache(
+      userId,
+      payload.subjectId,
+      updatedMaterials,
+    );
+
+
+    // ========================================================
+    // MIGRATE PERSISTED FILE TO SERVER MATERIAL ID
+    // ========================================================
+    //
+    // The file was persisted using the temporary local ID.
+    // Once FastAPI returns the real ID, persist a copy under
+    // the real server identity.
+    //
+    // Do not fail the completed server upload if this local
+    // migration fails, otherwise retrying could create a
+    // duplicate Material on the server.
+    //
+
+    try {
+
+      const serverFile =
+        await offlineFileStorageService
+          .persistFile({
+            userId,
+
+            subjectId:
+              payload.subjectId,
+
+            materialId:
+              serverId,
+
+            sourceUri:
+              uploadUri,
+
+            fileName:
+              payload.fileName,
+
+            sourceType:
+              payload.sourceType,
+          });
+
+
+      if (
+        serverFile.localPath !==
+        payload.localFilePath
+      ) {
+
+        try {
+
+          await offlineFileStorageService
+            .deleteFile(
+              payload.localFilePath,
+            );
+
+        } catch (
+          cleanupError
+        ) {
+
+          console.warn(
+            '[OFFLINE SYNC] Old local file cleanup failed:',
+            cleanupError,
+          );
+        }
+      }
+
+    } catch (
+      migrationError
+    ) {
+
+      console.warn(
+        '[OFFLINE SYNC] File uploaded, but offline-file migration failed:',
+        migrationError,
+      );
+    }
+
+
+    // ========================================================
+    // UPDATE LATER QUEUE OPERATIONS
+    // ========================================================
+
+    await replaceLocalEntityIdInQueue(
+      userId,
+      payload.localId,
+      serverId,
+    );
+
+
+    console.log(
+      '[OFFLINE SYNC] File material created',
+      {
+        sourceType:
+          payload.sourceType,
+
+        localId:
+          payload.localId,
+
+        serverId,
+
+        subjectId:
+          payload.subjectId,
       },
     );
   }

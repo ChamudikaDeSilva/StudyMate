@@ -48,6 +48,23 @@ export interface MaterialCreatePayload {
 }
 
 
+export interface MaterialFileCreatePayload {
+  localId: string;
+  subjectId: string;
+  title: string;
+
+  sourceType:
+    | 'pdf'
+    | 'image'
+    | 'camera';
+
+  localFilePath: string;
+  fileName: string;
+  mimeType: string;
+  fileSize?: number;
+}
+
+
 export interface MaterialUpdatePayload {
   materialId: string;
   subjectId: string;
@@ -71,6 +88,7 @@ export type PendingSyncPayload =
   | SubjectUpdatePayload
   | SubjectDeletePayload
   | MaterialCreatePayload
+  | MaterialFileCreatePayload
   | MaterialUpdatePayload
   | MaterialDeletePayload;
 

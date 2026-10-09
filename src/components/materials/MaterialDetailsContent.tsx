@@ -16,6 +16,10 @@ import {
   Material,
 } from '../../domain/models/Material';
 
+import {
+  useOnlineGuard,
+} from '../../hooks/useOnlineGuard';
+
 import AiSummaryActionCard
   from '../ai/AiSummaryActionCard';
 
@@ -190,6 +194,15 @@ const MaterialDetailsContent = ({
 
 
   // =========================================================
+  // ONLINE GUARD
+  // =========================================================
+
+  const {
+    runOnlineAction,
+  } = useOnlineGuard();
+
+
+  // =========================================================
   // MATERIAL TYPES
   // =========================================================
 
@@ -204,6 +217,49 @@ const MaterialDetailsContent = ({
     ||
     material.sourceType ===
       'camera';
+
+
+  // =========================================================
+  // IMAGE / CAMERA PREVIEW
+  // =========================================================
+  //
+  // Image and camera files now support permanent local storage.
+  // Therefore preview must NOT be guarded by connectivity.
+  //
+  // ImagePreviewScreen decides:
+  //
+  // local copy exists -> open it
+  // no local copy + online -> download and persist it
+  // no local copy + offline -> show friendly unavailable state
+  // =========================================================
+
+
+  // =========================================================
+  // AI SUMMARY
+  // =========================================================
+
+  const handleSummaryPress =
+    () => {
+
+      runOnlineAction(
+        'AI Summary',
+        onGenerateSummary,
+      );
+    };
+
+
+  // =========================================================
+  // AI FLASHCARDS
+  // =========================================================
+
+  const handleFlashcardsPress =
+    () => {
+
+      runOnlineAction(
+        'AI Flashcards',
+        onGenerateFlashcards,
+      );
+    };
 
 
   // =========================================================
@@ -443,7 +499,7 @@ const MaterialDetailsContent = ({
 
                 <AiSummaryActionCard
                   onPress={
-                    onGenerateSummary
+                    handleSummaryPress
                   }
 
                   disabled={
@@ -460,7 +516,7 @@ const MaterialDetailsContent = ({
 
                 <FlashcardsActionCard
                   onPress={
-                    onGenerateFlashcards
+                    handleFlashcardsPress
                   }
 
                   disabled={

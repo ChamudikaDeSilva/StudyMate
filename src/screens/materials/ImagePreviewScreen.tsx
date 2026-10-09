@@ -31,6 +31,22 @@ import {
   MaterialFileDownloadService,
 } from '../../services/storage/MaterialFileDownloadService';
 
+import {
+  offlineFileStorageService,
+} from '../../services/offline/OfflineFileStorageService';
+
+import {
+  getMaterialsCache,
+} from '../../data/local/storage/offlineCache';
+
+import {
+  useAuth,
+} from '../../hooks/useAuth';
+
+import {
+  useNetwork,
+} from '../../hooks/useNetwork';
+
 
 type Props =
   NativeStackScreenProps<
@@ -45,8 +61,41 @@ const ImagePreviewScreen = ({
 
   const {
     materialId,
+    subjectId,
   } = route.params;
 
+
+  // =========================================================
+  // AUTH
+  // =========================================================
+
+  const {
+    user,
+  } = useAuth();
+
+
+  const userId =
+    user
+      ? String(
+          user.id,
+        )
+      : null;
+
+
+  // =========================================================
+  // NETWORK
+  // =========================================================
+
+  const {
+    isOnline,
+    initialized:
+      networkInitialized,
+  } = useNetwork();
+
+
+  // =========================================================
+  // DOWNLOAD SERVICE
+  // =========================================================
 
   const downloadService =
     useMemo(
@@ -55,6 +104,10 @@ const ImagePreviewScreen = ({
       [],
     );
 
+
+  // =========================================================
+  // STATE
+  // =========================================================
 
   const [
     imageUri,
@@ -80,10 +133,72 @@ const ImagePreviewScreen = ({
   >(null);
 
 
-  const currentImageUri =
+  const [
+    loadedFromOfflineStorage,
+    setLoadedFromOfflineStorage,
+  ] = useState(
+    false,
+  );
+
+
+  /*
+   * Only temporary downloaded files are kept here.
+   *
+   * Permanent files from OfflineFileStorageService
+   * must NOT be deleted when leaving the screen.
+   */
+  const temporaryImageUri =
     useRef<
       string | null
     >(null);
+
+
+  // =========================================================
+  // CLEAN TEMPORARY IMAGE
+  // =========================================================
+
+  const clearTemporaryImage =
+    useCallback(
+      async () => {
+
+        const uri =
+          temporaryImageUri.current;
+
+
+        if (
+          !uri
+        ) {
+
+          return;
+        }
+
+
+        try {
+
+          await downloadService
+            .deleteCachedFile(
+              uri,
+            );
+
+        } catch (
+          cleanupError
+        ) {
+
+          console.warn(
+            'Unable to remove temporary image:',
+            cleanupError,
+          );
+        }
+
+
+        temporaryImageUri.current =
+          null;
+
+      },
+      [
+        downloadService,
+      ],
+    );
 
 
   // =========================================================
@@ -93,6 +208,36 @@ const ImagePreviewScreen = ({
   const loadImage =
     useCallback(
       async () => {
+
+        // -----------------------------------------------------
+        // Wait until network state is known.
+        // -----------------------------------------------------
+
+        if (
+          !networkInitialized
+        ) {
+
+          return;
+        }
+
+
+        if (
+          !userId
+        ) {
+
+          setLoading(
+            false,
+          );
+
+
+          setError(
+            'You must be logged in to view this image.',
+          );
+
+
+          return;
+        }
+
 
         try {
 
@@ -106,46 +251,240 @@ const ImagePreviewScreen = ({
           );
 
 
+          setLoadedFromOfflineStorage(
+            false,
+          );
+
+
+          setImageUri(
+            null,
+          );
+
+
+          // ---------------------------------------------------
+          // Remove previous temporary download only.
+          // ---------------------------------------------------
+
+          await clearTemporaryImage();
+
+
+          // ===================================================
+          // MATERIAL METADATA
+          // ===================================================
+          //
+          // We need the original file name so the offline
+          // storage service can calculate the same deterministic
+          // local path used when the image was persisted.
+          //
+
+          const cachedMaterials =
+            await getMaterialsCache(
+              userId,
+              subjectId,
+            );
+
+
+          const cachedMaterial =
+            cachedMaterials.find(
+              material =>
+                material.id ===
+                materialId,
+            );
+
+
+          const fileName =
+            cachedMaterial
+              ?.fileName
+            ??
+            `${materialId}.jpg`;
+
+
+          // ===================================================
+          // 1. CHECK PERMANENT OFFLINE COPY
+          // ===================================================
+
+          const persistedFile =
+            await offlineFileStorageService
+              .getPersistedFile({
+                userId,
+
+                subjectId,
+
+                materialId,
+
+                fileName,
+
+                sourceType:
+                  'image',
+              });
+
+
           if (
-            currentImageUri.current
+            persistedFile
           ) {
 
-            await downloadService
-              .deleteCachedFile(
-                currentImageUri.current,
-              );
-
-
-            currentImageUri.current =
-              null;
-
-
             setImageUri(
-              null,
+              persistedFile.localUri,
             );
+
+
+            setLoadedFromOfflineStorage(
+              true,
+            );
+
+
+            console.log(
+              '[IMAGE PREVIEW] Loaded from offline storage',
+              {
+                materialId,
+
+                localPath:
+                  persistedFile.localPath,
+              },
+            );
+
+
+            return;
           }
 
 
-          const uri =
+          // ===================================================
+          // 2. NO LOCAL COPY + OFFLINE
+          // ===================================================
+
+          if (
+            !isOnline
+          ) {
+
+            setError(
+              'This image is not available offline yet. '
+              + 'Connect to the internet and open it once '
+              + 'to save an offline copy.',
+            );
+
+
+            return;
+          }
+
+
+          // ===================================================
+          // 3. ONLINE DOWNLOAD
+          // ===================================================
+
+          const downloadedUri =
             await downloadService
               .download(
                 materialId,
               );
 
 
-          currentImageUri.current =
-            uri;
+          // ===================================================
+          // 4. SAVE PERMANENT OFFLINE COPY
+          // ===================================================
+
+          try {
+
+            const permanentFile =
+              await offlineFileStorageService
+                .persistFile({
+                  userId,
+
+                  subjectId,
+
+                  materialId,
+
+                  sourceUri:
+                    downloadedUri,
+
+                  fileName,
+
+                  sourceType:
+                    'image',
+                });
 
 
-          setImageUri(
-            uri,
-          );
+            // -----------------------------------------------
+            // Permanent copy exists now.
+            // Temporary download can be removed.
+            // -----------------------------------------------
+
+            try {
+
+              await downloadService
+                .deleteCachedFile(
+                  downloadedUri,
+                );
+
+            } catch (
+              cleanupError
+            ) {
+
+              console.warn(
+                'Temporary image cleanup failed:',
+                cleanupError,
+              );
+            }
+
+
+            setImageUri(
+              permanentFile.localUri,
+            );
+
+
+            setLoadedFromOfflineStorage(
+              true,
+            );
+
+
+            console.log(
+              '[IMAGE PREVIEW] Downloaded and persisted',
+              {
+                materialId,
+
+                localPath:
+                  permanentFile.localPath,
+              },
+            );
+
+
+          } catch (
+            persistError
+          ) {
+
+            /*
+             * The download succeeded, so preview can still
+             * work even if permanent persistence fails.
+             *
+             * Keep track of the temporary file and delete
+             * it when this screen unmounts.
+             */
+
+            console.warn(
+              'Unable to save permanent offline image copy:',
+              persistError,
+            );
+
+
+            temporaryImageUri.current =
+              downloadedUri;
+
+
+            setImageUri(
+              downloadedUri,
+            );
+
+
+            setLoadedFromOfflineStorage(
+              false,
+            );
+          }
+
 
         } catch (
           loadError
         ) {
 
-          console.error(
+          console.warn(
             'Image preview error:',
             loadError,
           );
@@ -157,27 +496,47 @@ const ImagePreviewScreen = ({
               : 'Unable to load image.',
           );
 
+
         } finally {
 
           setLoading(
             false,
           );
         }
+
       },
       [
-        downloadService,
         materialId,
+        subjectId,
+        userId,
+        isOnline,
+        networkInitialized,
+        downloadService,
+        clearTemporaryImage,
       ],
     );
 
 
+  // =========================================================
+  // INITIAL LOAD
+  // =========================================================
+
   useEffect(
     () => {
+
+      if (
+        !networkInitialized
+      ) {
+
+        return;
+      }
+
 
       void loadImage();
 
     },
     [
+      networkInitialized,
       loadImage,
     ],
   );
@@ -186,16 +545,32 @@ const ImagePreviewScreen = ({
   // =========================================================
   // CLEANUP
   // =========================================================
+  //
+  // IMPORTANT:
+  //
+  // Delete only temporary downloads.
+  //
+  // Never delete the permanent offline copy here.
+  //
 
   useEffect(
     () => {
 
       return () => {
 
-        void downloadService
-          .deleteCachedFile(
-            currentImageUri.current,
-          );
+        const uri =
+          temporaryImageUri.current;
+
+
+        if (
+          uri
+        ) {
+
+          void downloadService
+            .deleteCachedFile(
+              uri,
+            );
+        }
       };
 
     },
@@ -218,6 +593,10 @@ const ImagePreviewScreen = ({
 
       {loading ? (
 
+        // =====================================================
+        // LOADING
+        // =====================================================
+
         <View
           className="
             flex-1
@@ -227,13 +606,21 @@ const ImagePreviewScreen = ({
           <ScreenState
             loading
             title="Loading image"
-            description="Securely loading your study material..."
+            description={
+              isOnline
+                ? 'Securely loading your study material...'
+                : 'Looking for an offline copy...'
+            }
             dark
           />
 
         </View>
 
       ) : error ? (
+
+        // =====================================================
+        // ERROR
+        // =====================================================
 
         <View
           className="
@@ -243,14 +630,22 @@ const ImagePreviewScreen = ({
 
           <ScreenState
             title="Couldn't open image"
-            description={error}
+            description={
+              error
+            }
             icon={
               FileImage
             }
             iconColor="#38BDF8"
-            actionTitle="Try again"
+            actionTitle={
+              isOnline
+                ? 'Try again'
+                : undefined
+            }
             onAction={
-              loadImage
+              isOnline
+                ? loadImage
+                : undefined
             }
             dark
           />
@@ -258,6 +653,10 @@ const ImagePreviewScreen = ({
         </View>
 
       ) : imageUri ? (
+
+        // =====================================================
+        // IMAGE
+        // =====================================================
 
         <View
           className="
@@ -277,11 +676,31 @@ const ImagePreviewScreen = ({
               h-full
               w-full
             "
+            onError={(
+              imageError,
+            ) => {
+
+              console.warn(
+                'Image renderer error:',
+                imageError.nativeEvent,
+              );
+
+
+              setError(
+                loadedFromOfflineStorage
+                  ? 'The saved offline image could not be displayed.'
+                  : 'The image could not be displayed.',
+              );
+            }}
           />
 
         </View>
 
       ) : (
+
+        // =====================================================
+        // EMPTY
+        // =====================================================
 
         <View
           className="
@@ -291,6 +710,13 @@ const ImagePreviewScreen = ({
 
           <ScreenState
             title="Image unavailable"
+            description={
+              'No image is available for this material.'
+            }
+            icon={
+              FileImage
+            }
+            iconColor="#38BDF8"
             dark
           />
 
