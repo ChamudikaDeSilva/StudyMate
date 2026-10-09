@@ -11,10 +11,6 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 
-import {
-  useOnlineGuard,
-} from '../../hooks/useOnlineGuard';
-
 
 interface Props {
 
@@ -32,26 +28,24 @@ const QuizActionCard = ({
 }: Props) => {
 
   // =========================================================
-  // ONLINE GUARD
+  // QUIZ ACCESS
   // =========================================================
-
-  const {
-    runOnlineAction,
-  } = useOnlineGuard();
-
-
+  //
+  // Opening the Quiz screen is allowed while offline.
+  //
+  // MaterialQuizScreen / useMaterialQuizScreen decides:
+  //
+  // - cached quiz exists
+  //     -> open and answer offline
+  //
+  // - no cached quiz + online
+  //     -> load / generate quiz
+  //
+  // - no cached quiz + offline
+  //     -> show friendly unavailable message
+  //
+  // Quiz submission and new AI generation remain online-only.
   // =========================================================
-  // HANDLE PRESS
-  // =========================================================
-
-  const handlePress =
-    () => {
-
-      runOnlineAction(
-        'AI Quiz',
-        onPress,
-      );
-    };
 
 
   // =========================================================
@@ -70,7 +64,7 @@ const QuizActionCard = ({
       }
 
       onPress={
-        handlePress
+        onPress
       }
 
       className="

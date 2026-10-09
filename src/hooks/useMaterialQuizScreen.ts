@@ -7,12 +7,27 @@ import {
 } from 'react';
 
 import {
+  MaterialQuiz,
   QuizSubmissionResult,
 } from '../domain/models/MaterialQuiz';
 
 import {
+  getMaterialQuizDraft,
+  removeMaterialQuizDraft,
+  saveMaterialQuizDraft,
+} from '../data/local/storage/quizCache';
+
+import {
+  useAuth,
+} from './useAuth';
+
+import {
   useMaterialQuiz,
 } from './useMaterialQuiz';
+
+import {
+  useNetwork,
+} from './useNetwork';
 
 
 interface Params {
@@ -35,6 +50,28 @@ export const useMaterialQuizScreen = ({
 }: Params) => {
 
   const {
+    user,
+  } = useAuth();
+
+
+  const userId =
+    user
+      ? String(
+          user.id,
+        )
+      : null;
+
+
+  const {
+    isOnline,
+
+    initialized:
+      networkInitialized,
+
+  } = useNetwork();
+
+
+  const {
 
     quiz,
 
@@ -46,13 +83,27 @@ export const useMaterialQuizScreen = ({
 
     error,
 
+    loadCached,
+
     loadLatest,
 
     generate,
 
     submit,
 
+    clearError,
+
   } = useMaterialQuiz();
+
+
+  const [
+    screenError,
+    setScreenError,
+  ] = useState<
+    string | null
+  >(
+    null,
+  );
 
 
   const [
@@ -90,30 +141,134 @@ export const useMaterialQuizScreen = ({
     );
 
 
-  const resetQuizState =
+  // =========================================================
+  // RESTORE DRAFT FOR ONE QUIZ VERSION
+  // =========================================================
+
+  const restoreDraft =
     useCallback(
-      () => {
+      async (
+        activeQuiz:
+          MaterialQuiz,
+      ) => {
 
         setCurrentIndex(
           0,
         );
 
 
-        setSelectedAnswers(
-          {},
-        );
+        if (
+          !userId
+        ) {
+
+          setSelectedAnswers(
+            {},
+          );
+
+
+          return;
+        }
+
+
+        try {
+
+          const draft =
+            await getMaterialQuizDraft(
+              userId,
+              materialId,
+              activeQuiz.quizId,
+            );
+
+
+          if (
+            draft
+          ) {
+
+            setSelectedAnswers(
+              draft.selectedAnswers,
+            );
+
+
+            console.log(
+              '[QUIZ DRAFT] Restored',
+              {
+                materialId,
+
+                quizId:
+                  activeQuiz.quizId,
+
+                answerCount:
+                  Object.keys(
+                    draft.selectedAnswers,
+                  ).length,
+              },
+            );
+
+
+            return;
+          }
+
+
+          setSelectedAnswers(
+            {},
+          );
+
+
+        } catch (
+          draftError
+        ) {
+
+          console.warn(
+            '[QUIZ DRAFT] Restore failed:',
+            draftError,
+          );
+
+
+          setSelectedAnswers(
+            {},
+          );
+        }
       },
-      [],
+      [
+        materialId,
+        userId,
+      ],
     );
 
 
   // =========================================================
   // INITIALIZE
   // =========================================================
+  //
+  // NORMAL FLOW:
+  //
+  // local quiz cache
+  //      ↓
+  // offline -> restore draft and use cache
+  //      ↓
+  // online -> GET latest FastAPI quiz
+  //      ↓
+  // missing -> generate once
+  //
+  // FORCE GENERATE:
+  //
+  // online -> generate a brand-new quiz
+  //
+  // offline -> fall back to cached quiz if one exists,
+  // otherwise show a friendly connection message.
+  // =========================================================
 
   const initialize =
     useCallback(
       async () => {
+
+        if (
+          !networkInitialized
+        ) {
+
+          return;
+        }
+
 
         try {
 
@@ -122,7 +277,27 @@ export const useMaterialQuizScreen = ({
           );
 
 
+          setScreenError(
+            null,
+          );
+
+
+          clearError();
+
+
           // =================================================
+          // STEP 1
+          // LOCAL CACHE FIRST
+          // =================================================
+
+          const cached =
+            await loadCached(
+              materialId,
+            );
+
+
+          // =================================================
+          // STEP 2
           // FORCE NEW QUIZ
           // =================================================
 
@@ -130,20 +305,85 @@ export const useMaterialQuizScreen = ({
             forceGenerate
           ) {
 
-            await generate(
-              materialId,
-              DEFAULT_QUESTION_COUNT,
+            if (
+              !isOnline
+            ) {
+
+              if (
+                cached
+              ) {
+
+                await restoreDraft(
+                  cached,
+                );
+
+
+                return;
+              }
+
+
+              setScreenError(
+                'A new quiz requires an internet connection. '
+                + 'No cached quiz is available for this material.',
+              );
+
+
+              return;
+            }
+
+
+            const generated =
+              await generate(
+                materialId,
+                DEFAULT_QUESTION_COUNT,
+              );
+
+
+            await restoreDraft(
+              generated,
             );
 
-
-            resetQuizState();
 
             return;
           }
 
 
           // =================================================
-          // LOAD SAVED
+          // STEP 3
+          // OFFLINE
+          // =================================================
+
+          if (
+            !isOnline
+          ) {
+
+            if (
+              cached
+            ) {
+
+              await restoreDraft(
+                cached,
+              );
+
+
+              return;
+            }
+
+
+            setScreenError(
+              'No cached quiz is available offline. '
+              + 'Connect to the internet and open this quiz '
+              + 'once to save an offline copy.',
+            );
+
+
+            return;
+          }
+
+
+          // =================================================
+          // STEP 4
+          // ONLINE - LOAD LATEST
           // =================================================
 
           const saved =
@@ -156,32 +396,42 @@ export const useMaterialQuizScreen = ({
             saved
           ) {
 
-            resetQuizState();
+            await restoreDraft(
+              saved,
+            );
+
 
             return;
           }
 
 
           // =================================================
-          // NONE SAVED
+          // STEP 5
+          // ONLINE - GENERATE IF MISSING
           // =================================================
 
-          await generate(
-            materialId,
-            DEFAULT_QUESTION_COUNT,
+          const generated =
+            await generate(
+              materialId,
+              DEFAULT_QUESTION_COUNT,
+            );
+
+
+          await restoreDraft(
+            generated,
           );
-
-
-          resetQuizState();
 
 
         } catch {
 
           /*
-           * Hook owns error state.
+           * The data hook owns API error state.
            *
-           * A real GET failure does not
-           * automatically call Gemini.
+           * If a cached quiz was already loaded before an
+           * online failure, it remains visible.
+           *
+           * We deliberately do not trigger another Gemini
+           * request after a real GET failure.
            */
 
         } finally {
@@ -193,17 +443,29 @@ export const useMaterialQuizScreen = ({
 
       },
       [
+        clearError,
         forceGenerate,
         generate,
+        isOnline,
+        loadCached,
         loadLatest,
         materialId,
-        resetQuizState,
+        networkInitialized,
+        restoreDraft,
       ],
     );
 
 
   useEffect(
     () => {
+
+      if (
+        !networkInitialized
+      ) {
+
+        return;
+      }
+
 
       if (
         initialRequestStarted
@@ -224,6 +486,7 @@ export const useMaterialQuizScreen = ({
     },
     [
       initialize,
+      networkInitialized,
     ],
   );
 
@@ -312,6 +575,58 @@ export const useMaterialQuizScreen = ({
 
 
   // =========================================================
+  // SAVE CURRENT DRAFT
+  // =========================================================
+
+  const persistDraft =
+    useCallback(
+      async (
+        answers:
+          Record<
+            string,
+            number
+          >,
+      ) => {
+
+        if (
+          !userId
+          ||
+          !quiz
+        ) {
+
+          return;
+        }
+
+
+        try {
+
+          await saveMaterialQuizDraft(
+            userId,
+            materialId,
+            quiz.quizId,
+            answers,
+          );
+
+
+        } catch (
+          draftError
+        ) {
+
+          console.warn(
+            '[QUIZ DRAFT] Save failed:',
+            draftError,
+          );
+        }
+      },
+      [
+        materialId,
+        quiz,
+        userId,
+      ],
+    );
+
+
+  // =========================================================
   // SELECT ANSWER
   // =========================================================
 
@@ -325,16 +640,28 @@ export const useMaterialQuizScreen = ({
           number,
       ) => {
 
-        setSelectedAnswers(
-          current => ({
-            ...current,
+        const nextAnswers = {
+          ...selectedAnswers,
 
-            [questionId]:
-              optionIndex,
-          }),
+          [questionId]:
+            optionIndex,
+        };
+
+
+        setSelectedAnswers(
+          nextAnswers,
         );
+
+
+        void persistDraft(
+          nextAnswers,
+        );
+
       },
-      [],
+      [
+        persistDraft,
+        selectedAnswers,
+      ],
     );
 
 
@@ -391,6 +718,12 @@ export const useMaterialQuizScreen = ({
   // =========================================================
   // SUBMIT
   // =========================================================
+  //
+  // Scoring remains server-side.
+  //
+  // Offline submission is deliberately blocked while the
+  // locally saved answers remain intact.
+  // =========================================================
 
   const submitQuiz =
     useCallback(
@@ -403,6 +736,21 @@ export const useMaterialQuizScreen = ({
         ) {
 
           return null;
+        }
+
+
+        if (
+          networkInitialized
+          &&
+          !isOnline
+        ) {
+
+          throw new Error(
+            'An internet connection is required to submit '
+            + 'and score this quiz. Your answers are saved '
+            + 'on this device and will be restored when you '
+            + 'return.',
+          );
         }
 
 
@@ -428,18 +776,78 @@ export const useMaterialQuizScreen = ({
           );
 
 
-        return (
+        const response =
           await submit(
             quiz.quizId,
             answers,
-          )
-        );
+          );
+
+
+        /*
+         * The backend has accepted and scored this attempt,
+         * so the local unsent draft is no longer needed.
+         */
+        if (
+          userId
+        ) {
+
+          try {
+
+            await removeMaterialQuizDraft(
+              userId,
+              materialId,
+            );
+
+
+          } catch (
+            draftError
+          ) {
+
+            console.warn(
+              '[QUIZ DRAFT] Clear after submit failed:',
+              draftError,
+            );
+          }
+        }
+
+
+        return response;
 
       },
       [
+        isOnline,
+        materialId,
+        networkInitialized,
         quiz,
         selectedAnswers,
         submit,
+        userId,
+      ],
+    );
+
+
+  // =========================================================
+  // RETRY
+  // =========================================================
+
+  const retry =
+    useCallback(
+      async () => {
+
+        setScreenError(
+          null,
+        );
+
+
+        clearError();
+
+
+        await initialize();
+
+      },
+      [
+        clearError,
+        initialize,
       ],
     );
 
@@ -451,13 +859,15 @@ export const useMaterialQuizScreen = ({
 
 
   const displayPosition =
-    totalQuestions > 0
+    totalQuestions >
+      0
       ? currentIndex + 1
       : 0;
 
 
   const canGoPrevious =
-    currentIndex > 0;
+    currentIndex >
+    0;
 
 
   const canGoNext =
@@ -470,7 +880,8 @@ export const useMaterialQuizScreen = ({
 
   const isLastQuestion =
     (
-      totalQuestions > 0
+      totalQuestions >
+        0
       &&
       currentIndex ===
         totalQuestions - 1
@@ -512,7 +923,10 @@ export const useMaterialQuizScreen = ({
       ||
       submitting,
 
-    error,
+    error:
+      screenError
+      ??
+      error,
 
     canGoPrevious,
 
@@ -528,7 +942,6 @@ export const useMaterialQuizScreen = ({
 
     submitQuiz,
 
-    retry:
-      initialize,
+    retry,
   };
 };
