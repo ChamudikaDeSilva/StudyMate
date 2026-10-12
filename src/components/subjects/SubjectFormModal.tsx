@@ -1,7 +1,6 @@
 import React, { useRef } from 'react';
 import {
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -14,6 +13,7 @@ import { colors } from '../../constants/colors';
 import AppButton from '../common/AppButton';
 import AppInput, { AppInputRef } from '../common/AppInput';
 import SectionCard from '../common/SectionCard';
+import AppModal from '../common/AppModal';
 
 interface SubjectFormModalProps {
   visible: boolean;
@@ -41,7 +41,7 @@ const SubjectFormModal = ({
   const descriptionRef = useRef<AppInputRef>(null);
 
   return (
-    <Modal
+    <AppModal
       transparent
       animationType="fade"
       visible={visible}
@@ -162,7 +162,7 @@ const SubjectFormModal = ({
           </ScrollView>
         </SafeAreaView>
       </KeyboardAvoidingView>
-    </Modal>
+    </AppModal>
   );
 };
 

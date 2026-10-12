@@ -1,5 +1,4 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import AppButton from '../../src/components/common/AppButton';
 import QuizQuestionCard from '../../src/components/quiz/QuizQuestionCard';
@@ -9,6 +8,7 @@ import QuizOption from '../../src/components/quiz/QuizOption';
 import MaterialQuizScreen from '../../src/screens/ai/MaterialQuizScreen';
 import MaterialQuizResultScreen from '../../src/screens/ai/MaterialQuizResultScreen';
 import { useMaterialQuizScreen } from '../../src/hooks/useMaterialQuizScreen';
+import { useAppAlert } from '../../src/hooks/useAppAlert';
 import {
   QuizAnswerResult,
   QuizSubmissionResult,
@@ -16,6 +16,9 @@ import {
 
 jest.mock('../../src/hooks/useMaterialQuizScreen', () => ({
   useMaterialQuizScreen: jest.fn(),
+}));
+jest.mock('../../src/hooks/useAppAlert', () => ({
+  useAppAlert: jest.fn(),
 }));
 jest.mock('react-native-css-interop', () => ({
   createInteropElement: require('react').createElement,
@@ -67,6 +70,10 @@ const params = {
   materialTitle: 'Stacks',
 };
 const mounted: ReactTestRenderer.ReactTestRenderer[] = [];
+const mockAlert = jest.fn<
+  ReturnType<ReturnType<typeof useAppAlert>['alert']>,
+  Parameters<ReturnType<typeof useAppAlert>['alert']>
+>();
 const render = (element: React.ReactElement) => {
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   act(() => {
@@ -99,6 +106,7 @@ const getButton = (
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.mocked(useAppAlert).mockReturnValue({ alert: mockAlert });
 });
 afterEach(() => {
   act(() => mounted.splice(0).forEach(renderer => renderer.unmount()));
@@ -251,7 +259,6 @@ test('quiz submission retains unanswered confirmation and passes the result to r
     next: jest.fn(),
     retry: jest.fn(),
   } as unknown as ReturnType<typeof useMaterialQuizScreen>);
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const navigation = {
     navigate: jest.fn(),
     replace: jest.fn(),
@@ -265,13 +272,14 @@ test('quiz submission retains unanswered confirmation and passes the result to r
     />,
   );
   act(() => getButton(renderer, 'Submit quiz').props.onPress());
-  expect(alert).toHaveBeenCalledWith(
+  expect(mockAlert).toHaveBeenCalledWith(
     'Unanswered questions',
     'You still have 1 unanswered question. Submit anyway?',
     expect.any(Array),
+    { tone: 'warning' },
   );
   expect(submitQuiz).not.toHaveBeenCalled();
-  const buttons = alert.mock.calls[0][2]!;
+  const buttons = mockAlert.mock.calls[0][2]!;
   await act(async () => {
     buttons.find(button => button.text === 'Submit')!.onPress!();
   });

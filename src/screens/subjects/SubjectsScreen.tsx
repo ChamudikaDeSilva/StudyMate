@@ -138,6 +138,7 @@ const SubjectsScreen = ({ navigation }: Props) => {
         visible={screen.actionsVisible}
         subject={screen.selectedSubject}
         onClose={screen.closeActions}
+        onDismiss={screen.completeActionsDismissal}
         onEdit={screen.openEdit}
         onDelete={screen.confirmDelete}
       />

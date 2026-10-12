@@ -1,263 +1,229 @@
 import React from 'react';
-import {Alert, Modal} from 'react-native';
-import ReactTestRenderer, {act} from 'react-test-renderer';
+import { Modal } from 'react-native';
+import ReactTestRenderer, { act } from 'react-test-renderer';
 import AccountMenu from '../../src/components/home/AccountMenu';
 import ActionButton from '../../src/components/common/ActionButton';
-import {useAuth} from '../../src/hooks/useAuth';
+import AppDialog from '../../src/components/common/AppDialog';
+import AppModal from '../../src/components/common/AppModal';
+import { AppAlertProvider } from '../../src/context/AppAlertContext';
+import { useAuth } from '../../src/hooks/useAuth';
 
-jest.mock('../../src/hooks/useAuth', () => ({useAuth: jest.fn()}));
-
+jest.mock('../../src/hooks/useAuth', () => ({ useAuth: jest.fn() }));
 jest.mock('react-native-css-interop', () => ({
   createInteropElement: require('react').createElement,
 }));
-
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: require('react-native').View,
 }));
-
 jest.mock('lucide-react-native', () => {
-  const ReactModule = require('react');
-  const {View} = require('react-native');
-  const Icon = () => ReactModule.createElement(View);
-
+  const Icon = () =>
+    require('react').createElement(require('react-native').View);
   return new Proxy(
-    {__esModule: true},
-    {get: (_target, name) => (name === '__esModule' ? true : Icon)},
+    { __esModule: true },
+    { get: (_target, name) => (name === '__esModule' ? true : Icon) },
   );
 });
 
-const mockUseAuth = jest.mocked(useAuth);
 const logout = jest.fn<Promise<void>, []>();
-const mountedMenus: ReactTestRenderer.ReactTestRenderer[] = [];
-let alertSpy: jest.SpyInstance<
-  ReturnType<typeof Alert.alert>,
-  Parameters<typeof Alert.alert>
->;
-
+const mounted: ReactTestRenderer.ReactTestRenderer[] = [];
 const renderMenu = () => {
   const onProfile = jest.fn();
   let renderer!: ReactTestRenderer.ReactTestRenderer;
-
   act(() => {
     renderer = ReactTestRenderer.create(
-      <AccountMenu displayName="Alex Student" onProfile={onProfile} />,
+      <AppAlertProvider>
+        <AccountMenu displayName="Alex Student" onProfile={onProfile} />
+      </AppAlertProvider>,
     );
   });
-  mountedMenus.push(renderer);
-  return {renderer, onProfile};
+  mounted.push(renderer);
+  return { renderer, onProfile };
 };
-
-const getAvatar = (renderer: ReactTestRenderer.ReactTestRenderer) => {
-  const avatar = renderer.root.findAll(
+const avatar = (renderer: ReactTestRenderer.ReactTestRenderer) =>
+  renderer.root.find(
     node =>
       node.props.accessibilityLabel === 'Open account menu' &&
       typeof node.props.onPress === 'function',
-  )[0];
-  if (!avatar) {
-    throw new Error('No account menu button');
-  }
-  return avatar;
-};
-
-const getAction = (
+  );
+const sheet = (renderer: ReactTestRenderer.ReactTestRenderer) =>
+  renderer.root.findByType(AppModal);
+const action = (renderer: ReactTestRenderer.ReactTestRenderer, title: string) =>
+  sheet(renderer)
+    .findAllByType(ActionButton)
+    .find(node => node.props.title === title)!;
+const dialog = (renderer: ReactTestRenderer.ReactTestRenderer) =>
+  renderer.root.findByType(AppDialog);
+const dialogAction = (
   renderer: ReactTestRenderer.ReactTestRenderer,
   title: string,
 ) => {
-  const action = renderer.root
-    .findAllByType(ActionButton)
-    .find(node => node.props.title === title);
-  if (!action) {
-    throw new Error(`No account action titled ${title}`);
+  const popup = dialog(renderer);
+  const index = popup.props.buttons.findIndex(
+    (button: { text: string }) => button.text === title,
+  );
+  if (index < 0) {
+    throw new Error('Missing dialog action ' + title);
   }
-  return action;
+  const onSelect = popup.props.onSelect;
+  return () => onSelect(index);
 };
-
-const getConfirmation = () => {
-  const confirmation = alertSpy.mock.calls
-    .filter(([title]) => title === 'Sign Out')
-    .slice(-1)[0];
-  if (!confirmation) {
-    throw new Error('No sign out confirmation');
-  }
-  return confirmation;
+const open = (renderer: ReactTestRenderer.ReactTestRenderer) => {
+  act(() => avatar(renderer).props.onPress());
+  expect(sheet(renderer).props.visible).toBe(true);
 };
-
-const getConfirmationButton = (title: string) => {
-  const button = getConfirmation()[2]?.find(item => item.text === title);
-  if (!button?.onPress) {
-    throw new Error(`No confirmation action titled ${title}`);
-  }
-  return button.onPress;
+const requestLogout = (renderer: ReactTestRenderer.ReactTestRenderer) => {
+  const previousCalls = logout.mock.calls.length;
+  act(() => action(renderer, 'Sign out').props.onPress());
+  expect(dialog(renderer).props.title).toBe('Sign out?');
+  expect(logout).toHaveBeenCalledTimes(previousCalls);
 };
-
-const openMenu = (renderer: ReactTestRenderer.ReactTestRenderer) => {
-  act(() => getAvatar(renderer).props.onPress());
-  expect(renderer.root.findByType(Modal).props.visible).toBe(true);
-};
-
-const requestSignOut = (renderer: ReactTestRenderer.ReactTestRenderer) => {
-  act(() => getAction(renderer, 'Sign out').props.onPress());
-  expect(logout).not.toHaveBeenCalled();
+const completeSheetDismissal = (
+  renderer: ReactTestRenderer.ReactTestRenderer,
+) => {
+  act(() => sheet(renderer).findByType(Modal).props.onDismiss?.());
 };
 
 beforeEach(() => {
   jest.clearAllMocks();
   logout.mockResolvedValue(undefined);
-  alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  mockUseAuth.mockReturnValue({
+  jest.mocked(useAuth).mockReturnValue({
     user: null,
     loading: false,
     login: jest.fn(),
     register: jest.fn(),
     logout,
+    updateProfile: jest.fn(),
+    changePassword: jest.fn(),
   });
 });
-
 afterEach(() => {
-  act(() => mountedMenus.splice(0).forEach(renderer => renderer.unmount()));
-  alertSpy.mockRestore();
+  act(() => mounted.splice(0).forEach(renderer => renderer.unmount()));
 });
 
-test('view profile closes the account sheet and invokes the profile callback', () => {
-  const {renderer, onProfile} = renderMenu();
-  expect(renderer.root.findByType(Modal).props.visible).toBe(false);
-  openMenu(renderer);
-
-  act(() => getAction(renderer, 'View profile').props.onPress());
-
+test('view profile closes the shared account sheet and navigates once', () => {
+  const { renderer, onProfile } = renderMenu();
+  open(renderer);
+  act(() => action(renderer, 'View profile').props.onPress());
   expect(onProfile).toHaveBeenCalledTimes(1);
-  expect(renderer.root.findByType(Modal).props.visible).toBe(false);
+  expect(sheet(renderer).props.visible).toBe(false);
   expect(logout).not.toHaveBeenCalled();
 });
 
-test('dismissing the account sheet leaves the session intact', () => {
-  const {renderer} = renderMenu();
-  openMenu(renderer);
-
-  act(() => renderer.root.findByType(Modal).props.onRequestClose());
-
-  expect(renderer.root.findByType(Modal).props.visible).toBe(false);
-  expect(alertSpy).not.toHaveBeenCalled();
+test('closing the account sheet leaves the session intact', () => {
+  const { renderer } = renderMenu();
+  open(renderer);
+  act(() => sheet(renderer).findByType(Modal).props.onRequestClose());
+  expect(sheet(renderer).props.visible).toBe(false);
+  expect(renderer.root.findAllByType(AppDialog)).toHaveLength(0);
   expect(logout).not.toHaveBeenCalled();
 });
 
-test.each(['Cancel', 'dismiss'])(
-  '%s closes the confirmation without signing out and permits another attempt',
-  action => {
-    const {renderer} = renderMenu();
-    openMenu(renderer);
-    requestSignOut(renderer);
-    expect(renderer.root.findByType(Modal).props.visible).toBe(true);
-
+test.each(['Cancel', 'backdrop', 'back'])(
+  '%s dismisses the themed confirmation and allows another attempt',
+  mode => {
+    const { renderer } = renderMenu();
+    open(renderer);
+    requestLogout(renderer);
     act(() => {
-      if (action === 'Cancel') {
-        getConfirmationButton('Cancel')();
+      if (mode === 'Cancel') {
+        dialogAction(renderer, 'Cancel')();
+      } else if (mode === 'backdrop') {
+        dialog(renderer).props.onDismiss();
       } else {
-        getConfirmation()[3]?.onDismiss?.();
+        sheet(renderer).findByType(Modal).props.onRequestClose();
       }
     });
-
     expect(logout).not.toHaveBeenCalled();
-    expect(renderer.root.findByType(Modal).props.visible).toBe(false);
-    openMenu(renderer);
-    requestSignOut(renderer);
-    expect(alertSpy).toHaveBeenCalledTimes(2);
+    expect(sheet(renderer).props.visible).toBe(false);
+    completeSheetDismissal(renderer);
+    open(renderer);
+    requestLogout(renderer);
   },
 );
 
-test('confirmation and pending sign out prevent repeated prompts and logout requests', async () => {
-  let finishLogout!: () => void;
-  const request = new Promise<void>(resolve => {
-    finishLogout = resolve;
+test('confirmation and pending logout block repeated actions', async () => {
+  let finish!: () => void;
+  const pending = new Promise<void>(resolve => {
+    finish = resolve;
   });
-  logout.mockReturnValueOnce(request);
-  const {renderer, onProfile} = renderMenu();
-  openMenu(renderer);
-  const prompt = getAction(renderer, 'Sign out').props.onPress;
-  const profile = getAction(renderer, 'View profile').props.onPress;
+  logout.mockReturnValueOnce(pending);
+  const { renderer, onProfile } = renderMenu();
+  open(renderer);
+  const request = action(renderer, 'Sign out').props.onPress;
+  const profile = action(renderer, 'View profile').props.onPress;
   act(() => {
-    prompt();
-    prompt();
+    request();
+    request();
     profile();
   });
-  expect(alertSpy).toHaveBeenCalledTimes(1);
+  expect(renderer.root.findAllByType(AppDialog)).toHaveLength(1);
   expect(onProfile).not.toHaveBeenCalled();
-  expect(logout).not.toHaveBeenCalled();
-
-  const confirm = getConfirmationButton('Sign Out');
+  const confirm = dialogAction(renderer, 'Sign out');
   act(() => {
     confirm();
     confirm();
-    prompt();
+    request();
     profile();
-    getAvatar(renderer).props.onPress();
+    avatar(renderer).props.onPress();
   });
-
   expect(logout).toHaveBeenCalledTimes(1);
-  expect(alertSpy).toHaveBeenCalledTimes(1);
-  expect(renderer.root.findByType(Modal).props.visible).toBe(false);
-  expect(getAvatar(renderer).props.disabled).toBe(true);
+  expect(sheet(renderer).props.visible).toBe(false);
+  expect(avatar(renderer).props.disabled).toBe(true);
   expect(onProfile).not.toHaveBeenCalled();
-
   await act(async () => {
-    finishLogout();
-    await request;
+    finish();
+    await pending;
   });
-
-  expect(getAvatar(renderer).props.disabled).toBe(false);
+  expect(avatar(renderer).props.disabled).toBe(false);
 });
 
-test('a failed sign out explains the failure and allows a successful retry', async () => {
+test('failed logout shows a themed error and permits a retry', async () => {
   logout.mockRejectedValueOnce(new Error('Offline'));
-  const {renderer} = renderMenu();
-  openMenu(renderer);
-  requestSignOut(renderer);
-
+  const { renderer } = renderMenu();
+  open(renderer);
+  requestLogout(renderer);
   await act(async () => {
-    await getConfirmationButton('Sign Out')();
+    dialogAction(renderer, 'Sign out')();
   });
-
-  expect(alertSpy).toHaveBeenLastCalledWith(
-    'Sign Out Failed',
-    'Unable to sign out. Please try again.',
+  completeSheetDismissal(renderer);
+  expect(dialog(renderer).props.title).toBe('Sign out failed');
+  expect(dialog(renderer).props.options.tone).toBe('danger');
+  act(() => dialogAction(renderer, 'OK')());
+  // Complete the root native dialog dismissal before opening the next sheet.
+  act(() =>
+    renderer.root
+      .findAllByType(Modal)
+      .filter(node => !sheet(renderer).findAllByType(Modal).includes(node))
+      .forEach(node => node.props.onDismiss?.()),
   );
-  expect(getAvatar(renderer).props.disabled).toBe(false);
-  expect(renderer.root.findByType(Modal).props.visible).toBe(false);
-
-  openMenu(renderer);
-  act(() => getAction(renderer, 'Sign out').props.onPress());
+  open(renderer);
+  requestLogout(renderer);
   await act(async () => {
-    await getConfirmationButton('Sign Out')();
+    dialogAction(renderer, 'Sign out')();
   });
-
   expect(logout).toHaveBeenCalledTimes(2);
-  expect(getAvatar(renderer).props.disabled).toBe(false);
-  expect(renderer.root.findByType(Modal).props.visible).toBe(false);
+  expect(avatar(renderer).props.disabled).toBe(false);
 });
 
-test('a pending sign out cannot show a failure or start again after unmount', async () => {
-  let failLogout!: (reason: Error) => void;
-  const request = new Promise<void>((_resolve, reject) => {
-    failLogout = reject;
+test('a late failed logout cannot show another popup after unmount', async () => {
+  let fail!: (reason: Error) => void;
+  const pending = new Promise<void>((_resolve, reject) => {
+    fail = reject;
   });
-  logout.mockReturnValueOnce(request);
-  const {renderer} = renderMenu();
-  openMenu(renderer);
-  requestSignOut(renderer);
-  const confirm = getConfirmationButton('Sign Out');
+  logout.mockReturnValueOnce(pending);
+  const { renderer } = renderMenu();
+  open(renderer);
+  requestLogout(renderer);
+  const confirm = dialogAction(renderer, 'Sign out');
   act(() => {
     confirm();
     renderer.unmount();
   });
-  mountedMenus.splice(mountedMenus.indexOf(renderer), 1);
-
+  mounted.splice(mounted.indexOf(renderer), 1);
   await act(async () => {
     confirm();
-    failLogout(new Error('Offline'));
-    await request.catch(() => undefined);
+    fail(new Error('Offline'));
+    await pending.catch(() => undefined);
   });
-
   expect(logout).toHaveBeenCalledTimes(1);
-  expect(alertSpy).toHaveBeenCalledTimes(1);
-  expect(alertSpy.mock.calls[0][0]).toBe('Sign Out');
 });

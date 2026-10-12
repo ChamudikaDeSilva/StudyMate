@@ -144,6 +144,8 @@ beforeEach(() => {
     login,
     register,
     logout: jest.fn(),
+    updateProfile: jest.fn(),
+    changePassword: jest.fn(),
   });
 });
 

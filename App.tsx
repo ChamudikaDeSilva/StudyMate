@@ -7,6 +7,7 @@ import './global.css';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from './src/context/AuthContext';
+import { AppAlertProvider } from './src/context/AppAlertContext';
 
 import { NetworkProvider } from './src/context/NetworkContext';
 
@@ -29,9 +30,11 @@ const App = () => {
              * processes pending offline
              * operations when online.
              */}
-            <OfflineSyncBridge />
+            <AppAlertProvider>
+              <OfflineSyncBridge />
 
-            <AppNavigator />
+              <AppNavigator />
+            </AppAlertProvider>
           </AuthProvider>
         </View>
       </NetworkProvider>

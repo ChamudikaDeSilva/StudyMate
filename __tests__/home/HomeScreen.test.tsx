@@ -9,6 +9,9 @@ import { useSubjects } from '../../src/hooks/useSubjects';
 import { Subject } from '../../src/domain/models/Subject';
 
 jest.mock('../../src/hooks/useAuth', () => ({ useAuth: jest.fn() }));
+jest.mock('../../src/hooks/useAppAlert', () => ({
+  useAppAlert: () => ({ alert: jest.fn() }),
+}));
 jest.mock('../../src/hooks/useSubjects', () => ({ useSubjects: jest.fn() }));
 
 // Preserve NativeWind's JSX factory without depending on native styling.
@@ -170,6 +173,8 @@ beforeEach(() => {
     login: jest.fn(),
     register: jest.fn(),
     logout: jest.fn(),
+    updateProfile: jest.fn(),
+    changePassword: jest.fn(),
   });
   mockUseSubjects.mockReturnValue(subjectState());
 });

@@ -4,8 +4,8 @@ import {
 } from 'react';
 
 import {
-  Alert,
-} from 'react-native';
+  useAppAlert,
+} from './useAppAlert';
 
 import {
   MaterialSourceType,
@@ -64,6 +64,10 @@ export const useAddMaterialScreen = ({
   subjectId,
   onSaved,
 }: UseAddMaterialScreenParams) => {
+
+  const {
+    alert,
+  } = useAppAlert();
 
   const {
     createTextMaterial,
@@ -346,10 +350,14 @@ export const useAddMaterialScreen = ({
               MAX_PDF_SIZE
           ) {
 
-            Alert.alert(
+            alert(
               'PDF too large',
 
               'Please select a PDF smaller than 20 MB.',
+
+              undefined,
+
+              { tone: 'warning' },
             );
 
 
@@ -372,12 +380,16 @@ export const useAddMaterialScreen = ({
           error
         ) {
 
-          Alert.alert(
+          alert(
             'Unable to select PDF',
 
             error instanceof Error
               ? error.message
               : 'Unable to select PDF.',
+
+            undefined,
+
+            { tone: 'danger' },
           );
 
         } finally {
@@ -389,6 +401,7 @@ export const useAddMaterialScreen = ({
 
       },
       [
+        alert,
         busy,
         selectedSource,
         resetMaterialData,
@@ -484,10 +497,14 @@ export const useAddMaterialScreen = ({
               MAX_IMAGE_SIZE
           ) {
 
-            Alert.alert(
+            alert(
               'Image too large',
 
               'Please select an image smaller than 10 MB.',
+
+              undefined,
+
+              { tone: 'warning' },
             );
 
 
@@ -510,12 +527,16 @@ export const useAddMaterialScreen = ({
           error
         ) {
 
-          Alert.alert(
+          alert(
             'Unable to select image',
 
             error instanceof Error
               ? error.message
               : 'Unable to select image.',
+
+            undefined,
+
+            { tone: 'danger' },
           );
 
         } finally {
@@ -527,6 +548,7 @@ export const useAddMaterialScreen = ({
 
       },
       [
+        alert,
         busy,
         selectedSource,
         resetMaterialData,
@@ -622,10 +644,14 @@ export const useAddMaterialScreen = ({
               MAX_IMAGE_SIZE
           ) {
 
-            Alert.alert(
+            alert(
               'Photo too large',
 
               'Please capture a photo smaller than 10 MB.',
+
+              undefined,
+
+              { tone: 'warning' },
             );
 
 
@@ -646,12 +672,16 @@ export const useAddMaterialScreen = ({
           error
         ) {
 
-          Alert.alert(
+          alert(
             'Unable to use camera',
 
             error instanceof Error
               ? error.message
               : 'Unable to capture a photo.',
+
+            undefined,
+
+            { tone: 'danger' },
           );
 
         } finally {
@@ -663,6 +693,7 @@ export const useAddMaterialScreen = ({
 
       },
       [
+        alert,
         busy,
         selectedSource,
         resetMaterialData,
@@ -723,10 +754,14 @@ export const useAddMaterialScreen = ({
               MAX_IMAGE_SIZE
           ) {
 
-            Alert.alert(
+            alert(
               'Photo too large',
 
               'Please capture a photo smaller than 10 MB.',
+
+              undefined,
+
+              { tone: 'warning' },
             );
 
 
@@ -747,12 +782,16 @@ export const useAddMaterialScreen = ({
           error
         ) {
 
-          Alert.alert(
+          alert(
             'Unable to use camera',
 
             error instanceof Error
               ? error.message
               : 'Unable to capture a photo.',
+
+            undefined,
+
+            { tone: 'danger' },
           );
 
         } finally {
@@ -764,6 +803,7 @@ export const useAddMaterialScreen = ({
 
       },
       [
+        alert,
         busy,
       ],
     );
@@ -836,17 +876,22 @@ export const useAddMaterialScreen = ({
           error
         ) {
 
-          Alert.alert(
+          alert(
             'Unable to save material',
 
             error instanceof Error
               ? error.message
               : 'Unable to save material.',
+
+            undefined,
+
+            { tone: 'danger' },
           );
         }
 
       },
       [
+        alert,
         title,
         content,
         createTextMaterial,
@@ -896,12 +941,16 @@ export const useAddMaterialScreen = ({
           error
         ) {
 
-          Alert.alert(
+          alert(
             'Unable to upload PDF',
 
             error instanceof Error
               ? error.message
               : 'Unable to upload PDF.',
+
+            undefined,
+
+            { tone: 'danger' },
           );
 
         } finally {
@@ -913,6 +962,7 @@ export const useAddMaterialScreen = ({
 
       },
       [
+        alert,
         title,
         selectedPdf,
         createPdfMaterial,
@@ -962,12 +1012,16 @@ export const useAddMaterialScreen = ({
           error
         ) {
 
-          Alert.alert(
+          alert(
             'Unable to upload image',
 
             error instanceof Error
               ? error.message
               : 'Unable to upload image.',
+
+            undefined,
+
+            { tone: 'danger' },
           );
 
         } finally {
@@ -979,6 +1033,7 @@ export const useAddMaterialScreen = ({
 
       },
       [
+        alert,
         title,
         selectedImage,
         createImageMaterial,
@@ -1028,12 +1083,16 @@ export const useAddMaterialScreen = ({
           error
         ) {
 
-          Alert.alert(
+          alert(
             'Unable to upload photo',
 
             error instanceof Error
               ? error.message
               : 'Unable to upload the captured photo.',
+
+            undefined,
+
+            { tone: 'danger' },
           );
 
         } finally {
@@ -1045,6 +1104,7 @@ export const useAddMaterialScreen = ({
 
       },
       [
+        alert,
         title,
         capturedImage,
         createImageMaterial,

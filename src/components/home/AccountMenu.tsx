@@ -1,16 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { LogOut, UserRound, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../common/ActionButton';
+import AppModal from '../common/AppModal';
 import { useAuth } from '../../hooks/useAuth';
+import { useAppAlert } from '../../hooks/useAppAlert';
 import { getInitials } from '../../utils/userUtils';
 import { colors } from '../../constants/colors';
 
@@ -21,6 +16,7 @@ interface AccountMenuProps {
 
 const AccountMenu = ({ displayName, onProfile }: AccountMenuProps) => {
   const { logout } = useAuth();
+  const { alert } = useAppAlert();
   const [visible, setVisible] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const mounted = useRef(true);
@@ -60,7 +56,12 @@ const AccountMenu = ({ displayName, onProfile }: AccountMenuProps) => {
       await logout();
     } catch {
       if (mounted.current) {
-        Alert.alert('Sign Out Failed', 'Unable to sign out. Please try again.');
+        alert(
+          'Sign out failed',
+          'Unable to sign out. Please try again.',
+          undefined,
+          { tone: 'danger' },
+        );
       }
     } finally {
       logoutPending.current = false;
@@ -76,15 +77,19 @@ const AccountMenu = ({ displayName, onProfile }: AccountMenuProps) => {
     }
 
     confirmingLogout.current = true;
-    // Keep the sheet mounted until the native alert closes on iOS.
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
+    alert(
+      'Sign out?',
+      'Sign in again whenever you’re ready to keep learning.',
       [
         { text: 'Cancel', style: 'cancel', onPress: cancelLogout },
-        { text: 'Sign Out', style: 'destructive', onPress: signOut },
+        { text: 'Sign out', style: 'destructive', onPress: signOut },
       ],
-      { cancelable: true, onDismiss: cancelLogout },
+      {
+        cancelable: true,
+        onDismiss: cancelLogout,
+        tone: 'primary',
+        icon: 'sign-out',
+      },
     );
   };
 
@@ -114,7 +119,7 @@ const AccountMenu = ({ displayName, onProfile }: AccountMenuProps) => {
             setVisible(true);
           }
         }}
-        className={`h-[46px] w-[46px] items-center justify-center rounded-full bg-indigo-600 ${
+        className={`h-[46px] w-[46px] items-center justify-center rounded-full bg-brand-600 ${
           loggingOut ? 'opacity-60' : 'active:opacity-80'
         }`}
       >
@@ -127,7 +132,7 @@ const AccountMenu = ({ displayName, onProfile }: AccountMenuProps) => {
         )}
       </Pressable>
 
-      <Modal
+      <AppModal
         transparent
         animationType="fade"
         visible={visible}
@@ -190,7 +195,7 @@ const AccountMenu = ({ displayName, onProfile }: AccountMenuProps) => {
             </View>
           </SafeAreaView>
         </View>
-      </Modal>
+      </AppModal>
     </>
   );
 };

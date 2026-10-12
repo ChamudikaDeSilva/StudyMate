@@ -24,7 +24,7 @@ const validateLogin = ({ email, password }: LoginValues) => ({
 });
 
 const LoginScreen = ({ navigation }: Props) => {
-  const { login } = useAuth();
+  const { login, accountNotice } = useAuth();
   const emailRef = useRef<AppInputRef>(null);
   const passwordRef = useRef<AppInputRef>(null);
   const {
@@ -58,7 +58,7 @@ const LoginScreen = ({ navigation }: Props) => {
         title="Sign in"
         description="Your learning space is ready for you."
         submitting={submitting}
-        feedback={feedback}
+        feedback={feedback || accountNotice || ''}
       >
         <AppInput
           ref={emailRef}

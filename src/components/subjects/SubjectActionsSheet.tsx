@@ -1,15 +1,17 @@
 import React from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BookOpen, Pencil, Trash2, X } from 'lucide-react-native';
 import { colors } from '../../constants/colors';
 import { Subject } from '../../domain/models/Subject';
 import AppButton from '../common/AppButton';
+import AppModal from '../common/AppModal';
 
 interface SubjectActionsSheetProps {
   visible: boolean;
   subject: Subject | null;
   onClose: () => void;
+  onDismiss?: () => void;
   onEdit: (subject: Subject) => void;
   onDelete: (subject: Subject) => void;
 }
@@ -18,15 +20,17 @@ const SubjectActionsSheet = ({
   visible,
   subject,
   onClose,
+  onDismiss,
   onEdit,
   onDelete,
 }: SubjectActionsSheetProps) => (
-  <Modal
+  <AppModal
     transparent
     animationType="fade"
     visible={visible}
     statusBarTranslucent
     onRequestClose={onClose}
+    onDismiss={onDismiss}
   >
     <View className="flex-1 justify-end bg-ink/50">
       <Pressable
@@ -95,7 +99,7 @@ const SubjectActionsSheet = ({
         </View>
       </SafeAreaView>
     </View>
-  </Modal>
+  </AppModal>
 );
 
 export default SubjectActionsSheet;

@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { BrainCircuit } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import ScreenContainer from '../../components/common/ScreenContainer';
@@ -9,12 +9,14 @@ import QuizLoadingState from '../../components/quiz/QuizLoadingState';
 import QuizNavigation from '../../components/quiz/QuizNavigation';
 import QuizProgress from '../../components/quiz/QuizProgress';
 import QuizQuestionCard from '../../components/quiz/QuizQuestionCard';
+import { useAppAlert } from '../../hooks/useAppAlert';
 import { useMaterialQuizScreen } from '../../hooks/useMaterialQuizScreen';
 import { SubjectsStackParamList } from '../../navigation/navigationTypes';
 
 type Props = NativeStackScreenProps<SubjectsStackParamList, 'MaterialQuiz'>;
 
 const MaterialQuizScreen = ({ navigation, route }: Props) => {
+  const { alert } = useAppAlert();
   const { materialId, subjectId, subjectName, materialTitle, forceGenerate } =
     route.params;
   const screen = useMaterialQuizScreen({ materialId, forceGenerate });
@@ -45,19 +47,29 @@ const MaterialQuizScreen = ({ navigation, route }: Props) => {
         result,
       });
     } catch (submitError) {
-      Alert.alert(
+      alert(
         'Unable to submit quiz',
         submitError instanceof Error
           ? submitError.message
           : 'Please try again.',
+        undefined,
+        { tone: 'danger' },
       );
     }
-  }, [navigation, materialId, subjectId, subjectName, materialTitle, screen]);
+  }, [
+    alert,
+    navigation,
+    materialId,
+    subjectId,
+    subjectName,
+    materialTitle,
+    screen,
+  ]);
 
   const handleSubmit = useCallback(() => {
     const unanswered = screen.totalQuestions - screen.answeredCount;
     if (unanswered > 0) {
-      Alert.alert(
+      alert(
         'Unanswered questions',
         `You still have ${unanswered} unanswered question${
           unanswered === 1 ? '' : 's'
@@ -71,11 +83,12 @@ const MaterialQuizScreen = ({ navigation, route }: Props) => {
             },
           },
         ],
+        { tone: 'warning' },
       );
       return;
     }
     performSubmit();
-  }, [performSubmit, screen.answeredCount, screen.totalQuestions]);
+  }, [alert, performSubmit, screen.answeredCount, screen.totalQuestions]);
 
   return (
     <ScreenContainer>
