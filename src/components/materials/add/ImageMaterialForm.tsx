@@ -1,12 +1,12 @@
 import React from 'react';
-import {Pressable, Text} from 'react-native';
 import AppButton from '../../common/AppButton';
 import AppInput from '../../common/AppInput';
 import MaterialFormCard from '../MaterialFormCard';
 import MediaPreviewCard from '../MediaPreviewCard';
 import SelectFileButton from '../SelectFileButton';
-import {PickedImage} from '../../../services/storage/ImagePickerService';
-import {formatFileSize} from '../../../utils/fileUtils';
+import { PickedImage } from '../../../services/storage/ImagePickerService';
+import { formatFileSize } from '../../../utils/fileUtils';
+import { materialPresentation } from '../../../constants/materialPresentation';
 
 interface ImageMaterialFormProps {
   title: string;
@@ -32,22 +32,29 @@ const ImageMaterialForm = ({
   onSave,
 }: ImageMaterialFormProps) => {
   return (
-    <MaterialFormCard title="Image material">
+    <MaterialFormCard title="Add a study image">
       {selectedImage ? (
         <>
           <MediaPreviewCard
             image={selectedImage}
             details={formatFileSize(selectedImage.size)}
             onRemove={onRemove}
+            disabled={busy}
           />
-          <Pressable disabled={busy} onPress={onChoose} className="mb-5 self-start">
-            <Text className="font-semibold text-sky-600">Choose another image</Text>
-          </Pressable>
+          <AppButton
+            title="Choose another image"
+            variant="ghost"
+            disabled={busy}
+            onPress={onChoose}
+            className="mb-5"
+          />
         </>
       ) : (
         <SelectFileButton
           title="Choose image"
-          color="#0284C7"
+          description="Images up to 10 MB from your gallery."
+          icon={materialPresentation.image.icon}
+          color={materialPresentation.image.foreground}
           loading={picking}
           disabled={busy}
           onPress={onChoose}
@@ -64,7 +71,6 @@ const ImageMaterialForm = ({
 
       <AppButton
         title="Save image"
-        tone="info"
         onPress={onSave}
         loading={saving}
         disabled={busy || !title.trim() || !selectedImage}

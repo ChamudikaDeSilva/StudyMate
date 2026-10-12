@@ -1,58 +1,42 @@
 import React from 'react';
 
-import {
-  View,
-} from 'react-native';
+import { View } from 'react-native';
 
 import './global.css';
 
-import {
-  AuthProvider,
-} from './src/context/AuthContext';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import {
-  NetworkProvider,
-} from './src/context/NetworkContext';
+import { AuthProvider } from './src/context/AuthContext';
 
-import OfflineStatusBanner
-  from './src/components/offline/OfflineStatusBanner';
+import { NetworkProvider } from './src/context/NetworkContext';
 
-import OfflineSyncBridge
-  from './src/components/offline/OfflineSyncBridge';
+import OfflineStatusBanner from './src/components/offline/OfflineStatusBanner';
 
-import AppNavigator
-  from './src/navigation/AppNavigator';
+import OfflineSyncBridge from './src/components/offline/OfflineSyncBridge';
 
+import AppNavigator from './src/navigation/AppNavigator';
 
 const App = () => {
   return (
-    <NetworkProvider>
+    <SafeAreaProvider>
+      <NetworkProvider>
+        <View className="flex-1">
+          <OfflineStatusBanner />
 
-      <View
-        className="flex-1">
+          <AuthProvider>
+            {/*
+             * Watches connectivity and
+             * processes pending offline
+             * operations when online.
+             */}
+            <OfflineSyncBridge />
 
-        <OfflineStatusBanner />
-
-
-        <AuthProvider>
-
-          {/*
-           * Watches connectivity and
-           * processes pending offline
-           * operations when online.
-           */}
-          <OfflineSyncBridge />
-
-
-          <AppNavigator />
-
-        </AuthProvider>
-
-      </View>
-
-    </NetworkProvider>
+            <AppNavigator />
+          </AuthProvider>
+        </View>
+      </NetworkProvider>
+    </SafeAreaProvider>
   );
 };
-
 
 export default App;

@@ -1,166 +1,24 @@
 import React from 'react';
-
-import {
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
-
-import {
-  BrainCircuit,
-  ChevronRight,
-} from 'lucide-react-native';
-
+import { CircleHelp } from 'lucide-react-native';
+import { colors } from '../../constants/colors';
+import AiStudyActionCard from './AiStudyActionCard';
 
 interface Props {
-
-  disabled:
-    boolean;
-
-  onPress:
-    () => void;
+  disabled: boolean;
+  onPress: () => void;
 }
 
-
-const QuizActionCard = ({
-  disabled,
-  onPress,
-}: Props) => {
-
-  // =========================================================
-  // QUIZ ACCESS
-  // =========================================================
-  //
-  // Opening the Quiz screen is allowed while offline.
-  //
-  // MaterialQuizScreen / useMaterialQuizScreen decides:
-  //
-  // - cached quiz exists
-  //     -> open and answer offline
-  //
-  // - no cached quiz + online
-  //     -> load / generate quiz
-  //
-  // - no cached quiz + offline
-  //     -> show friendly unavailable message
-  //
-  // Quiz submission and new AI generation remain online-only.
-  // =========================================================
-
-
-  // =========================================================
-  // UI
-  // =========================================================
-
-  return (
-
-    <Pressable
-      accessibilityRole="button"
-
-      accessibilityLabel="Open AI Quiz"
-
-      disabled={
-        disabled
-      }
-
-      onPress={
-        onPress
-      }
-
-      className="
-        mt-3
-        flex-row
-        items-center
-        rounded-[20px]
-        border
-        border-indigo-100
-        bg-white
-        p-4
-      "
-
-      style={({
-        pressed,
-      }) => ({
-
-        opacity:
-          disabled
-            ? 0.45
-            : pressed
-              ? 0.8
-              : 1,
-      })}>
-
-      {/* =====================================================
-          ICON
-      ====================================================== */}
-
-      <View
-        className="
-          h-12
-          w-12
-          items-center
-          justify-center
-          rounded-2xl
-          bg-indigo-50
-        ">
-
-        <BrainCircuit
-          size={23}
-          color="#4F46E5"
-        />
-
-      </View>
-
-
-      {/* =====================================================
-          TEXT
-      ====================================================== */}
-
-      <View
-        className="
-          ml-4
-          flex-1
-        ">
-
-        <Text
-          className="
-            text-base
-            font-bold
-            text-slate-900
-          ">
-
-          AI Quiz
-
-        </Text>
-
-
-        <Text
-          className="
-            mt-1
-            text-sm
-            leading-5
-            text-slate-500
-          ">
-
-          Test yourself with AI-generated multiple-choice questions.
-
-        </Text>
-
-      </View>
-
-
-      {/* =====================================================
-          ARROW
-      ====================================================== */}
-
-      <ChevronRight
-        size={20}
-        color="#94A3B8"
-      />
-
-    </Pressable>
-  );
-};
-
+const QuizActionCard = ({ disabled, onPress }: Props) => (
+  <AiStudyActionCard
+    title="Practice quiz"
+    description="Check your understanding with a few focused questions."
+    icon={CircleHelp}
+    color={colors.info}
+    backgroundColor={colors.infoLight}
+    accessibilityLabel="Open AI quiz"
+    disabled={disabled}
+    onPress={onPress}
+  />
+);
 
 export default QuizActionCard;

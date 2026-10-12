@@ -1,56 +1,67 @@
-import React, {ReactNode} from 'react';
+import React, { ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
-  SafeAreaView,
   ScrollView,
+  StyleSheet,
   View,
 } from 'react-native';
-import {ArrowLeft} from 'lucide-react-native';
+import BackButton from '../common/BackButton';
+import ScreenContainer from '../common/ScreenContainer';
 import AuthBrand from './AuthBrand';
-
 interface AuthScreenLayoutProps {
   children: ReactNode;
   onBack?: () => void;
+  backDisabled?: boolean;
 }
-
-const AuthScreenLayout = ({children, onBack}: AuthScreenLayoutProps) => {
-  return (
-    <SafeAreaView className="flex-1 bg-slate-50">
-      <KeyboardAvoidingView
+const AuthScreenLayout = ({
+  children,
+  onBack,
+  backDisabled = false,
+}: AuthScreenLayoutProps) => (
+  <ScreenContainer edges={['top', 'left', 'right', 'bottom']}>
+    <KeyboardAvoidingView
+      className="flex-1"
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{flexGrow: 1}}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          <View className="flex-1 px-6 pb-8 pt-8">
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.content}>
+          <View className="mb-7">
             {onBack ? (
-              <View className="mb-8 flex-row items-center justify-between">
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Go back"
+              <View className="flex-row items-center justify-between">
+                <BackButton
+                  accessibilityLabel="Go back to sign in"
+                  disabled={backDisabled}
                   onPress={onBack}
-                  className="h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white"
-                  style={({pressed}) => ({opacity: pressed ? 0.65 : 1})}>
-                  <ArrowLeft size={21} color="#0F172A" />
-                </Pressable>
+                />
                 <AuthBrand compact />
               </View>
             ) : (
-              <View className="mb-10">
-                <AuthBrand />
-              </View>
+              <AuthBrand />
             )}
-
-            {children}
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
-};
-
+          {children}
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  </ScreenContainer>
+);
+const styles = StyleSheet.create({
+  scrollContent: { flexGrow: 1 },
+  content: {
+    width: '100%',
+    maxWidth: 460,
+    alignSelf: 'center',
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 24,
+  },
+});
 export default AuthScreenLayout;

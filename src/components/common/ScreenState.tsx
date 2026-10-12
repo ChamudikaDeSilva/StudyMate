@@ -1,8 +1,8 @@
 import React from 'react';
-import {ActivityIndicator, Text, View} from 'react-native';
-import {LucideIcon} from 'lucide-react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
+import { LucideIcon } from 'lucide-react-native';
+import { colors } from '../../constants/colors';
 import AppButton from './AppButton';
-
 interface ScreenStateProps {
   title: string;
   description?: string;
@@ -11,55 +11,62 @@ interface ScreenStateProps {
   iconColor?: string;
   actionTitle?: string;
   onAction?: () => void;
+  actionBusy?: boolean;
   dark?: boolean;
 }
-
 const ScreenState = ({
   title,
   description,
   loading = false,
   icon: Icon,
-  iconColor = '#4F46E5',
+  iconColor = colors.primary,
   actionTitle,
   onAction,
+  actionBusy = false,
   dark = false,
-}: ScreenStateProps) => {
-  return (
-    <View className="min-h-[270px] flex-1 items-center justify-center px-8">
-      <View
-        className="mb-4 h-[54px] w-[54px] items-center justify-center rounded-[17px]"
-        style={{backgroundColor: dark ? '#1E293B' : '#EEF2FF'}}>
-        {loading ? (
-          <ActivityIndicator size="small" color={dark ? '#38BDF8' : '#4F46E5'} />
-        ) : Icon ? (
-          <Icon size={26} color={iconColor} />
-        ) : null}
-      </View>
-
-      <Text
-        className="text-center text-lg font-bold"
-        style={{color: dark ? '#FFFFFF' : '#0F172A'}}>
-        {title}
-      </Text>
-      {!!description && (
-        <Text
-          className="mt-2 max-w-[300px] text-center text-sm leading-5"
-          style={{color: dark ? '#94A3B8' : '#64748B'}}>
-          {description}
-        </Text>
-      )}
-
-      {!!actionTitle && !!onAction && (
-        <AppButton
-          title={actionTitle}
-          onPress={onAction}
-          variant={dark ? 'solid' : 'soft'}
-          tone={dark ? 'info' : 'primary'}
-          className="mt-6"
+}: ScreenStateProps) => (
+  <View className="min-h-[290px] flex-1 items-center justify-center px-6 py-8">
+    <View
+      className="mb-5 h-[72px] w-[72px] items-center justify-center rounded-[24px]"
+      style={{
+        backgroundColor: dark ? colors.darkSurface : colors.primaryLight,
+      }}
+    >
+      {loading ? (
+        <ActivityIndicator
+          accessibilityLabel={title}
+          size="small"
+          color={dark ? colors.accent : colors.primary}
         />
-      )}
+      ) : Icon ? (
+        <Icon size={30} color={iconColor} />
+      ) : null}
     </View>
-  );
-};
-
+    <Text
+      accessibilityRole="header"
+      className="text-center text-xl font-bold leading-7"
+      style={{ color: dark ? colors.white : colors.textPrimary }}
+    >
+      {title}
+    </Text>
+    {!!description && (
+      <Text
+        className="mt-3 max-w-[320px] text-center text-sm leading-[22px]"
+        style={{ color: dark ? colors.textMuted : colors.textSecondary }}
+      >
+        {description}
+      </Text>
+    )}
+    {!!actionTitle && !!onAction && (
+      <AppButton
+        title={actionTitle}
+        onPress={onAction}
+        loading={actionBusy}
+        disabled={actionBusy}
+        variant={dark ? 'solid' : 'soft'}
+        className="mt-6"
+      />
+    )}
+  </View>
+);
 export default ScreenState;

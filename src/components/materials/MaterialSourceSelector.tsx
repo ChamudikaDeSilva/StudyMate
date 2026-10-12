@@ -1,43 +1,30 @@
 import React from 'react';
+import { View } from 'react-native';
+import { MaterialSourceType } from '../../domain/models/Material';
 
-import {
-  SelectedMaterialSource,
-} from '../../hooks/useAddMaterialScreen';
+import { SelectedMaterialSource } from '../../hooks/useAddMaterialScreen';
 
-import MaterialSourceCard
-  from './MaterialSourceCard';
-
+import MaterialSourceCard from './MaterialSourceCard';
 
 interface MaterialSourceSelectorProps {
+  selectedSource: SelectedMaterialSource;
 
-  selectedSource:
-    SelectedMaterialSource;
+  busy: boolean;
 
-  busy:
-    boolean;
+  pickingPdf: boolean;
 
-  pickingPdf:
-    boolean;
+  pickingImage: boolean;
 
-  pickingImage:
-    boolean;
+  capturing: boolean;
 
-  capturing:
-    boolean;
+  onSelectText: () => void;
 
-  onSelectText:
-    () => void;
+  onSelectPdf: () => void;
 
-  onSelectPdf:
-    () => void;
+  onSelectImage: () => void;
 
-  onSelectImage:
-    () => void;
-
-  onCapture:
-    () => void;
+  onCapture: () => void;
 }
-
 
 const MaterialSourceSelector = ({
   selectedSource,
@@ -58,104 +45,53 @@ const MaterialSourceSelector = ({
 
   onCapture,
 }: MaterialSourceSelectorProps) => {
+  const sources: {
+    type: MaterialSourceType;
+    description: string;
+    loading?: boolean;
+    onPress: () => void;
+  }[] = [
+    {
+      type: 'text',
+      description: 'Write or paste your notes.',
+      onPress: onSelectText,
+    },
+    {
+      type: 'pdf',
+      description: 'Bring in a PDF document.',
+      loading: pickingPdf,
+      onPress: onSelectPdf,
+    },
+    {
+      type: 'image',
+      description: 'Choose a study image.',
+      loading: pickingImage,
+      onPress: onSelectImage,
+    },
+    {
+      type: 'camera',
+      description: 'Capture a page or notes.',
+      loading: capturing,
+      onPress: onCapture,
+    },
+  ];
 
   return (
-    <>
-
-      <MaterialSourceCard
-        sourceType="text"
-
-        description="Write or paste study notes."
-
-        selected={
-          selectedSource ===
-          'text'
-        }
-
-        disabled={
-          busy
-        }
-
-        onPress={
-          onSelectText
-        }
-      />
-
-
-      <MaterialSourceCard
-        sourceType="pdf"
-
-        description="Upload a PDF from your device."
-
-        selected={
-          selectedSource ===
-          'pdf'
-        }
-
-        disabled={
-          busy
-        }
-
-        loading={
-          pickingPdf
-        }
-
-        onPress={
-          onSelectPdf
-        }
-      />
-
-
-      <MaterialSourceCard
-        sourceType="image"
-
-        description="Choose an image from your gallery."
-
-        selected={
-          selectedSource ===
-          'image'
-        }
-
-        disabled={
-          busy
-        }
-
-        loading={
-          pickingImage
-        }
-
-        onPress={
-          onSelectImage
-        }
-      />
-
-
-      <MaterialSourceCard
-        sourceType="camera"
-
-        description="Capture study material using your camera."
-
-        selected={
-          selectedSource ===
-          'camera'
-        }
-
-        disabled={
-          busy
-        }
-
-        loading={
-          capturing
-        }
-
-        onPress={
-          onCapture
-        }
-      />
-
-    </>
+    <View className="-mx-1.5 flex-row flex-wrap">
+      {sources.map(source => (
+        <View key={source.type} className="mb-3 w-1/2 px-1.5">
+          <MaterialSourceCard
+            sourceType={source.type}
+            description={source.description}
+            selected={selectedSource === source.type}
+            disabled={busy}
+            loading={source.loading}
+            onPress={source.onPress}
+          />
+        </View>
+      ))}
+    </View>
   );
 };
-
 
 export default MaterialSourceSelector;

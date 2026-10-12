@@ -1,9 +1,12 @@
 import React from 'react';
-import {ActivityIndicator, Pressable, Text} from 'react-native';
-import {UploadCloud} from 'lucide-react-native';
+import { ActivityIndicator, Pressable, Text } from 'react-native';
+import { LucideIcon, UploadCloud } from 'lucide-react-native';
+import { colors } from '../../constants/colors';
 
 interface SelectFileButtonProps {
   title: string;
+  description?: string;
+  icon?: LucideIcon;
   color: string;
   loading?: boolean;
   disabled?: boolean;
@@ -12,6 +15,8 @@ interface SelectFileButtonProps {
 
 const SelectFileButton = ({
   title,
+  description = 'Choose a file from your device.',
+  icon: Icon = UploadCloud,
   color,
   loading = false,
   disabled = false,
@@ -20,18 +25,25 @@ const SelectFileButton = ({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
       disabled={disabled || loading}
       onPress={onPress}
-      className="mb-5 min-h-[110px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50"
-      style={({pressed}) => ({
-        opacity: disabled || loading ? 0.6 : pressed ? 0.8 : 1,
-      })}>
+      className={`mb-5 min-h-[144px] items-center justify-center rounded-[20px] border border-dashed border-brand-200 bg-brand-50 px-4 ${
+        disabled || loading ? 'opacity-60' : 'active:opacity-70'
+      }`}
+    >
       {loading ? (
         <ActivityIndicator color={color} />
       ) : (
         <>
-          <UploadCloud size={28} color={color} />
-          <Text className="mt-3 font-bold text-slate-800">{title}</Text>
+          <Icon size={28} color={color} />
+          <Text className="mt-3 text-base font-bold text-ink">{title}</Text>
+          <Text
+            className="mt-1 text-xs"
+            style={{ color: colors.textSecondary }}
+          >
+            {description}
+          </Text>
         </>
       )}
     </Pressable>

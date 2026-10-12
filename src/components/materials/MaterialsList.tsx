@@ -1,59 +1,34 @@
 import React from 'react';
 
-import {
-  View,
-} from 'react-native';
+import { View } from 'react-native';
 
-import {
-  BookOpen,
-  RefreshCw,
-  Search,
-} from 'lucide-react-native';
+import { BookOpen, RefreshCw, Search } from 'lucide-react-native';
 
-import {
-  Material,
-} from '../../domain/models/Material';
+import { Material } from '../../domain/models/Material';
 
-import ScreenState
-  from '../common/ScreenState';
+import ScreenState from '../common/ScreenState';
 
-import MaterialCard
-  from './MaterialCard';
-
+import MaterialCard from './MaterialCard';
 
 interface MaterialsListProps {
+  materials: Material[];
 
-  materials:
-    Material[];
+  loading: boolean;
 
-  loading:
-    boolean;
+  showLoadError: boolean;
 
-  showLoadError:
-    boolean;
+  emptyTitle: string;
 
-  emptyTitle:
-    string;
+  emptyDescription: string;
 
-  emptyDescription:
-    string;
+  hasSearch: boolean;
 
-  hasSearch:
-    boolean;
+  hasActiveFilter: boolean;
 
-  hasActiveFilter:
-    boolean;
+  onRetry: () => Promise<void>;
 
-  onRetry:
-    () => Promise<void>;
-
-  onOpenMaterial:
-    (
-      material:
-        Material,
-    ) => void;
+  onOpenMaterial: (material: Material) => void;
 }
-
 
 const MaterialsList = ({
   materials,
@@ -74,124 +49,50 @@ const MaterialsList = ({
 
   onOpenMaterial,
 }: MaterialsListProps) => {
-
-  // =========================================================
-  // LOADING
-  // =========================================================
-
-  if (
-    loading
-  ) {
-
+  if (loading) {
     return (
-
       <ScreenState
         loading
-
         title="Loading materials"
-
         description="Preparing your study materials..."
       />
     );
   }
 
-
-  // =========================================================
-  // LOAD ERROR
-  // =========================================================
-
-  if (
-    showLoadError
-  ) {
-
+  if (showLoadError) {
     return (
-
       <ScreenState
         title="Couldn't load materials"
-
         description="Check your connection and try again."
-
-        icon={
-          RefreshCw
-        }
-
+        icon={RefreshCw}
         iconColor="#DC2626"
-
         actionTitle="Try again"
-
-        onAction={() => {
-
-          void onRetry();
-        }}
+        onAction={onRetry}
       />
     );
   }
 
-
-  // =========================================================
-  // EMPTY
-  // =========================================================
-
-  if (
-    materials.length ===
-    0
-  ) {
-
+  if (materials.length === 0) {
     return (
-
       <ScreenState
-        title={
-          emptyTitle
-        }
-
-        description={
-          emptyDescription
-        }
-
-        icon={
-          hasSearch ||
-          hasActiveFilter
-            ? Search
-            : BookOpen
-        }
+        title={emptyTitle}
+        description={emptyDescription}
+        icon={hasSearch || hasActiveFilter ? Search : BookOpen}
       />
     );
   }
-
-
-  // =========================================================
-  // LIST
-  // =========================================================
 
   return (
-
     <View>
-
-      {materials.map(
-        material => (
-
-          <MaterialCard
-            key={
-              material.id
-            }
-
-            material={
-              material
-            }
-
-            onPress={() =>
-              onOpenMaterial(
-                material,
-              )
-            }
-          />
-
-        ),
-      )}
-
+      {materials.map(material => (
+        <MaterialCard
+          key={material.id}
+          material={material}
+          onPress={() => onOpenMaterial(material)}
+        />
+      ))}
     </View>
   );
 };
-
 
 export default MaterialsList;

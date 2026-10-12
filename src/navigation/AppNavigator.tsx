@@ -1,37 +1,43 @@
 import React from 'react';
+import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import {
-  ActivityIndicator,
-  StyleSheet,
-  View,
-} from 'react-native';
-
-import {NavigationContainer} from '@react-navigation/native';
-
-import {colors} from '../constants/colors';
-import {useAuth} from '../hooks/useAuth';
-
+  DefaultTheme,
+  NavigationContainer,
+  Theme,
+} from '@react-navigation/native';
+import { colors } from '../constants/colors';
+import { useAuth } from '../hooks/useAuth';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 
+const navigationTheme: Theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: colors.primary,
+    background: colors.background,
+    card: colors.surface,
+    text: colors.textPrimary,
+    border: colors.border,
+    notification: colors.danger,
+  },
+};
+
 const AppNavigator = () => {
-  const {user, loading} = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator
-          size="large"
-          color={colors.primary}
-        />
+        <StatusBar barStyle="dark-content" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <NavigationContainer>
-      {user
-        ? <MainNavigator />
-        : <AuthNavigator />}
+    <NavigationContainer theme={navigationTheme}>
+      {user ? <MainNavigator /> : <AuthNavigator />}
     </NavigationContainer>
   );
 };

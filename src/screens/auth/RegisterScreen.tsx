@@ -1,149 +1,204 @@
-import React, {useState} from 'react';
-import {Alert, Pressable, Text, View} from 'react-native';
-import {Eye, EyeOff, LockKeyhole, Mail, UserRound} from 'lucide-react-native';
-import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import React, { useRef } from 'react';
+import { Keyboard, Platform } from 'react-native';
+import { ArrowRight, Mail, UserRound } from 'lucide-react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AppButton from '../../components/common/AppButton';
-import AppInput from '../../components/common/AppInput';
+import AppInput, { AppInputRef } from '../../components/common/AppInput';
+import PasswordInput from '../../components/common/PasswordInput';
 import AuthScreenLayout from '../../components/auth/AuthScreenLayout';
-import {useAuth} from '../../hooks/useAuth';
-import {AuthStackParamList} from '../../navigation/navigationTypes';
+import AuthHero from '../../components/auth/AuthHero';
+import AuthFormCard from '../../components/auth/AuthFormCard';
+import AuthSwitchLink from '../../components/auth/AuthSwitchLink';
+import { colors } from '../../constants/colors';
+import { useAuth } from '../../hooks/useAuth';
+import { useAuthForm, validateEmail } from '../../hooks/useAuthForm';
+import { AuthStackParamList } from '../../navigation/navigationTypes';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
+type RegisterValues = {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+};
 
-const RegisterScreen = ({navigation}: Props) => {
-  const {register} = useAuth();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+const validateRegister = ({
+  name,
+  email,
+  password,
+  confirmPassword,
+}: RegisterValues) => ({
+  name:
+    name.trim().length >= 2
+      ? undefined
+      : 'Enter a name with at least 2 characters.',
+  email: validateEmail(email),
+  password: password.length >= 8 ? undefined : 'Use at least 8 characters.',
+  confirmPassword: !confirmPassword
+    ? 'Confirm your password.'
+    : password !== confirmPassword
+    ? 'Passwords do not match.'
+    : undefined,
+});
 
-  const handleRegister = async () => {
-    const normalizedName = name.trim();
-    const normalizedEmail = email.trim().toLowerCase();
+const RegisterScreen = ({ navigation }: Props) => {
+  const { register } = useAuth();
+  const nameRef = useRef<AppInputRef>(null);
+  const emailRef = useRef<AppInputRef>(null);
+  const passwordRef = useRef<AppInputRef>(null);
+  const confirmPasswordRef = useRef<AppInputRef>(null);
+  const {
+    values,
+    errors,
+    submitting,
+    feedback,
+    updateField,
+    touchField,
+    submit,
+  } = useAuthForm<RegisterValues>(
+    { name: '', email: '', password: '', confirmPassword: '' },
+    validateRegister,
+  );
 
-    if (normalizedName.length < 2) {
-      Alert.alert('Name Required', 'Please enter your name.');
-      return;
-    }
-    if (!normalizedEmail) {
-      Alert.alert('Email Required', 'Please enter your email address.');
-      return;
-    }
-    if (password.length < 8) {
-      Alert.alert('Password Too Short', 'Your password must contain at least 8 characters.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert('Passwords Do Not Match', 'Please make sure both passwords are the same.');
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      await register(normalizedName, normalizedEmail, password);
-    } catch (error) {
-      Alert.alert(
-        'Registration Failed',
-        error instanceof Error
-          ? error.message
-          : 'Unable to create your account. Please try again.',
-      );
-    } finally {
-      setSubmitting(false);
+  const returnToLogin = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('Login');
     }
   };
 
-  const passwordToggle = (
-    visible: boolean,
-    setVisible: React.Dispatch<React.SetStateAction<boolean>>,
-  ) => (
-    <Pressable onPress={() => setVisible(current => !current)} hitSlop={10}>
-      {visible ? <EyeOff size={20} color="#64748B" /> : <Eye size={20} color="#64748B" />}
-    </Pressable>
-  );
+  const handleRegister = () => {
+    submit({
+      onInvalid: field => {
+        const inputRefs = {
+          name: nameRef,
+          email: emailRef,
+          password: passwordRef,
+          confirmPassword: confirmPasswordRef,
+        };
+        inputRefs[field].current?.focus();
+      },
+      onValid: async ({ name, email, password }) => {
+        Keyboard.dismiss();
+        await register(name.trim(), email.trim().toLowerCase(), password);
+      },
+      fallbackMessage: 'Unable to create your account. Please try again.',
+    });
+  };
 
   return (
-    <AuthScreenLayout onBack={() => navigation.goBack()}>
-      <View className="mb-7">
-        <Text className="text-4xl font-bold leading-[44px] text-slate-950">
-          Create your{`\n`}learning space
-        </Text>
-        <Text className="mt-3 text-base leading-6 text-slate-500">
-          Create an account to organize subjects and turn your study materials into smarter
-          learning resources.
-        </Text>
-      </View>
+    <AuthScreenLayout onBack={returnToLogin} backDisabled={submitting}>
+      <AuthHero variant="register" />
 
-      <View className="rounded-[28px] border border-slate-200 bg-white p-5">
+      <AuthFormCard
+        title="Create account"
+        description="Keep your notes and study tools together."
+        submitting={submitting}
+        feedback={feedback}
+      >
         <AppInput
-          label="Full Name"
-          value={name}
-          onChangeText={setName}
+          ref={nameRef}
+          label="Full name"
+          accessibilityLabel="Full name"
+          value={values.name}
+          onChangeText={value => updateField('name', value)}
+          onBlur={() => touchField('name')}
+          error={errors.name}
           placeholder="Your full name"
           autoCapitalize="words"
           autoCorrect={false}
+          autoComplete="name"
+          textContentType={Platform.OS === 'ios' ? 'name' : undefined}
           editable={!submitting}
-          leftIcon={<UserRound size={19} color="#64748B" />}
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => emailRef.current?.focus()}
+          leftIcon={<UserRound size={19} color={colors.textSecondary} />}
         />
 
         <AppInput
-          label="Email Address"
-          value={email}
-          onChangeText={setEmail}
+          ref={emailRef}
+          label="Email address"
+          accessibilityLabel="Email address"
+          value={values.email}
+          onChangeText={value => updateField('email', value)}
+          onBlur={() => touchField('email')}
+          error={errors.email}
           placeholder="you@example.com"
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
+          autoComplete="email"
+          textContentType={Platform.OS === 'ios' ? 'username' : undefined}
           editable={!submitting}
-          leftIcon={<Mail size={19} color="#64748B" />}
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => passwordRef.current?.focus()}
+          leftIcon={<Mail size={19} color={colors.textSecondary} />}
         />
 
-        <AppInput
+        <PasswordInput
+          ref={passwordRef}
           label="Password"
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Minimum 8 characters"
-          secureTextEntry={!showPassword}
-          autoCapitalize="none"
-          autoCorrect={false}
+          accessibilityLabel="Password"
+          value={values.password}
+          onChangeText={value => updateField('password', value)}
+          onBlur={() => touchField('password')}
+          error={errors.password}
+          placeholder="Create a password"
+          autoComplete="new-password"
+          textContentType={Platform.OS === 'ios' ? 'newPassword' : undefined}
           editable={!submitting}
-          helperText="Use at least 8 characters."
-          leftIcon={<LockKeyhole size={19} color="#64748B" />}
-          rightAccessory={passwordToggle(showPassword, setShowPassword)}
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+          helperText={
+            values.password.length >= 8
+              ? '✓ At least 8 characters — ready to use.'
+              : 'Use at least 8 characters.'
+          }
         />
 
-        <AppInput
-          label="Confirm Password"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          placeholder="Re-enter password"
-          secureTextEntry={!showConfirmPassword}
-          autoCapitalize="none"
-          autoCorrect={false}
+        <PasswordInput
+          ref={confirmPasswordRef}
+          visibilityLabel="confirmation password"
+          label="Confirm password"
+          accessibilityLabel="Confirm password"
+          value={values.confirmPassword}
+          onChangeText={value => updateField('confirmPassword', value)}
+          onBlur={() => touchField('confirmPassword')}
+          error={errors.confirmPassword}
+          placeholder="Re-enter your password"
+          autoComplete="new-password"
+          textContentType={Platform.OS === 'ios' ? 'newPassword' : undefined}
           editable={!submitting}
           returnKeyType="done"
+          submitBehavior="submit"
           onSubmitEditing={handleRegister}
-          leftIcon={<LockKeyhole size={19} color="#64748B" />}
-          rightAccessory={passwordToggle(showConfirmPassword, setShowConfirmPassword)}
+          helperText={
+            values.confirmPassword && values.confirmPassword === values.password
+              ? '✓ Passwords match.'
+              : undefined
+          }
         />
 
         <AppButton
-          title="Create Account"
+          title="Create account"
           onPress={handleRegister}
           loading={submitting}
+          disabled={submitting}
+          icon={<ArrowRight size={19} color="#FFFFFF" />}
           className="mt-2"
         />
-      </View>
+      </AuthFormCard>
 
-      <View className="mt-7 flex-row items-center justify-center">
-        <Text className="text-sm text-slate-500">Already have an account?</Text>
-        <Pressable className="ml-1.5" disabled={submitting} onPress={() => navigation.goBack()}>
-          <Text className="text-sm font-bold text-indigo-600">Sign in</Text>
-        </Pressable>
-      </View>
+      <AuthSwitchLink
+        prompt="Already have an account?"
+        title="Sign in"
+        disabled={submitting}
+        onPress={returnToLogin}
+      />
     </AuthScreenLayout>
   );
 };

@@ -1,170 +1,54 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import {
-  ActivityIndicator,
-  BackHandler,
-  Pressable,
-  SafeAreaView,
-  Text,
-  View,
-} from 'react-native';
+import { BackHandler, StyleSheet, Text, View } from 'react-native';
 
-import {
-  FileText,
-  RefreshCw,
-} from 'lucide-react-native';
+import { FileText } from 'lucide-react-native';
+import ScreenContainer from '../../components/common/ScreenContainer';
+import ScreenState from '../../components/common/ScreenState';
+import { colors } from '../../constants/colors';
 
-import {
-  NativeStackScreenProps,
-} from '@react-navigation/native-stack';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import {
-  useFocusEffect,
-} from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 
-import Pdf
-  from 'react-native-pdf';
+import Pdf from 'react-native-pdf';
 
-import {
-  SubjectsStackParamList,
-} from '../../navigation/navigationTypes';
+import { SubjectsStackParamList } from '../../navigation/navigationTypes';
 
-import {
-  useAuth,
-} from '../../hooks/useAuth';
+import { useAuth } from '../../hooks/useAuth';
 
-import {
-  useNetwork,
-} from '../../hooks/useNetwork';
+import { useNetwork } from '../../hooks/useNetwork';
 
-import {
-  PdfDownloadService,
-} from '../../services/storage/PdfDownloadService';
+import { PdfDownloadService } from '../../services/storage/PdfDownloadService';
 
-import {
-  offlineFileStorageService,
-} from '../../services/offline/OfflineFileStorageService';
+import { offlineFileStorageService } from '../../services/offline/OfflineFileStorageService';
 
+type Props = NativeStackScreenProps<SubjectsStackParamList, 'PdfPreview'>;
 
-type Props =
-  NativeStackScreenProps<
-    SubjectsStackParamList,
-    'PdfPreview'
-  >;
+const PdfPreviewScreen = ({ navigation, route }: Props) => {
+  const { materialId, subjectId, subjectName } = route.params;
 
+  const { user } = useAuth();
 
-const PdfPreviewScreen = ({
-  navigation,
-  route,
-}: Props) => {
+  const userId = user ? String(user.id) : null;
 
-  const {
-    materialId,
-    subjectId,
-    subjectName,
-  } = route.params;
+  const { isOnline, initialized: networkInitialized } = useNetwork();
 
+  const downloadService = useMemo(() => new PdfDownloadService(), []);
 
-  // =========================================================
-  // AUTH
-  // =========================================================
+  const [pdfUri, setPdfUri] = useState<string | null>(null);
 
-  const {
-    user,
-  } = useAuth();
+  const [loading, setLoading] = useState(true);
 
+  const [error, setError] = useState<string | null>(null);
 
-  const userId =
-    user
-      ? String(
-          user.id,
-        )
-      : null;
+  const [currentPage, setCurrentPage] = useState(1);
 
+  const [totalPages, setTotalPages] = useState(0);
 
-  // =========================================================
-  // NETWORK
-  // =========================================================
+  const [loadedFromOfflineStorage, setLoadedFromOfflineStorage] =
+    useState(false);
 
-  const {
-    isOnline,
-    initialized:
-      networkInitialized,
-  } = useNetwork();
-
-
-  // =========================================================
-  // DOWNLOAD SERVICE
-  // =========================================================
-
-  const downloadService =
-    useMemo(
-      () =>
-        new PdfDownloadService(),
-      [],
-    );
-
-
-  // =========================================================
-  // STATE
-  // =========================================================
-
-  const [
-    pdfUri,
-    setPdfUri,
-  ] = useState<
-    string | null
-  >(null);
-
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(
-    true,
-  );
-
-
-  const [
-    error,
-    setError,
-  ] = useState<
-    string | null
-  >(null);
-
-
-  const [
-    currentPage,
-    setCurrentPage,
-  ] = useState(
-    1,
-  );
-
-
-  const [
-    totalPages,
-    setTotalPages,
-  ] = useState(
-    0,
-  );
-
-
-  const [
-    loadedFromOfflineStorage,
-    setLoadedFromOfflineStorage,
-  ] = useState(
-    false,
-  );
-
-
-  // =========================================================
-  // FILE NAME
-  // =========================================================
   //
   // OfflineFileStorageService only needs the extension
   // when constructing the final persistent path.
@@ -180,896 +64,317 @@ const PdfPreviewScreen = ({
   //
   // =========================================================
 
-  const offlineFileName =
-    `${materialId}.pdf`;
+  const offlineFileName = `${materialId}.pdf`;
 
+  const handleBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
 
-  // =========================================================
-  // BACK NAVIGATION
-  // =========================================================
+      return;
+    }
 
-  const handleBack =
-    useCallback(
-      () => {
+    navigation.replace('MaterialDetails', {
+      materialId,
 
-        if (
-          navigation.canGoBack()
-        ) {
+      subjectId,
 
-          navigation.goBack();
-
-          return;
-        }
-
-
-        navigation.replace(
-          'MaterialDetails',
-          {
-            materialId,
-
-            subjectId,
-
-            subjectName,
-          },
-        );
-
-      },
-      [
-        navigation,
-        materialId,
-        subjectId,
-        subjectName,
-      ],
-    );
-
-
-  // =========================================================
-  // ANDROID HARDWARE BACK
-  // =========================================================
+      subjectName,
+    });
+  }, [navigation, materialId, subjectId, subjectName]);
 
   useFocusEffect(
-    useCallback(
-      () => {
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        () => {
+          handleBack();
 
-        const subscription =
-          BackHandler.addEventListener(
-            'hardwareBackPress',
-            () => {
+          return true;
+        },
+      );
 
-              handleBack();
-
-              return true;
-            },
-          );
-
-
-        return () => {
-
-          subscription.remove();
-        };
-
-      },
-      [
-        handleBack,
-      ],
-    ),
+      return () => {
+        subscription.remove();
+      };
+    }, [handleBack]),
   );
 
+  const loadPdf = useCallback(async () => {
+    // -----------------------------------------------------
+    // Wait until network state is initialized.
+    //
+    // We still check local storage first below, but this
+    // avoids showing an offline error before NetInfo knows
+    // the actual state.
+    // -----------------------------------------------------
 
-  // =========================================================
-  // LOAD PDF
-  // =========================================================
+    if (!networkInitialized) {
+      setLoading(true);
 
-  const loadPdf =
-    useCallback(
-      async () => {
+      return;
+    }
 
-        // -----------------------------------------------------
-        // Wait until network state is initialized.
-        //
-        // We still check local storage first below, but this
-        // avoids showing an offline error before NetInfo knows
-        // the actual state.
-        // -----------------------------------------------------
+    let temporaryDownloadedUri: string | null = null;
 
-        if (
-          !networkInitialized
-        ) {
+    try {
+      setLoading(true);
 
-          setLoading(
-            true,
-          );
+      setError(null);
 
+      setPdfUri(null);
 
-          return;
-        }
+      setCurrentPage(1);
 
+      setTotalPages(0);
 
-        let temporaryDownloadedUri:
-          string | null =
-          null;
+      setLoadedFromOfflineStorage(false);
 
+      if (!userId) {
+        setError('Your session is unavailable. Please sign in again.');
 
-        try {
+        return;
+      }
 
-          setLoading(
-            true,
-          );
+      // ===================================================
+      // STEP 1:
+      // CHECK PERMANENT OFFLINE COPY FIRST
+      // ===================================================
 
-
-          setError(
-            null,
-          );
-
-
-          setPdfUri(
-            null,
-          );
-
-
-          setCurrentPage(
-            1,
-          );
-
-
-          setTotalPages(
-            0,
-          );
-
-
-          setLoadedFromOfflineStorage(
-            false,
-          );
-
-
-          // ===================================================
-          // AUTH CHECK
-          // ===================================================
-
-          if (
-            !userId
-          ) {
-
-            setError(
-              'Your session is unavailable. Please sign in again.',
-            );
-
-
-            return;
-          }
-
-
-          // ===================================================
-          // STEP 1:
-          // CHECK PERMANENT OFFLINE COPY FIRST
-          // ===================================================
-
-          const persistedFile =
-            await offlineFileStorageService
-              .getPersistedFile({
-                userId,
-
-                subjectId,
-
-                materialId,
-
-                fileName:
-                  offlineFileName,
-
-                sourceType:
-                  'pdf',
-              });
-
-
-          if (
-            persistedFile
-          ) {
-
-            console.log(
-              '[PDF PREVIEW] Using persisted offline PDF',
-              {
-                materialId,
-
-                path:
-                  persistedFile.localPath,
-              },
-            );
-
-
-            setLoadedFromOfflineStorage(
-              true,
-            );
-
-
-            setPdfUri(
-              persistedFile.localUri,
-            );
-
-
-            return;
-          }
-
-
-          // ===================================================
-          // STEP 2:
-          // NO LOCAL COPY + OFFLINE
-          // ===================================================
-
-          if (
-            !isOnline
-          ) {
-
-            setError(
-              'This PDF is not available offline yet. Connect to the internet and open it once to save an offline copy.',
-            );
-
-
-            return;
-          }
-
-
-          // ===================================================
-          // STEP 3:
-          // DOWNLOAD SECURELY FROM FASTAPI
-          // ===================================================
-
-          console.log(
-            '[PDF PREVIEW] No offline copy. Downloading PDF.',
-            {
-              materialId,
-            },
-          );
-
-
-          temporaryDownloadedUri =
-            await downloadService
-              .downloadPdf(
-                materialId,
-              );
-
-
-          // ===================================================
-          // STEP 4:
-          // COPY DOWNLOAD INTO PERMANENT APP STORAGE
-          // ===================================================
-
-          const persisted =
-            await offlineFileStorageService
-              .persistFile({
-                userId,
-
-                subjectId,
-
-                materialId,
-
-                sourceUri:
-                  temporaryDownloadedUri,
-
-                fileName:
-                  offlineFileName,
-
-                sourceType:
-                  'pdf',
-              });
-
-
-          console.log(
-            '[PDF PREVIEW] PDF saved for offline use',
-            {
-              materialId,
-
-              path:
-                persisted.localPath,
-            },
-          );
-
-
-          setLoadedFromOfflineStorage(
-            false,
-          );
-
-
-          // ===================================================
-          // STEP 5:
-          // RENDER PERMANENT COPY
-          // ===================================================
-
-          setPdfUri(
-            persisted.localUri,
-          );
-
-
-        } catch (
-          loadError
-        ) {
-
-          console.warn(
-            'PDF preview load error:',
-            loadError,
-          );
-
-
-          const message =
-            loadError instanceof Error
-              ? loadError.message
-              : (
-                  'Unable to load '
-                  + 'this PDF.'
-                );
-
-
-          setError(
-            message,
-          );
-
-
-        } finally {
-
-          // ===================================================
-          // DELETE ONLY TEMPORARY DOWNLOAD
-          // ===================================================
-          //
-          // IMPORTANT:
-          //
-          // We do NOT delete the permanent file stored by
-          // OfflineFileStorageService.
-          //
-          // ===================================================
-
-          if (
-            temporaryDownloadedUri
-          ) {
-
-            try {
-
-              await downloadService
-                .deleteCachedPdf(
-                  temporaryDownloadedUri,
-                );
-
-            } catch (
-              cleanupError
-            ) {
-
-              console.warn(
-                'Temporary PDF cleanup failed:',
-                cleanupError,
-              );
-            }
-          }
-
-
-          setLoading(
-            false,
-          );
-        }
-      },
-      [
-        downloadService,
-
-        materialId,
-        subjectId,
-
+      const persistedFile = await offlineFileStorageService.getPersistedFile({
         userId,
 
-        isOnline,
-        networkInitialized,
+        subjectId,
 
-        offlineFileName,
-      ],
-    );
+        materialId,
 
+        fileName: offlineFileName,
 
-  // =========================================================
-  // INITIAL LOAD
-  // =========================================================
+        sourceType: 'pdf',
+      });
 
-  useEffect(
-    () => {
+      if (persistedFile) {
+        console.log('[PDF PREVIEW] Using persisted offline PDF', {
+          materialId,
 
-      void loadPdf();
+          path: persistedFile.localPath,
+        });
 
-    },
-    [
-      loadPdf,
-    ],
-  );
+        setLoadedFromOfflineStorage(true);
 
+        setPdfUri(persistedFile.localUri);
 
-  // =========================================================
-  // PDF SOURCE
-  // =========================================================
+        return;
+      }
 
-  const pdfSource =
-    useMemo(
-      () => {
+      // ===================================================
+      // STEP 2:
+      // NO LOCAL COPY + OFFLINE
+      // ===================================================
 
-        if (
-          !pdfUri
-        ) {
+      if (!isOnline) {
+        setError(
+          'This PDF is not available offline yet. Connect to the internet and open it once to save an offline copy.',
+        );
 
-          return null;
+        return;
+      }
+
+      // ===================================================
+      // STEP 3:
+      // DOWNLOAD SECURELY FROM FASTAPI
+      // ===================================================
+
+      console.log('[PDF PREVIEW] No offline copy. Downloading PDF.', {
+        materialId,
+      });
+
+      temporaryDownloadedUri = await downloadService.downloadPdf(materialId);
+
+      // ===================================================
+      // STEP 4:
+      // COPY DOWNLOAD INTO PERMANENT APP STORAGE
+      // ===================================================
+
+      const persisted = await offlineFileStorageService.persistFile({
+        userId,
+
+        subjectId,
+
+        materialId,
+
+        sourceUri: temporaryDownloadedUri,
+
+        fileName: offlineFileName,
+
+        sourceType: 'pdf',
+      });
+
+      console.log('[PDF PREVIEW] PDF saved for offline use', {
+        materialId,
+
+        path: persisted.localPath,
+      });
+
+      setLoadedFromOfflineStorage(false);
+
+      // ===================================================
+      // STEP 5:
+      // RENDER PERMANENT COPY
+      // ===================================================
+
+      setPdfUri(persisted.localUri);
+    } catch (loadError) {
+      console.warn('PDF preview load error:', loadError);
+
+      const message =
+        loadError instanceof Error
+          ? loadError.message
+          : 'Unable to load ' + 'this PDF.';
+
+      setError(message);
+    } finally {
+      //
+      // IMPORTANT:
+      //
+      // We do NOT delete the permanent file stored by
+      // OfflineFileStorageService.
+      //
+      // ===================================================
+
+      if (temporaryDownloadedUri) {
+        try {
+          await downloadService.deleteCachedPdf(temporaryDownloadedUri);
+        } catch (cleanupError) {
+          console.warn('Temporary PDF cleanup failed:', cleanupError);
         }
+      }
 
+      setLoading(false);
+    }
+  }, [
+    downloadService,
 
-        return {
+    materialId,
+    subjectId,
 
-          uri:
-            pdfUri,
+    userId,
 
-          cache:
-            false,
-        };
+    isOnline,
+    networkInitialized,
 
-      },
-      [
-        pdfUri,
-      ],
-    );
+    offlineFileName,
+  ]);
 
+  useEffect(() => {
+    loadPdf();
+  }, [loadPdf]);
 
-  // =========================================================
-  // UI
-  // =========================================================
+  const pdfSource = useMemo(() => {
+    if (!pdfUri) {
+      return null;
+    }
+
+    return {
+      uri: pdfUri,
+
+      cache: false,
+    };
+  }, [pdfUri]);
 
   return (
-
-    <SafeAreaView
-      className="
-        flex-1
-        bg-slate-50
-      ">
-
-      {/* =====================================================
-          SUBJECT INFO
-      ====================================================== */}
-
-      <View
-        className="
-          border-b
-          border-slate-200
-          bg-white
-          px-5
-          py-3
-        ">
-
-        <Text
-          className="
-            text-xs
-            font-semibold
-            text-indigo-600
-          ">
-
-          PDF PREVIEW
-
-        </Text>
-
-
-        <Text
-          className="
-            mt-1
-            text-sm
-            text-slate-500
-          "
-          numberOfLines={
-            1
-          }>
-
-          {
-            subjectName
-          }
-
-        </Text>
-
-
-        {
-          loadedFromOfflineStorage
-          &&
-          !isOnline
-          &&
-          (
-
-            <View
-              className="
-                mt-2
-                self-start
-                rounded-full
-                bg-amber-50
-                px-3
-                py-1
-              ">
-
-              <Text
-                className="
-                  text-xs
-                  font-semibold
-                  text-amber-700
-                ">
-
-                Offline copy
-
-              </Text>
-
-            </View>
-
-          )
-        }
-
+    <ScreenContainer edges={['left', 'right', 'bottom']}>
+      <View className="flex-row items-center justify-between border-b border-line bg-white px-5 py-3">
+        <View className="flex-row items-center">
+          <FileText size={16} color={colors.primary} />
+          <Text className="ml-2 text-xs font-semibold text-brand-600">
+            Document preview
+          </Text>
+        </View>
+        {loadedFromOfflineStorage && !isOnline && (
+          <View className="rounded-full bg-brand-50 px-3 py-1.5">
+            <Text className="text-[10px] font-semibold text-brand-600">
+              Offline copy
+            </Text>
+          </View>
+        )}
       </View>
 
+      <View className="flex-1 bg-canvas">
+        {loading ? (
+          <ScreenState
+            loading
+            title="Loading PDF"
+            description={
+              isOnline
+                ? 'Preparing your study material...'
+                : 'Looking for an offline copy...'
+            }
+          />
+        ) : error ? (
+          <ScreenState
+            title="Couldn't open PDF"
+            description={error}
+            icon={FileText}
+            iconColor={colors.primary}
+            actionTitle="Try again"
+            onAction={loadPdf}
+          />
+        ) : pdfSource ? (
+          <View className="flex-1">
+            <Pdf
+              source={pdfSource}
+              style={styles.document}
+              trustAllCerts={false}
+              enablePaging={false}
+              horizontal={false}
+              spacing={14}
+              minScale={1}
+              maxScale={4}
+              onLoadComplete={numberOfPages => {
+                setTotalPages(numberOfPages);
+                setCurrentPage(1);
+              }}
+              onPageChanged={(page, numberOfPages) => {
+                setCurrentPage(page);
+                setTotalPages(numberOfPages);
+              }}
+              onError={pdfError => {
+                console.warn('PDF renderer error:', pdfError);
+                setError(
+                  'The PDF is available on this device, but it could not be displayed.',
+                );
+              }}
+            />
 
-      {/* =====================================================
-          CONTENT
-      ====================================================== */}
-
-      <View
-        className="
-          flex-1
-          bg-slate-100
-        ">
-
-        {
-          loading
-            ? (
-
-              // ===============================================
-              // LOADING
-              // ===============================================
-
+            {totalPages > 0 && (
               <View
-                className="
-                  flex-1
-                  items-center
-                  justify-center
-                  px-8
-                ">
-
-                <View
-                  className="
-                    mb-5
-                    h-16
-                    w-16
-                    items-center
-                    justify-center
-                    rounded-[20px]
-                    bg-indigo-50
-                  ">
-
-                  <ActivityIndicator
-                    size="small"
-                    color="#4F46E5"
-                  />
-
-                </View>
-
-
-                <Text
-                  className="
-                    text-lg
-                    font-bold
-                    text-slate-900
-                  ">
-
-                  Loading PDF
-
+                pointerEvents="none"
+                className="absolute bottom-5 self-center rounded-full border border-brand-100 bg-white px-4 py-2.5 shadow-sm"
+              >
+                <Text className="text-xs font-bold text-brand-600">
+                  Page {currentPage} of {totalPages}
                 </Text>
-
-
-                <Text
-                  className="
-                    mt-2
-                    max-w-[280px]
-                    text-center
-                    text-sm
-                    leading-5
-                    text-slate-500
-                  ">
-
-                  Preparing your
-                  study material...
-
-                </Text>
-
               </View>
-
-            )
-            : error
-              ? (
-
-                // =============================================
-                // ERROR
-                // =============================================
-
-                <View
-                  className="
-                    flex-1
-                    items-center
-                    justify-center
-                    px-8
-                  ">
-
-                  <View
-                    className="
-                      mb-5
-                      h-16
-                      w-16
-                      items-center
-                      justify-center
-                      rounded-[20px]
-                      bg-red-50
-                    ">
-
-                    <FileText
-                      size={29}
-                      color="#DC2626"
-                    />
-
-                  </View>
-
-
-                  <Text
-                    className="
-                      text-xl
-                      font-bold
-                      text-slate-900
-                    ">
-
-                    Couldn't open PDF
-
-                  </Text>
-
-
-                  <Text
-                    className="
-                      mt-2
-                      max-w-[310px]
-                      text-center
-                      text-sm
-                      leading-5
-                      text-slate-500
-                    ">
-
-                    {
-                      error
-                    }
-
-                  </Text>
-
-
-                  <Pressable
-                    accessibilityRole="button"
-
-                    onPress={() => {
-
-                      void loadPdf();
-
-                    }}
-
-                    className="
-                      mt-6
-                      flex-row
-                      items-center
-                      rounded-xl
-                      bg-indigo-600
-                      px-6
-                      py-3
-                    "
-
-                    style={({
-                      pressed,
-                    }) => ({
-
-                      opacity:
-                        pressed
-                          ? 0.8
-                          : 1,
-                    })}>
-
-                    <RefreshCw
-                      size={17}
-                      color="#FFFFFF"
-                    />
-
-
-                    <Text
-                      className="
-                        ml-2
-                        text-sm
-                        font-bold
-                        text-white
-                      ">
-
-                      Try again
-
-                    </Text>
-
-                  </Pressable>
-
-                </View>
-
-              )
-              : pdfSource
-                ? (
-
-                  // ===========================================
-                  // PDF
-                  // ===========================================
-
-                  <View
-                    className="
-                      flex-1
-                      bg-slate-100
-                    ">
-
-                    <Pdf
-                      source={
-                        pdfSource
-                      }
-
-                      style={{
-                        flex:
-                          1,
-
-                        width:
-                          '100%',
-
-                        backgroundColor:
-                          '#F1F5F9',
-                      }}
-
-                      trustAllCerts={
-                        false
-                      }
-
-                      enablePaging={
-                        false
-                      }
-
-                      horizontal={
-                        false
-                      }
-
-                      spacing={
-                        10
-                      }
-
-                      minScale={
-                        1
-                      }
-
-                      maxScale={
-                        4
-                      }
-
-                      onLoadComplete={(
-                        numberOfPages,
-                      ) => {
-
-                        setTotalPages(
-                          numberOfPages,
-                        );
-
-
-                        setCurrentPage(
-                          1,
-                        );
-                      }}
-
-                      onPageChanged={(
-                        page,
-                        numberOfPages,
-                      ) => {
-
-                        setCurrentPage(
-                          page,
-                        );
-
-
-                        setTotalPages(
-                          numberOfPages,
-                        );
-                      }}
-
-                      onError={(
-                        pdfError,
-                      ) => {
-
-                        console.warn(
-                          'PDF renderer error:',
-                          pdfError,
-                        );
-
-
-                        setError(
-                          'The PDF is available on this device, but it could not be displayed.',
-                        );
-                      }}
-                    />
-
-
-                    {/* =========================================
-                        PAGE NUMBER
-                    ========================================== */}
-
-                    {
-                      totalPages > 0
-                      &&
-                      (
-
-                        <View
-                          pointerEvents="none"
-
-                          className="
-                            absolute
-                            bottom-5
-                            self-center
-                            rounded-full
-                            border
-                            border-indigo-100
-                            bg-white
-                            px-4
-                            py-2
-                            shadow-sm
-                          ">
-
-                          <Text
-                            className="
-                              text-xs
-                              font-bold
-                              text-indigo-600
-                            ">
-
-                            Page {
-                              currentPage
-                            }
-                            {' '}of{' '}
-                            {
-                              totalPages
-                            }
-
-                          </Text>
-
-                        </View>
-
-                      )
-                    }
-
-                  </View>
-
-                )
-                : (
-
-                  // ===========================================
-                  // EMPTY
-                  // ===========================================
-
-                  <View
-                    className="
-                      flex-1
-                      items-center
-                      justify-center
-                    ">
-
-                    <Text
-                      className="
-                        text-sm
-                        text-slate-500
-                      ">
-
-                      PDF unavailable.
-
-                    </Text>
-
-                  </View>
-
-                )
-        }
-
+            )}
+          </View>
+        ) : (
+          <ScreenState
+            title="PDF unavailable"
+            description="No document is available for this material."
+            icon={FileText}
+          />
+        )}
       </View>
-
-    </SafeAreaView>
+    </ScreenContainer>
   );
 };
 
+const styles = StyleSheet.create({
+  document: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: colors.background,
+  },
+});
 
 export default PdfPreviewScreen;

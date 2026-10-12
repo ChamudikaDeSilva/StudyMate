@@ -1,30 +1,45 @@
-import React, {ReactNode} from 'react';
-import {Pressable, Text, View} from 'react-native';
-import {X} from 'lucide-react-native';
+import React, { ReactNode } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { X } from 'lucide-react-native';
+import { colors } from '../../constants/colors';
 
 interface SelectedFileCardProps {
   icon: ReactNode;
   name: string;
   details: string;
+  disabled?: boolean;
   onRemove: () => void;
 }
 
-const SelectedFileCard = ({icon, name, details, onRemove}: SelectedFileCardProps) => {
+const SelectedFileCard = ({
+  icon,
+  name,
+  details,
+  disabled = false,
+  onRemove,
+}: SelectedFileCardProps) => {
   return (
-    <View className="mb-5 flex-row items-center rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <View className="mb-5 flex-row items-center rounded-[20px] border border-line bg-canvas p-4">
       <View className="mr-3 h-11 w-11 items-center justify-center rounded-xl bg-white">
         {icon}
       </View>
       <View className="flex-1">
-        <Text numberOfLines={1} className="font-bold text-slate-900">{name}</Text>
-        <Text className="mt-1 text-xs text-slate-500">{details}</Text>
+        <Text numberOfLines={2} className="font-bold text-ink">
+          {name}
+        </Text>
+        <Text className="mt-1 text-xs text-muted">{details}</Text>
       </View>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Remove file"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
         onPress={onRemove}
-        className="h-9 w-9 items-center justify-center rounded-xl bg-white">
-        <X size={17} color="#64748B" />
+        className={`ml-2 h-11 w-11 items-center justify-center rounded-xl bg-white ${
+          disabled ? 'opacity-50' : 'active:opacity-60'
+        }`}
+      >
+        <X size={17} color={colors.textSecondary} />
       </Pressable>
     </View>
   );

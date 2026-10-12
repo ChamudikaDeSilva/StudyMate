@@ -1,35 +1,25 @@
-import {Platform, ViewStyle} from 'react-native';
+import { Platform, ViewStyle } from 'react-native';
+import { colors } from './colors';
 
 export const shadows: Record<string, ViewStyle> = {
   sm: Platform.select({
     ios: {
-      shadowColor: '#000000',
-      shadowOffset: {
-        width: 0,
-        height: 1,
-      },
-      shadowOpacity: 0.06,
-      shadowRadius: 3,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.04,
+      shadowRadius: 10,
     },
-    android: {
-      elevation: 2,
-    },
+    android: { elevation: 1, shadowColor: colors.primary },
     default: {},
   }) as ViewStyle,
-
   md: Platform.select({
     ios: {
-      shadowColor: '#000000',
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 5 },
       shadowOpacity: 0.08,
-      shadowRadius: 8,
+      shadowRadius: 16,
     },
-    android: {
-      elevation: 4,
-    },
+    android: { elevation: 3, shadowColor: colors.primary },
     default: {},
   }) as ViewStyle,
 };

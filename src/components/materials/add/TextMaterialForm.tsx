@@ -1,5 +1,5 @@
 import React from 'react';
-import {TextInput} from 'react-native';
+import { StyleSheet } from 'react-native';
 import AppButton from '../../common/AppButton';
 import AppInput from '../../common/AppInput';
 import MaterialFormCard from '../MaterialFormCard';
@@ -24,7 +24,7 @@ const TextMaterialForm = ({
   onSave,
 }: TextMaterialFormProps) => {
   return (
-    <MaterialFormCard title="Text material">
+    <MaterialFormCard title="Write your notes">
       <AppInput
         label="Title"
         value={title}
@@ -33,15 +33,15 @@ const TextMaterialForm = ({
         placeholder="Material title"
       />
 
-      <TextInput
+      <AppInput
+        label="Study notes"
         value={content}
         onChangeText={onContentChange}
         editable={!busy}
         multiline
         textAlignVertical="top"
         placeholder="Write or paste your notes..."
-        placeholderTextColor="#94A3B8"
-        className="mb-5 min-h-[220px] rounded-xl border border-slate-200 bg-white px-4 py-4 text-slate-900"
+        style={styles.notes}
       />
 
       <AppButton
@@ -53,5 +53,9 @@ const TextMaterialForm = ({
     </MaterialFormCard>
   );
 };
+
+const styles = StyleSheet.create({
+  notes: { minHeight: 220 },
+});
 
 export default TextMaterialForm;

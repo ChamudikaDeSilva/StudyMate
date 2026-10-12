@@ -1,114 +1,117 @@
-import React, {useState} from 'react';
-import {Alert, Pressable, Text, View} from 'react-native';
-import {Eye, EyeOff, LockKeyhole, Mail} from 'lucide-react-native';
-import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import React, { useRef } from 'react';
+import { Keyboard, Platform } from 'react-native';
+import { ArrowRight, Mail } from 'lucide-react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AppButton from '../../components/common/AppButton';
-import AppInput from '../../components/common/AppInput';
+import AppInput, { AppInputRef } from '../../components/common/AppInput';
+import PasswordInput from '../../components/common/PasswordInput';
 import AuthScreenLayout from '../../components/auth/AuthScreenLayout';
-import {useAuth} from '../../hooks/useAuth';
-import {AuthStackParamList} from '../../navigation/navigationTypes';
+import AuthHero from '../../components/auth/AuthHero';
+import AuthFormCard from '../../components/auth/AuthFormCard';
+import AuthSwitchLink from '../../components/auth/AuthSwitchLink';
+import { APP_NAME } from '../../constants/app';
+import { colors } from '../../constants/colors';
+import { useAuth } from '../../hooks/useAuth';
+import { useAuthForm, validateEmail } from '../../hooks/useAuthForm';
+import { AuthStackParamList } from '../../navigation/navigationTypes';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
+type LoginValues = { email: string; password: string };
 
-const LoginScreen = ({navigation}: Props) => {
-  const {login} = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+const validateLogin = ({ email, password }: LoginValues) => ({
+  email: validateEmail(email),
+  password: password ? undefined : 'Enter your password.',
+});
 
-  const handleLogin = async () => {
-    const normalizedEmail = email.trim().toLowerCase();
+const LoginScreen = ({ navigation }: Props) => {
+  const { login } = useAuth();
+  const emailRef = useRef<AppInputRef>(null);
+  const passwordRef = useRef<AppInputRef>(null);
+  const {
+    values,
+    errors,
+    submitting,
+    feedback,
+    updateField,
+    touchField,
+    submit,
+  } = useAuthForm<LoginValues>({ email: '', password: '' }, validateLogin);
 
-    if (!normalizedEmail) {
-      Alert.alert('Email Required', 'Please enter your email address.');
-      return;
-    }
-
-    if (!password) {
-      Alert.alert('Password Required', 'Please enter your password.');
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      await login(normalizedEmail, password);
-    } catch (error) {
-      Alert.alert(
-        'Login Failed',
-        error instanceof Error ? error.message : 'Unable to login. Please try again.',
-      );
-    } finally {
-      setSubmitting(false);
-    }
+  const handleLogin = () => {
+    submit({
+      onInvalid: field => {
+        (field === 'email' ? emailRef : passwordRef).current?.focus();
+      },
+      onValid: async ({ email, password }) => {
+        Keyboard.dismiss();
+        await login(email.trim().toLowerCase(), password);
+      },
+      fallbackMessage: 'Unable to sign in. Please try again.',
+    });
   };
 
   return (
     <AuthScreenLayout>
-      <View className="mb-7">
-        <View className="mb-4 self-start rounded-full bg-indigo-50 px-3 py-1.5">
-          <Text className="text-xs font-bold tracking-wider text-indigo-600">
-            WELCOME BACK
-          </Text>
-        </View>
+      <AuthHero variant="login" />
 
-        <Text className="text-4xl font-bold leading-[44px] text-slate-950">
-          Continue your{`\n`}learning journey
-        </Text>
-        <Text className="mt-3 text-base leading-6 text-slate-500">
-          Sign in to access your subjects, study materials and AI learning tools.
-        </Text>
-      </View>
-
-      <View className="rounded-[28px] border border-slate-200 bg-white p-5">
+      <AuthFormCard
+        title="Sign in"
+        description="Your learning space is ready for you."
+        submitting={submitting}
+        feedback={feedback}
+      >
         <AppInput
-          label="Email Address"
-          value={email}
-          onChangeText={setEmail}
+          ref={emailRef}
+          label="Email address"
+          accessibilityLabel="Email address"
+          value={values.email}
+          onChangeText={value => updateField('email', value)}
+          onBlur={() => touchField('email')}
+          error={errors.email}
           placeholder="you@example.com"
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
+          autoComplete="email"
+          textContentType={Platform.OS === 'ios' ? 'username' : undefined}
           editable={!submitting}
           returnKeyType="next"
-          leftIcon={<Mail size={19} color="#64748B" />}
+          submitBehavior="submit"
+          onSubmitEditing={() => passwordRef.current?.focus()}
+          leftIcon={<Mail size={19} color={colors.textSecondary} />}
         />
 
-        <AppInput
+        <PasswordInput
+          ref={passwordRef}
           label="Password"
-          value={password}
-          onChangeText={setPassword}
+          accessibilityLabel="Password"
+          value={values.password}
+          onChangeText={value => updateField('password', value)}
+          onBlur={() => touchField('password')}
+          error={errors.password}
           placeholder="Enter your password"
-          secureTextEntry={!showPassword}
-          autoCapitalize="none"
-          autoCorrect={false}
           editable={!submitting}
           returnKeyType="done"
+          submitBehavior="submit"
           onSubmitEditing={handleLogin}
-          leftIcon={<LockKeyhole size={19} color="#64748B" />}
-          rightAccessory={
-            <Pressable onPress={() => setShowPassword(current => !current)} hitSlop={10}>
-              {showPassword ? (
-                <EyeOff size={20} color="#64748B" />
-              ) : (
-                <Eye size={20} color="#64748B" />
-              )}
-            </Pressable>
-          }
         />
 
-        <AppButton title="Sign In" onPress={handleLogin} loading={submitting} className="mt-2" />
-      </View>
-
-      <View className="mt-7 flex-row items-center justify-center">
-        <Text className="text-sm text-slate-500">New to LearnLoop AI?</Text>
-        <Pressable
-          className="ml-1.5"
+        <AppButton
+          title="Sign in"
+          onPress={handleLogin}
+          loading={submitting}
           disabled={submitting}
-          onPress={() => navigation.navigate('Register')}>
-          <Text className="text-sm font-bold text-indigo-600">Create account</Text>
-        </Pressable>
-      </View>
+          icon={<ArrowRight size={19} color="#FFFFFF" />}
+          className="mt-2"
+        />
+      </AuthFormCard>
+
+      <AuthSwitchLink
+        prompt={`New to ${APP_NAME}?`}
+        title="Create account"
+        disabled={submitting}
+        onPress={() => navigation.navigate('Register')}
+      />
     </AuthScreenLayout>
   );
 };

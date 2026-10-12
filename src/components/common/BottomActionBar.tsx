@@ -1,108 +1,33 @@
 import React from 'react';
-
-import {
-  StyleSheet,
-  View,
-} from 'react-native';
-
-import {
-  Plus,
-} from 'lucide-react-native';
-
-import ActionButton
-  from './ActionButton';
-
-
+import { StyleSheet, View } from 'react-native';
+import { Plus } from 'lucide-react-native';
+import { colors } from '../../constants/colors';
+import ActionButton from './ActionButton';
 interface BottomActionBarProps {
   title: string;
-
   onPress: () => void;
 }
-
-
-const BottomActionBar = ({
-  title,
-  onPress,
-}: BottomActionBarProps) => {
-
-  return (
-
-    <View
-      style={
-        styles.container
-      }>
-
-      <ActionButton
-        title={
-          title
-        }
-
-        onPress={
-          onPress
-        }
-
-        tone="primary"
-
-        variant="solid"
-
-        icon={
-          <Plus
-            size={20}
-            color="#FFFFFF"
-            strokeWidth={2.5}
-          />
-        }
-      />
-
-    </View>
-  );
-};
-
-
-const styles =
-  StyleSheet.create({
-
-    container: {
-
-      backgroundColor:
-        '#FFFFFF',
-
-      borderTopWidth:
-        1,
-
-      borderTopColor:
-        '#E2E8F0',
-
-      paddingHorizontal:
-        24,
-
-      paddingTop:
-        12,
-
-      paddingBottom:
-        12,
-
-      elevation:
-        8,
-
-      shadowColor:
-        '#000000',
-
-      shadowOffset: {
-        width:
-          0,
-
-        height:
-          -2,
-      },
-
-      shadowOpacity:
-        0.06,
-
-      shadowRadius:
-        6,
-    },
-  });
-
-
+const BottomActionBar = ({ title, onPress }: BottomActionBarProps) => (
+  <View style={styles.container}>
+    <ActionButton
+      title={title}
+      onPress={onPress}
+      icon={<Plus size={20} color={colors.white} strokeWidth={2.5} />}
+    />
+  </View>
+);
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+});
 export default BottomActionBar;

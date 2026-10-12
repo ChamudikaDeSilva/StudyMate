@@ -1,13 +1,15 @@
+import { colors } from './colors';
+
 export interface SubjectAccent {
   background: string;
   foreground: string;
 }
 
 export const subjectPalette: SubjectAccent[] = [
-  {background: '#EEF2FF', foreground: '#4F46E5'},
-  {background: '#F3E8FF', foreground: '#7C3AED'},
-  {background: '#E0F2FE', foreground: '#0284C7'},
-  {background: '#DCFCE7', foreground: '#16A34A'},
-  {background: '#FEF3C7', foreground: '#D97706'},
-  {background: '#FFE4E6', foreground: '#E11D48'},
+  { background: colors.primaryLight, foreground: colors.primary },
+  { background: '#F2EAFB', foreground: '#8A54C3' },
+  { background: '#EAF3FB', foreground: '#3079A3' },
+  { background: '#EDF7F2', foreground: '#268366' },
+  { background: '#FCF3E4', foreground: '#A87021' },
+  { background: '#FBF0F4', foreground: '#B34568' },
 ];
