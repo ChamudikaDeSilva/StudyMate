@@ -55,6 +55,8 @@ const mapSubject = (
 export class SubjectApiRepositoryImpl
   implements SubjectRepository {
 
+  constructor(private readonly accessToken?: string) {}
+
   async getSubjects(
     userId: string,
   ): Promise<Subject[]> {
@@ -66,6 +68,7 @@ export class SubjectApiRepositoryImpl
         {
           method: 'GET',
           authenticated: true,
+          accessToken: this.accessToken,
         },
       );
 
@@ -90,6 +93,7 @@ export class SubjectApiRepositoryImpl
         {
           method: 'POST',
           authenticated: true,
+          accessToken: this.accessToken,
 
           body: JSON.stringify({
             name: input.name,
@@ -119,6 +123,7 @@ export class SubjectApiRepositoryImpl
       {
         method: 'PUT',
         authenticated: true,
+        accessToken: this.accessToken,
 
         body: JSON.stringify({
           name: input.name,
@@ -140,6 +145,7 @@ export class SubjectApiRepositoryImpl
       {
         method: 'DELETE',
         authenticated: true,
+        accessToken: this.accessToken,
       },
     );
   }

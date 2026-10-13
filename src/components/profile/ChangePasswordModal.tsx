@@ -19,9 +19,9 @@ const ChangePasswordModal = ({
   onSaved,
   onClose,
 }: ChangePasswordModalProps) => {
-  const currentRef = useRef<AppInputRef>(null);
-  const newRef = useRef<AppInputRef>(null);
-  const confirmRef = useRef<AppInputRef>(null);
+  const currentPasswordInputRef = useRef<AppInputRef>(null);
+  const newPasswordInputRef = useRef<AppInputRef>(null);
+  const confirmPasswordInputRef = useRef<AppInputRef>(null);
   const form = useAccountForm(
     { currentPassword: '', newPassword: '', confirmPassword: '' },
     values => ({
@@ -52,12 +52,12 @@ const ChangePasswordModal = ({
       onSaved,
       onClose,
       onInvalid: field => {
-        const refs = {
-          currentPassword: currentRef,
-          newPassword: newRef,
-          confirmPassword: confirmRef,
+        const inputRefs = {
+          currentPassword: currentPasswordInputRef,
+          newPassword: newPasswordInputRef,
+          confirmPassword: confirmPasswordInputRef,
         };
-        refs[field].current?.focus();
+        inputRefs[field].current?.focus();
       },
       fallbackMessage: 'Unable to change your password. Please try again.',
     },
@@ -75,7 +75,7 @@ const ChangePasswordModal = ({
       onClose={form.close}
     >
       <PasswordInput
-        ref={currentRef}
+        ref={currentPasswordInputRef}
         label="Current password"
         visibilityLabel="current password"
         value={form.values.currentPassword}
@@ -85,10 +85,10 @@ const ChangePasswordModal = ({
         editable={!form.submitting}
         autoFocus
         returnKeyType="next"
-        onSubmitEditing={() => newRef.current?.focus()}
+        onSubmitEditing={() => newPasswordInputRef.current?.focus()}
       />
       <PasswordInput
-        ref={newRef}
+        ref={newPasswordInputRef}
         label="New password"
         visibilityLabel="new password"
         value={form.values.newPassword}
@@ -100,10 +100,10 @@ const ChangePasswordModal = ({
         autoComplete="new-password"
         textContentType="newPassword"
         returnKeyType="next"
-        onSubmitEditing={() => confirmRef.current?.focus()}
+        onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
       />
       <PasswordInput
-        ref={confirmRef}
+        ref={confirmPasswordInputRef}
         label="Confirm new password"
         visibilityLabel="confirmation password"
         value={form.values.confirmPassword}

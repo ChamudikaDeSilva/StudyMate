@@ -1,6 +1,7 @@
 import { apiRequest } from '../../src/data/remote/api/apiClient';
 import {
   changeCurrentPassword,
+  getCurrentUser,
   loginUser,
   updateCurrentUser,
 } from '../../src/data/remote/api/authService';
@@ -28,12 +29,13 @@ test('profile updates authenticate, normalize name/email, and preserve the curre
       name: '  Alex Student  ',
       email: '  NEW@Example.COM ',
       current_password: ' current password ',
-    }),
+    }, 'captured-session'),
   ).toEqual(response);
   const [endpoint, request] = jest.mocked(apiRequest).mock.calls[0];
   expect(endpoint).toBe('/auth/me');
   expect(request?.method).toBe('PATCH');
   expect(request?.authenticated).toBe(true);
+  expect(request?.accessToken).toBe('captured-session');
   expect(JSON.parse(request?.body as string)).toEqual({
     name: 'Alex Student',
     email: 'new@example.com',
@@ -57,11 +59,12 @@ test('password change authenticates and preserves both passwords exactly', async
   await changeCurrentPassword({
     current_password: ' old password ',
     new_password: ' new password ',
-  });
+  }, 'captured-session');
   const [endpoint, request] = jest.mocked(apiRequest).mock.calls[0];
   expect(endpoint).toBe('/auth/change-password');
   expect(request?.method).toBe('POST');
   expect(request?.authenticated).toBe(true);
+  expect(request?.accessToken).toBe('captured-session');
   expect(JSON.parse(request?.body as string)).toEqual({
     current_password: ' old password ',
     new_password: ' new password ',
@@ -80,4 +83,14 @@ test('login returns the response for guarded persistence in the authentication c
     await loginUser({ email: 'alex@example.com', password: ' password ' }),
   ).toEqual(response);
   expect(saveAccessToken).not.toHaveBeenCalled();
+});
+
+test('session verification uses the captured token rather than a newer stored account', async () => {
+  jest.mocked(apiRequest).mockResolvedValue({ id: 1 });
+  await getCurrentUser('captured-session');
+  expect(apiRequest).toHaveBeenCalledWith('/auth/me', {
+    method: 'GET',
+    authenticated: true,
+    accessToken: 'captured-session',
+  });
 });

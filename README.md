@@ -2,6 +2,8 @@ This is a new [**React Native**](https://reactnative.dev) project, bootstrapped 
 
 Profile supports editing name/email and changing the password while signed in. See [profile settings](docs/profile-settings.md) for behavior and backend setup.
 
+Saved sessions can reopen offline. See [offline sessions](docs/offline-sessions.md) for supported behavior and verification, and the [GitGuardian review](docs/security-review.md) for the verified input-reference false positive.
+
 # Getting Started
 
 > **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.

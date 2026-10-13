@@ -35,6 +35,7 @@ import {
 import {
   offlineFileStorageService,
 } from './OfflineFileStorageService';
+import {SyncSession} from '../../domain/models/SyncSession';
 
 
 // ============================================================
@@ -62,13 +63,31 @@ export interface OfflineSyncResult {
 // ============================================================
 
 export class OfflineSyncService {
+  async sync(
+    userId: string | number,
+    session: SyncSession,
+  ): Promise<OfflineSyncResult> {
+    const normalizedUserId = String(userId);
+    if (session.userId !== normalizedUserId) {
+      throw new Error('The sync session does not belong to this account.');
+    }
 
-  private readonly subjectRepository =
-    new SubjectApiRepositoryImpl();
+    // Every run keeps its original credentials, even if the active account changes.
+    return new OfflineSyncRun(session.accessToken).sync(normalizedUserId, session);
+  }
+}
+
+class OfflineSyncRun {
+
+  private readonly subjectRepository: SubjectApiRepositoryImpl;
 
 
-  private readonly materialRepository =
-    new MaterialApiRepositoryImpl();
+  private readonly materialRepository: MaterialApiRepositoryImpl;
+
+  constructor(accessToken: string) {
+    this.subjectRepository = new SubjectApiRepositoryImpl(accessToken);
+    this.materialRepository = new MaterialApiRepositoryImpl(accessToken);
+  }
 
 
   // =========================================================
@@ -78,6 +97,7 @@ export class OfflineSyncService {
   async sync(
     userId:
       string | number,
+    session: SyncSession,
   ): Promise<
     OfflineSyncResult
   > {
@@ -126,9 +146,7 @@ export class OfflineSyncService {
      * UPDATE material 45
      */
 
-    while (
-      true
-    ) {
+    while (session.isCurrent()) {
 
       const operations =
         await getPendingSyncOperations(
@@ -137,6 +155,7 @@ export class OfflineSyncService {
 
 
       if (
+        !session.isCurrent() ||
         operations.length ===
         0
       ) {
@@ -148,6 +167,9 @@ export class OfflineSyncService {
       const operation =
         operations[0];
 
+      if (!session.isCurrent()) {
+        break;
+      }
 
       processed +=
         1;

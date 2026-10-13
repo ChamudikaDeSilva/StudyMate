@@ -32,10 +32,11 @@ export const loginUser = async (
   return response;
 };
 
-export const getCurrentUser = async (): Promise<AuthUser> => {
+export const getCurrentUser = async (accessToken?: string): Promise<AuthUser> => {
   return apiRequest<AuthUser>('/auth/me', {
     method: 'GET',
     authenticated: true,
+    accessToken,
   });
 };
 
@@ -45,10 +46,12 @@ export const logoutUser = async (): Promise<void> => {
 
 export const updateCurrentUser = (
   request: UpdateProfileRequest,
+  accessToken?: string,
 ): Promise<LoginResponse> =>
   apiRequest<LoginResponse>('/auth/me', {
     method: 'PATCH',
     authenticated: true,
+    accessToken,
     body: JSON.stringify({
       ...request,
       name: request.name.trim(),
@@ -58,9 +61,11 @@ export const updateCurrentUser = (
 
 export const changeCurrentPassword = (
   request: ChangePasswordRequest,
+  accessToken?: string,
 ): Promise<LoginResponse> =>
   apiRequest<LoginResponse>('/auth/change-password', {
     method: 'POST',
     authenticated: true,
+    accessToken,
     body: JSON.stringify(request),
   });

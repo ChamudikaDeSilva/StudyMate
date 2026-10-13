@@ -170,6 +170,8 @@ beforeEach(() => {
       updated_at: '',
     },
     loading: false,
+    sessionValidated: true,
+    getSyncSession: jest.fn(),
     login: jest.fn(),
     register: jest.fn(),
     logout: jest.fn(),

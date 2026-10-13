@@ -26,6 +26,8 @@ import {
 export const useOfflineSync = () => {
   const {
     user,
+    sessionValidated,
+    getSyncSession,
   } = useAuth();
 
 
@@ -52,6 +54,7 @@ export const useOfflineSync = () => {
 
   const syncingRef =
     useRef(false);
+  const syncNowRef = useRef<(() => Promise<OfflineSyncResult | null>) | null>(null);
 
 
   const userId =
@@ -71,6 +74,8 @@ export const useOfflineSync = () => {
         if (
           !userId
           ||
+          !sessionValidated
+          ||
           !networkInitialized
           ||
           !isOnline
@@ -80,6 +85,10 @@ export const useOfflineSync = () => {
           return null;
         }
 
+        const session = getSyncSession();
+        if (!session || session.userId !== userId || !session.isCurrent()) {
+          return null;
+        }
 
         try {
           syncingRef.current =
@@ -102,7 +111,7 @@ export const useOfflineSync = () => {
            * Avoid unnecessary API / sync work.
            */
           if (
-            pendingCount === 0
+            !session.isCurrent() || pendingCount === 0
           ) {
             return null;
           }
@@ -120,12 +129,13 @@ export const useOfflineSync = () => {
             await offlineSyncService
               .sync(
                 userId,
+                session,
               );
 
 
-          setLastResult(
-            result,
-          );
+          if (session.isCurrent()) {
+            setLastResult(result);
+          }
 
 
           return result;
@@ -146,14 +156,27 @@ export const useOfflineSync = () => {
           setSyncing(
             false,
           );
+
+          const currentSession = getSyncSession();
+          if (!session.isCurrent() && currentSession?.isCurrent()) {
+            syncNowRef.current?.();
+          }
         }
       },
       [
         userId,
+        sessionValidated,
+        getSyncSession,
         networkInitialized,
         isOnline,
       ],
     );
+
+  syncNowRef.current = syncNow;
+
+  useEffect(() => {
+    setLastResult(null);
+  }, [userId]);
 
 
   // =========================================================
@@ -176,6 +199,8 @@ export const useOfflineSync = () => {
       if (
         !userId
         ||
+        !sessionValidated
+        ||
         !networkInitialized
         ||
         !isOnline
@@ -184,11 +209,12 @@ export const useOfflineSync = () => {
       }
 
 
-      void syncNow();
+      syncNow();
 
     },
     [
       userId,
+      sessionValidated,
       networkInitialized,
       isOnline,
       syncNow,

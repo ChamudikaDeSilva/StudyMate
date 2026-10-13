@@ -38,10 +38,12 @@ const mapMaterial = (response: MaterialApiResponse, userId: string): Material =>
 });
 
 export class MaterialApiRepositoryImpl implements MaterialRepository {
+  constructor(private readonly accessToken?: string) {}
+
   async getMaterials(userId: string, subjectId: string): Promise<Material[]> {
     const response = await apiRequest<MaterialApiResponse[]>(
       `/subjects/${subjectId}/materials`,
-      {method: 'GET', authenticated: true},
+      {method: 'GET', authenticated: true, accessToken: this.accessToken},
     );
     return response.map(item => mapMaterial(item, userId));
   }
@@ -62,6 +64,7 @@ export class MaterialApiRepositoryImpl implements MaterialRepository {
       {
         method: 'POST',
         authenticated: true,
+        accessToken: this.accessToken,
         body: JSON.stringify({title, content}),
       },
     );
@@ -89,6 +92,7 @@ export class MaterialApiRepositoryImpl implements MaterialRepository {
     const response = await uploadMultipart<MaterialApiResponse>({
       endpoint: `/subjects/${input.subjectId}/materials/${endpointType}`,
       fields: {title},
+      accessToken: this.accessToken,
       file: {
         uri: input.fileUri,
         fileName: input.fileName,
@@ -109,6 +113,7 @@ export class MaterialApiRepositoryImpl implements MaterialRepository {
     await apiRequest<MaterialApiResponse>(`/materials/${materialId}`, {
       method: 'PUT',
       authenticated: true,
+      accessToken: this.accessToken,
       body: JSON.stringify({title, content}),
     });
   }
@@ -120,6 +125,7 @@ export class MaterialApiRepositoryImpl implements MaterialRepository {
     await apiRequest<MaterialApiResponse>(`/materials/${materialId}/image-title`, {
       method: 'PATCH',
       authenticated: true,
+      accessToken: this.accessToken,
       body: JSON.stringify({title: cleanTitle}),
     });
   }
@@ -128,6 +134,7 @@ export class MaterialApiRepositoryImpl implements MaterialRepository {
     await apiRequest<void>(`/materials/${materialId}`, {
       method: 'DELETE',
       authenticated: true,
+      accessToken: this.accessToken,
     });
   }
 }

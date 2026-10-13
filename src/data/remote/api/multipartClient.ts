@@ -13,6 +13,7 @@ interface MultipartUploadOptions {
   endpoint: string;
   fields: Record<string, string>;
   file: MultipartFile;
+  accessToken?: string;
 }
 
 const normalizeFilePath = (uri: string): string => {
@@ -29,8 +30,9 @@ export const uploadMultipart = async <T>({
   endpoint,
   fields,
   file,
+  accessToken,
 }: MultipartUploadOptions): Promise<T> => {
-  const token = await getAccessToken();
+  const token = accessToken === undefined ? await getAccessToken() : accessToken;
   if (!token) {
     throw new ApiError('Authentication token is missing.', 401);
   }

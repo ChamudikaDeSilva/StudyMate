@@ -10,6 +10,7 @@ import {
 interface ApiRequestOptions
   extends RequestInit {
   authenticated?: boolean;
+  accessToken?: string;
 }
 
 
@@ -34,6 +35,7 @@ export const apiRequest = async <T>(
 ): Promise<T> => {
   const {
     authenticated = false,
+    accessToken,
     headers,
     ...requestOptions
   } = options;
@@ -72,7 +74,9 @@ export const apiRequest = async <T>(
 
   if (authenticated) {
     const token =
-      await getAccessToken();
+      accessToken === undefined
+        ? await getAccessToken()
+        : accessToken;
 
 
     if (!token) {

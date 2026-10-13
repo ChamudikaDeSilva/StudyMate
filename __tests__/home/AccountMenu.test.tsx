@@ -89,6 +89,8 @@ beforeEach(() => {
   jest.mocked(useAuth).mockReturnValue({
     user: null,
     loading: false,
+    sessionValidated: true,
+    getSyncSession: jest.fn(),
     login: jest.fn(),
     register: jest.fn(),
     logout,

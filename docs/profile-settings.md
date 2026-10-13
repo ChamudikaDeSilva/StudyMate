@@ -8,6 +8,8 @@ Name and email changes update the shared account state, including the Home greet
 
 These are signed-in account settings and do not require SMTP. Password recovery is not included.
 
+Account changes require an online, validated session. The updated profile is saved with its token for offline restarts; see [offline sessions](offline-sessions.md) for reconnection behavior and verification steps.
+
 ## Backend setup
 
 Run `alembic upgrade head` from LearnLoopBackend before restarting its API. Migration `8a74c561f903` adds or adopts `users.auth_version` while preserving existing values. The migration must run online to inspect the current schema. See the backend's `docs/profile-settings.md` for details and isolated test instructions.
