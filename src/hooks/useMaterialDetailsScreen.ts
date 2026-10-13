@@ -6,8 +6,8 @@ import {
 } from 'react';
 
 import {
-  Alert,
-} from 'react-native';
+  useAppAlert,
+} from './useAppAlert';
 
 import {
   useMaterials,
@@ -32,6 +32,10 @@ export const useMaterialDetailsScreen = ({
   materialId,
   onDeleted,
 }: UseMaterialDetailsScreenParams) => {
+
+  const {
+    alert,
+  } = useAppAlert();
 
   const {
     materials,
@@ -284,10 +288,14 @@ export const useMaterialDetailsScreen = ({
           !cleanTitle
         ) {
 
-          Alert.alert(
+          alert(
             'Title required',
 
             'Please enter a material title.',
+
+            undefined,
+
+            { tone: 'warning' },
           );
 
 
@@ -342,10 +350,14 @@ export const useMaterialDetailsScreen = ({
             !cleanContent
           ) {
 
-            Alert.alert(
+            alert(
               'Content required',
 
               'Please enter study content.',
+
+              undefined,
+
+              { tone: 'warning' },
             );
 
 
@@ -370,17 +382,22 @@ export const useMaterialDetailsScreen = ({
           saveError
         ) {
 
-          Alert.alert(
+          alert(
             'Unable to update material',
 
             saveError instanceof Error
               ? saveError.message
               : 'Unable to update material.',
+
+            undefined,
+
+            { tone: 'danger' },
           );
         }
 
       },
       [
+        alert,
         material,
         busy,
         title,
@@ -408,7 +425,7 @@ export const useMaterialDetailsScreen = ({
         }
 
 
-        Alert.alert(
+        alert(
           'Delete material',
 
           `Are you sure you want to delete "${material.title}"?`,
@@ -445,21 +462,28 @@ export const useMaterialDetailsScreen = ({
                     deleteError
                   ) {
 
-                    Alert.alert(
+                    alert(
                       'Unable to delete material',
 
                       deleteError instanceof Error
                         ? deleteError.message
                         : 'Unable to delete material.',
+
+                      undefined,
+
+                      { tone: 'danger' },
                     );
                   }
                 },
             },
           ],
+
+          { tone: 'danger', icon: 'delete' },
         );
 
       },
       [
+        alert,
         material,
         busy,
         deleteMaterial,

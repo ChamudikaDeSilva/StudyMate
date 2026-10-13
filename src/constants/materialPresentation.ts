@@ -5,7 +5,8 @@ import {
   LucideIcon,
   Type,
 } from 'lucide-react-native';
-import {MaterialSourceType} from '../domain/models/Material';
+import { MaterialSourceType } from '../domain/models/Material';
+import { colors } from './colors';
 
 export interface MaterialPresentation {
   label: string;
@@ -15,33 +16,36 @@ export interface MaterialPresentation {
   icon: LucideIcon;
 }
 
-export const materialPresentation: Record<MaterialSourceType, MaterialPresentation> = {
+export const materialPresentation: Record<
+  MaterialSourceType,
+  MaterialPresentation
+> = {
   text: {
     label: 'Text',
-    foreground: '#4F46E5',
-    background: '#EEF2FF',
-    border: '#C7D2FE',
+    foreground: colors.primary,
+    background: colors.primaryLight,
+    border: '#D9D2FF',
     icon: Type,
   },
   pdf: {
     label: 'PDF',
-    foreground: '#E11D48',
-    background: '#FFF1F2',
-    border: '#FECDD3',
+    foreground: '#B34568',
+    background: '#FBF0F4',
+    border: '#F0D6E0',
     icon: FileText,
   },
   image: {
     label: 'Image',
-    foreground: '#0284C7',
-    background: '#E0F2FE',
-    border: '#BAE6FD',
+    foreground: '#3079A3',
+    background: '#EAF3FB',
+    border: '#D0E6F3',
     icon: ImageIcon,
   },
   camera: {
     label: 'Camera',
-    foreground: '#16A34A',
-    background: '#F0FDF4',
-    border: '#BBF7D0',
+    foreground: '#268366',
+    background: '#EDF7F2',
+    border: '#D4EDE1',
     icon: Camera,
   },
 };

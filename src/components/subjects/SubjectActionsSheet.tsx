@@ -1,12 +1,17 @@
 import React from 'react';
-import {Modal, Pressable, Text, View} from 'react-native';
-import {LucideIcon, Pencil, Trash2} from 'lucide-react-native';
-import {Subject} from '../../domain/models/Subject';
+import { Pressable, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { BookOpen, Pencil, Trash2, X } from 'lucide-react-native';
+import { colors } from '../../constants/colors';
+import { Subject } from '../../domain/models/Subject';
+import AppButton from '../common/AppButton';
+import AppModal from '../common/AppModal';
 
 interface SubjectActionsSheetProps {
   visible: boolean;
   subject: Subject | null;
   onClose: () => void;
+  onDismiss?: () => void;
   onEdit: (subject: Subject) => void;
   onDelete: (subject: Subject) => void;
 }
@@ -15,75 +20,86 @@ const SubjectActionsSheet = ({
   visible,
   subject,
   onClose,
+  onDismiss,
   onEdit,
   onDelete,
-}: SubjectActionsSheetProps) => {
-  return (
-    <Modal
-      transparent
-      animationType="fade"
-      visible={visible}
-      statusBarTranslucent
-      onRequestClose={onClose}>
-      <Pressable className="flex-1 justify-end bg-slate-900/50" onPress={onClose}>
-        <Pressable
-          className="rounded-t-[26px] bg-white px-6 pb-8 pt-2"
-          onPress={event => event.stopPropagation()}>
-          <View className="mb-6 h-[5px] w-[42px] self-center rounded-full bg-slate-200" />
+}: SubjectActionsSheetProps) => (
+  <AppModal
+    transparent
+    animationType="fade"
+    visible={visible}
+    statusBarTranslucent
+    onRequestClose={onClose}
+    onDismiss={onDismiss}
+  >
+    <View className="flex-1 justify-end bg-ink/50">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Close subject actions"
+        onPress={onClose}
+        className="absolute inset-0"
+      />
+      <SafeAreaView
+        edges={['bottom', 'left', 'right']}
+        accessibilityViewIsModal
+        className="rounded-t-[32px] border border-line bg-white"
+      >
+        <View className="px-6 pb-6 pt-3">
+          <View className="mb-5 h-[5px] w-[42px] self-center rounded-full bg-line" />
+          <View className="mb-6 flex-row items-center">
+            <View className="mr-3 h-12 w-12 items-center justify-center rounded-2xl bg-brand-50">
+              <BookOpen size={22} color={colors.primary} />
+            </View>
+            <View className="flex-1">
+              <Text
+                accessibilityRole="header"
+                className="text-xl font-bold text-ink"
+                numberOfLines={2}
+              >
+                {subject?.name ?? 'Subject'}
+              </Text>
+              <Text className="mt-1 text-sm text-muted">
+                Manage this subject
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close subject actions"
+              onPress={onClose}
+              className="ml-3 h-11 w-11 items-center justify-center rounded-full bg-canvas active:opacity-60"
+            >
+              <X size={20} color={colors.textSecondary} />
+            </Pressable>
+          </View>
 
-          <Text className="text-xl font-bold text-slate-900" numberOfLines={1}>
-            {subject?.name ?? 'Subject'}
-          </Text>
-          <Text className="mt-1 text-sm text-slate-500">Manage this subject</Text>
-          <View className="my-4 h-px bg-slate-200" />
-
-          <ActionRow
+          <AppButton
             title="Edit subject"
-            description="Change the name or description"
-            icon={Pencil}
-            color="#4F46E5"
-            background="#EEF2FF"
-            onPress={() => subject && onEdit(subject)}
+            icon={<Pencil size={19} color={colors.primary} />}
+            variant="soft"
+            disabled={!subject}
+            onPress={() => {
+              if (subject) {
+                onEdit(subject);
+              }
+            }}
           />
-          <ActionRow
+          <AppButton
             title="Delete subject"
-            description="Permanently remove this subject"
-            icon={Trash2}
-            color="#DC2626"
-            background="#FEF2F2"
-            onPress={() => subject && onDelete(subject)}
+            icon={<Trash2 size={19} color={colors.danger} />}
+            tone="danger"
+            variant="soft"
+            disabled={!subject}
+            className="mt-3"
+            onPress={() => {
+              if (subject) {
+                onDelete(subject);
+              }
+            }}
           />
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-};
-
-interface ActionRowProps {
-  title: string;
-  description: string;
-  icon: LucideIcon;
-  color: string;
-  background: string;
-  onPress: () => void;
-}
-
-const ActionRow = ({title, description, icon: Icon, color, background, onPress}: ActionRowProps) => (
-  <Pressable
-    accessibilityRole="button"
-    onPress={onPress}
-    className="min-h-[72px] flex-row items-center rounded-2xl px-2 py-2"
-    style={({pressed}) => ({opacity: pressed ? 0.75 : 1})}>
-    <View
-      className="mr-4 h-11 w-11 items-center justify-center rounded-[13px]"
-      style={{backgroundColor: background}}>
-      <Icon size={20} color={color} />
+        </View>
+      </SafeAreaView>
     </View>
-    <View className="flex-1">
-      <Text className="text-base font-bold" style={{color}}>{title}</Text>
-      <Text className="mt-1 text-xs leading-[17px] text-slate-500">{description}</Text>
-    </View>
-  </Pressable>
+  </AppModal>
 );
 
 export default SubjectActionsSheet;

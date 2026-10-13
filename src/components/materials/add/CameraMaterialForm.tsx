@@ -1,13 +1,14 @@
 import React from 'react';
-import {Pressable, Text, View} from 'react-native';
-import {Camera, RotateCcw} from 'lucide-react-native';
+import { Text, View } from 'react-native';
+import { Camera, RotateCcw } from 'lucide-react-native';
 import AppButton from '../../common/AppButton';
 import AppInput from '../../common/AppInput';
 import MaterialFormCard from '../MaterialFormCard';
 import MediaPreviewCard from '../MediaPreviewCard';
 import SelectFileButton from '../SelectFileButton';
-import {PickedImage} from '../../../services/storage/ImagePickerService';
-import {formatFileSize} from '../../../utils/fileUtils';
+import { PickedImage } from '../../../services/storage/ImagePickerService';
+import { formatFileSize } from '../../../utils/fileUtils';
+import { materialPresentation } from '../../../constants/materialPresentation';
 
 interface CameraMaterialFormProps {
   title: string;
@@ -35,36 +36,46 @@ const CameraMaterialForm = ({
   onSave,
 }: CameraMaterialFormProps) => {
   return (
-    <MaterialFormCard title="Camera material">
+    <MaterialFormCard title="Capture your notes">
       {capturedImage ? (
         <>
           <MediaPreviewCard
             image={capturedImage}
             details={formatFileSize(capturedImage.size)}
             onRemove={onRemove}
+            disabled={busy}
           />
-          <Pressable
+          <AppButton
+            title="Retake photo"
+            variant="soft"
+            tone="success"
+            icon={
+              <RotateCcw
+                size={18}
+                color={materialPresentation.camera.foreground}
+              />
+            }
             disabled={busy}
             onPress={onRetake}
-            className="mb-5 min-h-[48px] flex-row items-center justify-center rounded-xl border border-green-200 bg-green-50">
-            <RotateCcw size={18} color="#15803D" />
-            <Text className="ml-2 font-bold text-green-700">Retake photo</Text>
-          </Pressable>
+            className="mb-5"
+          />
         </>
       ) : (
         <SelectFileButton
           title="Open camera"
-          color="#16A34A"
+          description="Photograph a page or your written notes."
+          icon={Camera}
+          color={materialPresentation.camera.foreground}
           loading={capturing}
           disabled={busy}
           onPress={onCapture}
         />
       )}
 
-      <View className="mb-1 flex-row items-center">
-        <Camera size={16} color="#16A34A" />
-        <Text className="ml-2 text-xs font-semibold text-green-700">
-          Native camera capture
+      <View className="mb-4 flex-row items-center">
+        <Camera size={16} color={materialPresentation.camera.foreground} />
+        <Text className="ml-2 text-xs text-muted">
+          Keep the page well lit and in focus.
         </Text>
       </View>
 
@@ -78,7 +89,6 @@ const CameraMaterialForm = ({
 
       <AppButton
         title="Save camera photo"
-        tone="success"
         onPress={onSave}
         loading={saving}
         disabled={busy || !title.trim() || !capturedImage}

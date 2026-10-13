@@ -1,12 +1,13 @@
 import React from 'react';
-import {FileText} from 'lucide-react-native';
+import { FileText } from 'lucide-react-native';
 import AppButton from '../../common/AppButton';
 import AppInput from '../../common/AppInput';
 import MaterialFormCard from '../MaterialFormCard';
 import SelectFileButton from '../SelectFileButton';
 import SelectedFileCard from '../SelectedFileCard';
-import {PickedPdf} from '../../../services/storage/PdfPickerService';
-import {formatFileSize} from '../../../utils/fileUtils';
+import { PickedPdf } from '../../../services/storage/PdfPickerService';
+import { formatFileSize } from '../../../utils/fileUtils';
+import { materialPresentation } from '../../../constants/materialPresentation';
 
 interface PdfMaterialFormProps {
   title: string;
@@ -32,18 +33,22 @@ const PdfMaterialForm = ({
   onSave,
 }: PdfMaterialFormProps) => {
   return (
-    <MaterialFormCard title="PDF material">
+    <MaterialFormCard title="Upload a document">
       {selectedPdf ? (
         <SelectedFileCard
-          icon={<FileText size={22} color="#E11D48" />}
+          icon={
+            <FileText size={22} color={materialPresentation.pdf.foreground} />
+          }
           name={selectedPdf.fileName}
           details={formatFileSize(selectedPdf.size)}
           onRemove={onRemove}
+          disabled={busy}
         />
       ) : (
         <SelectFileButton
           title="Choose PDF"
-          color="#E11D48"
+          description="PDF documents up to 20 MB."
+          color={materialPresentation.pdf.foreground}
           loading={picking}
           disabled={busy}
           onPress={onChoose}
@@ -60,7 +65,6 @@ const PdfMaterialForm = ({
 
       <AppButton
         title="Save PDF"
-        tone="danger"
         onPress={onSave}
         loading={saving}
         disabled={busy || !title.trim() || !selectedPdf}

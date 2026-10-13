@@ -1,6 +1,7 @@
 import React from 'react';
-import {Pressable, Text} from 'react-native';
-import {LucideIcon} from 'lucide-react-native';
+import { Pressable, Text } from 'react-native';
+import { LucideIcon } from 'lucide-react-native';
+import { colors } from '../../constants/colors';
 
 interface MaterialFilterChipProps {
   label: string;
@@ -22,18 +23,19 @@ const MaterialFilterChip = ({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{selected}}
+      accessibilityState={{ selected }}
       onPress={onPress}
-      className="mr-2 flex-row items-center rounded-full border px-4 py-2"
-      style={({pressed}) => ({
-        backgroundColor: selected ? background : '#FFFFFF',
-        borderColor: selected ? color : '#E2E8F0',
-        opacity: pressed ? 0.78 : 1,
-      })}>
-      <Icon size={15} color={selected ? color : '#64748B'} />
+      className="mr-2 min-h-[44px] flex-row items-center rounded-full border px-4 py-2 active:opacity-70"
+      style={{
+        backgroundColor: selected ? background : colors.surface,
+        borderColor: selected ? color : colors.border,
+      }}
+    >
+      <Icon size={15} color={selected ? color : colors.textSecondary} />
       <Text
         className="ml-2 text-sm font-semibold"
-        style={{color: selected ? color : '#475569'}}>
+        style={{ color: selected ? color : colors.textSecondary }}
+      >
         {label}
       </Text>
     </Pressable>

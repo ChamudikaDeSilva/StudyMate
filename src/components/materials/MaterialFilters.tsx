@@ -1,149 +1,61 @@
 import React from 'react';
 
-import {
-  ScrollView,
-} from 'react-native';
+import { ScrollView } from 'react-native';
 
-import {
-  CheckCircle2,
-  FileText,
-  Image as ImageIcon,
-  Type,
-} from 'lucide-react-native';
+import { Layers3 } from 'lucide-react-native';
+import { colors } from '../../constants/colors';
+import { materialPresentation } from '../../constants/materialPresentation';
 
-import {
-  MaterialFilter,
-} from '../../hooks/useSubjectMaterialsScreen';
+import { MaterialFilter } from '../../hooks/useSubjectMaterialsScreen';
 
-import MaterialFilterChip
-  from './MaterialFilterChip';
-
+import MaterialFilterChip from './MaterialFilterChip';
 
 interface MaterialFiltersProps {
+  activeFilter: MaterialFilter;
 
-  activeFilter:
-    MaterialFilter;
-
-  onChange:
-    (
-      filter:
-        MaterialFilter,
-    ) => void;
+  onChange: (filter: MaterialFilter) => void;
 }
 
-
-const MaterialFilters = ({
-  activeFilter,
-  onChange,
-}: MaterialFiltersProps) => {
-
+const MaterialFilters = ({ activeFilter, onChange }: MaterialFiltersProps) => {
   return (
-
-    <ScrollView
-      horizontal
-
-      showsHorizontalScrollIndicator={
-        false
-      }>
-
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
       <MaterialFilterChip
         label="All"
-
-        selected={
-          activeFilter ===
-          'all'
-        }
-
-        icon={
-          CheckCircle2
-        }
-
-        color="#4F46E5"
-
-        background="#EEF2FF"
-
-        onPress={() =>
-          onChange(
-            'all',
-          )
-        }
+        selected={activeFilter === 'all'}
+        icon={Layers3}
+        color={colors.primary}
+        background={colors.primaryLight}
+        onPress={() => onChange('all')}
       />
-
 
       <MaterialFilterChip
         label="Text"
-
-        selected={
-          activeFilter ===
-          'text'
-        }
-
-        icon={
-          Type
-        }
-
-        color="#4F46E5"
-
-        background="#EEF2FF"
-
-        onPress={() =>
-          onChange(
-            'text',
-          )
-        }
+        selected={activeFilter === 'text'}
+        icon={materialPresentation.text.icon}
+        color={materialPresentation.text.foreground}
+        background={materialPresentation.text.background}
+        onPress={() => onChange('text')}
       />
-
 
       <MaterialFilterChip
         label="PDF"
-
-        selected={
-          activeFilter ===
-          'pdf'
-        }
-
-        icon={
-          FileText
-        }
-
-        color="#E11D48"
-
-        background="#FFF1F2"
-
-        onPress={() =>
-          onChange(
-            'pdf',
-          )
-        }
+        selected={activeFilter === 'pdf'}
+        icon={materialPresentation.pdf.icon}
+        color={materialPresentation.pdf.foreground}
+        background={materialPresentation.pdf.background}
+        onPress={() => onChange('pdf')}
       />
-
 
       <MaterialFilterChip
         label="Image"
-
-        selected={
-          activeFilter ===
-          'image'
-        }
-
-        icon={
-          ImageIcon
-        }
-
-        color="#0284C7"
-
-        background="#E0F2FE"
-
-        onPress={() =>
-          onChange(
-            'image',
-          )
-        }
+        selected={activeFilter === 'image'}
+        icon={materialPresentation.image.icon}
+        color={materialPresentation.image.foreground}
+        background={materialPresentation.image.background}
+        onPress={() => onChange('image')}
       />
-
     </ScrollView>
   );
 };
-
 
 export default MaterialFilters;

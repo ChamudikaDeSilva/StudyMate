@@ -15,9 +15,32 @@ import {
   submitMaterialQuiz,
 } from '../data/remote/api/quizService';
 
+import {
+  getMaterialQuizCache,
+  removeMaterialQuizDraft,
+  saveMaterialQuizCache,
+} from '../data/local/storage/quizCache';
+
+import {
+  useAuth,
+} from './useAuth';
+
 
 export const useMaterialQuiz =
   () => {
+
+    const {
+      user,
+    } = useAuth();
+
+
+    const userId =
+      user
+        ? String(
+            user.id,
+          )
+        : null;
+
 
     const [
       quiz,
@@ -101,7 +124,149 @@ export const useMaterialQuiz =
 
 
     // ========================================================
-    // LOAD LATEST
+    // CACHE QUIZ SAFELY
+    // ========================================================
+
+    const cacheQuiz =
+      useCallback(
+        async (
+          materialId:
+            string | number,
+
+          value:
+            MaterialQuiz,
+        ): Promise<void> => {
+
+          if (
+            !userId
+          ) {
+
+            return;
+          }
+
+
+          try {
+
+            await saveMaterialQuizCache(
+              userId,
+              materialId,
+              value,
+            );
+
+
+            console.log(
+              '[QUIZ CACHE] Saved',
+              {
+                materialId:
+                  String(
+                    materialId,
+                  ),
+
+                quizId:
+                  value.quizId,
+              },
+            );
+
+
+          } catch (
+            cacheError
+          ) {
+
+            console.warn(
+              '[QUIZ CACHE] Save failed:',
+              cacheError,
+            );
+          }
+        },
+        [
+          userId,
+        ],
+      );
+
+
+    // ========================================================
+    // LOAD CACHED QUIZ
+    // ========================================================
+
+    const loadCached =
+      useCallback(
+        async (
+          materialId:
+            string | number,
+        ): Promise<
+          MaterialQuiz | null
+        > => {
+
+          if (
+            !userId
+          ) {
+
+            return null;
+          }
+
+
+          try {
+
+            const cached =
+              await getMaterialQuizCache(
+                userId,
+                materialId,
+              );
+
+
+            if (
+              cached
+            ) {
+
+              setQuiz(
+                cached,
+              );
+
+
+              setError(
+                null,
+              );
+
+
+              console.log(
+                '[QUIZ CACHE] Loaded',
+                {
+                  materialId:
+                    String(
+                      materialId,
+                    ),
+
+                  quizId:
+                    cached.quizId,
+                },
+              );
+            }
+
+
+            return cached;
+
+
+          } catch (
+            cacheError
+          ) {
+
+            console.warn(
+              '[QUIZ CACHE] Load failed:',
+              cacheError,
+            );
+
+
+            return null;
+          }
+        },
+        [
+          userId,
+        ],
+      );
+
+
+    // ========================================================
+    // LOAD LATEST FROM FASTAPI
     // ========================================================
 
     const loadLatest =
@@ -134,6 +299,12 @@ export const useMaterialQuiz =
             ) {
 
               setQuiz(
+                response,
+              );
+
+
+              await cacheQuiz(
+                materialId,
                 response,
               );
             }
@@ -172,13 +343,14 @@ export const useMaterialQuiz =
           }
         },
         [
+          cacheQuiz,
           resolveErrorMessage,
         ],
       );
 
 
     // ========================================================
-    // GENERATE
+    // GENERATE NEW QUIZ
     // ========================================================
 
     const generate =
@@ -220,6 +392,39 @@ export const useMaterialQuiz =
             );
 
 
+            await cacheQuiz(
+              materialId,
+              response,
+            );
+
+
+            /*
+             * A newly generated quiz has a new quiz ID.
+             * Previous answers must never be reused.
+             */
+            if (
+              userId
+            ) {
+
+              try {
+
+                await removeMaterialQuizDraft(
+                  userId,
+                  materialId,
+                );
+
+              } catch (
+                draftError
+              ) {
+
+                console.warn(
+                  '[QUIZ DRAFT] Unable to clear old draft:',
+                  draftError,
+                );
+              }
+            }
+
+
             return response;
 
 
@@ -253,7 +458,9 @@ export const useMaterialQuiz =
           }
         },
         [
+          cacheQuiz,
           resolveErrorMessage,
+          userId,
         ],
       );
 
@@ -334,6 +541,18 @@ export const useMaterialQuiz =
       );
 
 
+    const clearError =
+      useCallback(
+        () => {
+
+          setError(
+            null,
+          );
+        },
+        [],
+      );
+
+
     return {
 
       quiz,
@@ -348,10 +567,14 @@ export const useMaterialQuiz =
 
       error,
 
+      loadCached,
+
       loadLatest,
 
       generate,
 
       submit,
+
+      clearError,
     };
   };

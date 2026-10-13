@@ -1,12 +1,12 @@
 import {
   useCallback,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
-import {
-  Alert,
-} from 'react-native';
+import { Platform } from 'react-native';
 
 import {
   Subject,
@@ -15,6 +15,8 @@ import {
 import {
   useAuth,
 } from './useAuth';
+
+import useAppAlert from './useAppAlert';
 
 import {
   useSubjects,
@@ -26,6 +28,13 @@ import {
 
 
 export const useSubjectsScreen = () => {
+
+  const { alert } = useAppAlert();
+  const pendingEdit = useRef(false);
+
+  useEffect(() => () => {
+    pendingEdit.current = false;
+  }, []);
 
   const {
     user,
@@ -230,6 +239,8 @@ export const useSubjectsScreen = () => {
     useCallback(
       () => {
 
+        pendingEdit.current = false;
+
         resetForm();
 
 
@@ -251,6 +262,8 @@ export const useSubjectsScreen = () => {
 
           return;
         }
+
+        pendingEdit.current = false;
 
 
         setFormVisible(
@@ -278,6 +291,8 @@ export const useSubjectsScreen = () => {
           Subject,
       ) => {
 
+        pendingEdit.current = false;
+
         setSelectedSubject(
           subject,
         );
@@ -294,6 +309,8 @@ export const useSubjectsScreen = () => {
   const closeActions =
     useCallback(
       () => {
+
+        pendingEdit.current = false;
 
         setActionsVisible(
           false,
@@ -312,52 +329,29 @@ export const useSubjectsScreen = () => {
   // EDIT
   // =========================================================
 
-  const openEdit =
-    useCallback(
-      (
-        subject:
-          Subject,
-      ) => {
+  const completeActionsDismissal = useCallback(() => {
+    if (pendingEdit.current) {
+      pendingEdit.current = false;
+      setFormVisible(true);
+    }
+  }, []);
 
-        closeActions();
+  const openEdit = useCallback(
+    (subject: Subject) => {
+      closeActions();
+      setEditingSubject(subject);
+      setName(subject.name);
+      setDescription(subject.description ?? '');
 
-
-        setEditingSubject(
-          subject,
-        );
-
-
-        setName(
-          subject.name,
-        );
-
-
-        setDescription(
-          subject.description ??
-          '',
-        );
-
-
-        /*
-         * Give the actions sheet enough
-         * time to close before opening
-         * the form modal.
-         */
-        setTimeout(
-          () => {
-
-            setFormVisible(
-              true,
-            );
-
-          },
-          150,
-        );
-      },
-      [
-        closeActions,
-      ],
-    );
+      // iOS must finish dismissing its current native modal before opening one.
+      if (Platform.OS === 'ios' && actionsVisible) {
+        pendingEdit.current = true;
+      } else {
+        setFormVisible(true);
+      }
+    },
+    [closeActions, actionsVisible],
+  );
 
 
   // =========================================================
@@ -379,10 +373,12 @@ export const useSubjectsScreen = () => {
 
         if (!cleanName) {
 
-          Alert.alert(
+          alert(
             'Subject name required',
 
             'Please enter a name for your subject.',
+            undefined,
+            { tone: 'warning' },
           );
 
 
@@ -427,7 +423,7 @@ export const useSubjectsScreen = () => {
           saveError
         ) {
 
-          Alert.alert(
+          alert(
             editingSubject
               ? 'Unable to update subject'
               : 'Unable to create subject',
@@ -435,6 +431,8 @@ export const useSubjectsScreen = () => {
             saveError instanceof Error
               ? saveError.message
               : 'Something went wrong. Please try again.',
+            undefined,
+            { tone: 'danger' },
           );
         }
       },
@@ -445,6 +443,7 @@ export const useSubjectsScreen = () => {
         updateSubject,
         createSubject,
         resetForm,
+        alert,
       ],
     );
 
@@ -453,75 +452,38 @@ export const useSubjectsScreen = () => {
   // DELETE
   // =========================================================
 
-  const confirmDelete =
-    useCallback(
-      (
-        subject:
-          Subject,
-      ) => {
-
-        closeActions();
-
-
-        setTimeout(
-          () => {
-
-            Alert.alert(
-              'Delete Subject',
-
-              `Are you sure you want to delete "${subject.name}"?`,
-
-              [
-                {
-                  text:
-                    'Cancel',
-
-                  style:
-                    'cancel',
-                },
-
-                {
-                  text:
-                    'Delete',
-
-                  style:
-                    'destructive',
-
-                  onPress:
-                    async () => {
-
-                      try {
-
-                        await deleteSubject(
-                          subject.id,
-                        );
-
-                      } catch (
-                        deleteError
-                      ) {
-
-                        Alert.alert(
-                          'Unable to delete subject',
-
-                          deleteError instanceof Error
-                            ? deleteError.message
-                            : 'Something went wrong while deleting the subject.',
-                        );
-                      }
-                    },
-                },
-              ],
-            );
-
+  const confirmDelete = useCallback(
+    (subject: Subject) => {
+      closeActions();
+      alert(
+        'Delete Subject',
+        `Are you sure you want to delete "${subject.name}"?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await deleteSubject(subject.id);
+              } catch (deleteError) {
+                alert(
+                  'Unable to delete subject',
+                  deleteError instanceof Error
+                    ? deleteError.message
+                    : 'Something went wrong while deleting the subject.',
+                  undefined,
+                  { tone: 'danger' },
+                );
+              }
+            },
           },
-          150,
-        );
-      },
-      [
-        closeActions,
-        deleteSubject,
-      ],
-    );
+        ],
+        { tone: 'danger', icon: 'delete' },
+      );
+    },
+    [closeActions, deleteSubject, alert],
+  );
 
 
   // =========================================================
@@ -592,6 +554,7 @@ export const useSubjectsScreen = () => {
 
     openActions,
     closeActions,
+    completeActionsDismissal,
     confirmDelete,
 
     // Utilities

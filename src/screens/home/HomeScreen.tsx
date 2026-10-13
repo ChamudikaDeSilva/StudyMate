@@ -1,165 +1,203 @@
 import React from 'react';
-import {Pressable, SafeAreaView, ScrollView, Text, View} from 'react-native';
-import {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
+import { RefreshControl, ScrollView, Text, View } from 'react-native';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import {
+  ArrowRight,
   BookOpen,
-  BrainCircuit,
-  FilePlus2,
+  FileText,
+  Layers,
   LibraryBig,
-  MessageCircleMore,
-  Sparkles,
+  Lightbulb,
 } from 'lucide-react-native';
+import AuthBrand from '../../components/auth/AuthBrand';
+import AppButton from '../../components/common/AppButton';
+import ScreenContainer from '../../components/common/ScreenContainer';
+import ScreenHeader from '../../components/common/ScreenHeader';
+import ScreenState from '../../components/common/ScreenState';
+import SectionCard from '../../components/common/SectionCard';
 import AccountMenu from '../../components/home/AccountMenu';
-import HomeStatCard from '../../components/home/HomeStatCard';
-import QuickActionCard from '../../components/home/QuickActionCard';
-import {useAuth} from '../../hooks/useAuth';
-import {useSubjects} from '../../hooks/useSubjects';
-import {MainTabParamList} from '../../navigation/navigationTypes';
-import {getDisplayName, getFirstName} from '../../utils/userUtils';
+import HomeStudyCard from '../../components/home/HomeStudyCard';
+import SubjectCard from '../../components/subjects/SubjectCard';
+import { colors } from '../../constants/colors';
+import { subjectPalette } from '../../constants/subjectPalette';
+import { Subject } from '../../domain/models/Subject';
+import { useHomeScreen } from '../../hooks/useHomeScreen';
+import { MainTabParamList } from '../../navigation/navigationTypes';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'Home'>;
 
-const HomeScreen = ({navigation}: Props) => {
-  const {user} = useAuth();
-  const {subjects} = useSubjects();
+const studySteps = [
+  { title: 'Collect', icon: FileText },
+  { title: 'Understand', icon: Lightbulb },
+  { title: 'Practice', icon: Layers },
+];
 
-  const displayName = getDisplayName(user);
-  const firstName = getFirstName(user);
-  const subjectCount = subjects.length;
+const HomeScreen = ({ navigation }: Props) => {
+  const {
+    displayName,
+    firstName,
+    subjects,
+    recentSubjects,
+    loading,
+    refreshing,
+    error,
+    showLoadError,
+    refreshSubjects,
+  } = useHomeScreen();
+  const featuredSubject = recentSubjects[0];
+  const otherSubjects = recentSubjects.slice(1);
+  const browseSubjects = () =>
+    navigation.navigate('Subjects', { screen: 'SubjectsHome' });
+  const openSubject = (subject: Subject) =>
+    navigation.navigate('Subjects', {
+      screen: 'SubjectMaterials',
+      params: { subjectId: subject.id, subjectName: subject.name },
+      initial: false,
+    });
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50">
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="px-6 pb-12 pt-6">
-          <View className="mb-8 flex-row items-center justify-between">
-            <View className="flex-1 pr-4">
-              <Text className="text-[27px] font-bold tracking-tight text-slate-900">
-                Hi, {firstName} 👋
-              </Text>
-              <Text className="mt-1 text-sm leading-5 text-slate-500">
-                Ready to make some progress today?
-              </Text>
-            </View>
-            <AccountMenu displayName={displayName} />
+    <ScreenContainer>
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refreshSubjects}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
+        <View className="w-full max-w-[640px] self-center px-6 pb-8 pt-6">
+          <View className="mb-7 flex-row items-center justify-between gap-3">
+            <AuthBrand compact />
+            <AccountMenu
+              displayName={displayName}
+              onProfile={() => navigation.navigate('Profile')}
+            />
           </View>
 
-          <View className="relative mb-8 min-h-[260px] overflow-hidden rounded-3xl bg-indigo-600 p-6">
-            <View className="absolute -right-9 -top-8 h-[130px] w-[130px] rounded-full bg-white/10" />
-            <View className="absolute -bottom-11 right-9 h-[90px] w-[90px] rounded-full bg-white/10" />
+          <ScreenHeader
+            eyebrow="YOUR DAILY STARTING POINT"
+            title={`Hi, ${firstName}`}
+            subtitle="One idea at a time. Make a little room for learning."
+          />
 
-            <View className="mb-6 self-start flex-row items-center rounded-full bg-white/15 px-3 py-2">
-              <Sparkles size={14} color="#FFFFFF" />
-              <Text className="ml-2 text-[11px] font-bold tracking-widest text-white">
-                LEARNLOOP AI
+          {featuredSubject ? (
+            <HomeStudyCard
+              subject={featuredSubject}
+              onPress={() => openSubject(featuredSubject)}
+            />
+          ) : (
+            <SectionCard>
+              {loading && !showLoadError ? (
+                <ScreenState
+                  loading
+                  title="Opening your library"
+                  description="Getting your subjects ready."
+                />
+              ) : showLoadError ? (
+                <ScreenState
+                  icon={LibraryBig}
+                  title="Your library couldn't load"
+                  description={
+                    error || 'Please try again to see your subjects.'
+                  }
+                  actionTitle="Retry loading subjects"
+                  onAction={refreshSubjects}
+                />
+              ) : (
+                <ScreenState
+                  icon={BookOpen}
+                  title="Start with something you want to learn"
+                  description="Create your first subject in the library, then add your notes, PDFs or images."
+                  actionTitle="Browse subjects"
+                  onAction={browseSubjects}
+                />
+              )}
+            </SectionCard>
+          )}
+
+          {otherSubjects.length > 0 && (
+            <View className="mt-7">
+              <Text
+                accessibilityRole="header"
+                className="text-lg font-bold text-ink"
+              >
+                A little more to explore
               </Text>
+              <Text className="mb-4 mt-1 text-sm text-muted">
+                Another subject, another starting point.
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {otherSubjects.map(subject => (
+                  <View key={subject.id} className="mr-3 w-[176px]">
+                    <SubjectCard
+                      subject={subject}
+                      layout="tile"
+                      accent={
+                        subjectPalette[
+                          subjects.findIndex(item => item.id === subject.id) %
+                            subjectPalette.length
+                        ]
+                      }
+                      onPress={() => openSubject(subject)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
             </View>
+          )}
 
-            <Text className="max-w-[80%] text-3xl font-bold leading-9 tracking-tight text-white">
-              Learn smarter,{`\n`}not harder.
+          <SectionCard label="MAKE IT A STUDY SESSION" className="mt-6">
+            <View className="flex-row">
+              {studySteps.map(({ title, icon: Icon }) => (
+                <View key={title} className="flex-1 items-center">
+                  <View className="mb-3 h-12 w-12 items-center justify-center rounded-2xl border border-brand-100 bg-brand-50">
+                    <Icon size={22} color={colors.primary} strokeWidth={1.8} />
+                  </View>
+                  <Text className="text-center text-xs font-semibold text-ink">
+                    {title}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            <Text className="mt-5 text-center text-sm leading-[22px] text-muted">
+              Add a material, explore its summary, then practise with flashcards
+              or a quiz.
             </Text>
-            <Text className="mt-4 max-w-[88%] text-sm leading-[21px] text-indigo-100">
-              Organize your materials and transform them into summaries, flashcards and quizzes.
-            </Text>
+          </SectionCard>
 
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate('Subjects')}
-              className="mt-6 self-start flex-row items-center rounded-xl bg-white px-4 py-3"
-              style={({pressed}) => ({opacity: pressed ? 0.8 : 1})}>
-              <BookOpen size={18} color="#4F46E5" />
-              <Text className="ml-2 text-sm font-bold text-indigo-600">Explore subjects</Text>
-            </Pressable>
-          </View>
-
-          <Text className="text-lg font-bold text-slate-900">Your workspace</Text>
-          <Text className="mb-4 mt-1 text-sm leading-[19px] text-slate-500">
-            Everything you're learning in one place.
-          </Text>
-
-          <View className="mb-4 flex-row gap-4">
-            <HomeStatCard
-              value={subjectCount}
-              label="Subjects"
-              icon={LibraryBig}
-              iconColor="#4F46E5"
-              iconBackground="#EEF2FF"
-            />
-            <HomeStatCard
-              value="—"
-              label="Materials"
-              icon={BookOpen}
-              iconColor="#0284C7"
-              iconBackground="#E0F2FE"
-            />
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => navigation.navigate('Subjects')}
-            className="mb-8 min-h-[82px] flex-row items-center rounded-[18px] border border-slate-200 bg-white p-4"
-            style={({pressed}) => ({opacity: pressed ? 0.8 : 1})}>
-            <View className="mr-4 h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50">
-              <LibraryBig size={24} color="#4F46E5" />
+          {featuredSubject && (
+            <View className="mt-6 flex-row items-center">
+              <View className="mr-3 h-10 w-10 items-center justify-center rounded-2xl bg-brand-50">
+                <LibraryBig size={20} color={colors.primary} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-semibold text-ink">
+                  Your full library
+                </Text>
+                <Text className="mt-0.5 text-xs text-muted">
+                  {subjects.length}{' '}
+                  {subjects.length === 1 ? 'subject' : 'subjects'}, organised
+                  your way.
+                </Text>
+              </View>
             </View>
-            <View className="flex-1">
-              <Text className="text-base font-bold text-slate-900">My Subjects</Text>
-              <Text className="mt-1 text-sm text-slate-500">
-                Organize learning materials into subjects.
-              </Text>
-            </View>
-            <Text className="text-[27px] text-slate-400">›</Text>
-          </Pressable>
-
-          <Text className="mb-4 text-lg font-bold text-slate-900">Quick actions</Text>
-          <View className="mb-4 flex-row flex-wrap justify-between">
-            <QuickActionCard
-              title="Add subject"
-              description="Create a new learning space"
-              icon={FilePlus2}
-              iconColor="#7C3AED"
-              iconBackground="#F3E8FF"
-              onPress={() => navigation.navigate('Subjects')}
+          )}
+          {featuredSubject && (
+            <AppButton
+              title="Browse subjects"
+              onPress={browseSubjects}
+              variant="soft"
+              icon={<ArrowRight size={19} color={colors.primary} />}
+              className="mt-3"
             />
-            <QuickActionCard
-              title="Add material"
-              description="Text, PDF, image or camera"
-              icon={BookOpen}
-              iconColor="#0284C7"
-              iconBackground="#E0F2FE"
-              onPress={() => navigation.navigate('Subjects')}
-            />
-            <QuickActionCard
-              title="Study tools"
-              description="Flashcards and quizzes"
-              icon={BrainCircuit}
-              iconColor="#16A34A"
-              iconBackground="#DCFCE7"
-              disabled
-            />
-            <QuickActionCard
-              title="Ask AI"
-              description="Chat with your material"
-              icon={MessageCircleMore}
-              iconColor="#D97706"
-              iconBackground="#FEF3C7"
-              disabled
-            />
-          </View>
-
-          <View className="flex-row items-center rounded-[18px] border border-purple-200 bg-purple-50 p-4">
-            <View className="mr-4 h-[46px] w-[46px] items-center justify-center rounded-2xl bg-purple-100">
-              <Sparkles size={22} color="#7C3AED" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-sm font-bold text-slate-900">AI study tools are coming next</Text>
-              <Text className="mt-1 text-xs leading-[18px] text-slate-500">
-                Add materials to generate summaries, flashcards and quizzes.
-              </Text>
-            </View>
-          </View>
+          )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 };
 

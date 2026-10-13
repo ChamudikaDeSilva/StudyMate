@@ -1,39 +1,30 @@
+import palette from './themePalette.json';
 export const colors = {
-  // Brand
-  primary: '#4F46E5',
-  primaryPressed: '#4338CA',
-  primaryLight: '#EEF2FF',
-
-  // Backgrounds
-  background: '#F8FAFC',
+  primary: palette.brand[600],
+  primaryPressed: palette.brand[700],
+  primaryLight: palette.brand[50],
+  primarySoft: palette.brand[100],
+  accent: palette.brand[400],
+  background: palette.neutral[50],
   surface: '#FFFFFF',
-  surfaceSecondary: '#F1F5F9',
-
-  // Text
-  textPrimary: '#0F172A',
-  textSecondary: '#64748B',
-  textMuted: '#94A3B8',
+  surfaceSecondary: palette.neutral[100],
+  textPrimary: palette.neutral[900],
+  textSecondary: palette.neutral[500],
+  textMuted: palette.neutral[400],
   textOnPrimary: '#FFFFFF',
-
-  // Borders
-  border: '#E2E8F0',
-  borderFocused: '#4F46E5',
-
-  // Semantic
+  border: palette.neutral[200],
+  borderFocused: palette.brand[600],
   success: '#16A34A',
   successLight: '#DCFCE7',
-
   warning: '#D97706',
   warningLight: '#FEF3C7',
-
   danger: '#DC2626',
   dangerLight: '#FEE2E2',
-
   info: '#0284C7',
   infoLight: '#E0F2FE',
-
-  // Utility
   white: '#FFFFFF',
   black: '#000000',
-  overlay: 'rgba(15, 23, 42, 0.45)',
+  overlay: 'rgba(32, 28, 51, 0.45)',
+  darkBackground: palette.neutral[950],
+  darkSurface: palette.neutral[900],
 };

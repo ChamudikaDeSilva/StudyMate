@@ -1,66 +1,35 @@
 import React from 'react';
 
-import {
-  View,
-} from 'react-native';
+import { View } from 'react-native';
 
-import {
-  BookOpen,
-  RefreshCw,
-  Search,
-} from 'lucide-react-native';
+import { BookOpen, RefreshCw, Search } from 'lucide-react-native';
 
-import {
-  Subject,
-} from '../../domain/models/Subject';
+import { Subject } from '../../domain/models/Subject';
 
-import {
-  subjectPalette,
-} from '../../constants/subjectPalette';
+import { subjectPalette } from '../../constants/subjectPalette';
+import { colors } from '../../constants/colors';
 
-import ScreenState
-  from '../common/ScreenState';
+import ScreenState from '../common/ScreenState';
 
-import SubjectCard
-  from './SubjectCard';
-
+import SubjectCard from './SubjectCard';
 
 interface SubjectsListProps {
+  subjects: Subject[];
 
-  subjects:
-    Subject[];
+  loading: boolean;
 
-  loading:
-    boolean;
+  showLoadError: boolean;
 
-  showLoadError:
-    boolean;
+  searchText: string;
 
-  searchText:
-    string;
+  onRetry: () => Promise<void>;
 
-  onRetry:
-    () => Promise<void>;
+  onOpenSubject: (subject: Subject) => void;
 
-  onOpenSubject:
-    (
-      subject:
-        Subject,
-    ) => void;
+  onOptionsPress: (subject: Subject) => void;
 
-  onOptionsPress:
-    (
-      subject:
-        Subject,
-    ) => void;
-
-  isSubjectBusy:
-    (
-      subjectId:
-        string,
-    ) => boolean;
+  isSubjectBusy: (subjectId: string) => boolean;
 }
-
 
 const SubjectsList = ({
   subjects,
@@ -79,152 +48,60 @@ const SubjectsList = ({
 
   isSubjectBusy,
 }: SubjectsListProps) => {
-
-  // =========================================================
-  // LOADING
-  // =========================================================
-
   if (loading) {
-
     return (
       <ScreenState
         loading
-
         title="Loading your subjects"
-
         description="Preparing your learning library..."
       />
     );
   }
 
-
-  // =========================================================
-  // ERROR
-  // =========================================================
-
   if (showLoadError) {
-
     return (
       <ScreenState
         title="Couldn't load subjects"
-
         description="Check your connection and try again."
-
-        icon={
-          RefreshCw
-        }
-
-        iconColor="#DC2626"
-
+        icon={RefreshCw}
+        iconColor={colors.danger}
         actionTitle="Try again"
-
-        onAction={() => {
-
-          void onRetry();
-        }}
+        onAction={onRetry}
       />
     );
   }
 
-
-  // =========================================================
-  // EMPTY
-  // =========================================================
-
-  if (
-    subjects.length ===
-    0
-  ) {
-
-    const hasSearch =
-      searchText
-        .trim()
-        .length >
-      0;
-
+  if (subjects.length === 0) {
+    const hasSearch = searchText.trim().length > 0;
 
     return (
       <ScreenState
-        title={
-          hasSearch
-            ? 'No subjects found'
-            : 'Create your first subject'
-        }
-
+        title={hasSearch ? 'No subjects found' : 'Create your first subject'}
         description={
           hasSearch
-            ? (
-                `We couldn't find anything matching `
-                + `"${searchText.trim()}".`
-              )
-            : (
-                'Subjects help you organize notes, '
-                + 'PDFs, images and other learning materials.'
-              )
+            ? `We couldn't find anything matching ` + `"${searchText.trim()}".`
+            : 'Subjects help you organize notes, ' +
+              'PDFs, images and other learning materials.'
         }
-
-        icon={
-          hasSearch
-            ? Search
-            : BookOpen
-        }
+        icon={hasSearch ? Search : BookOpen}
       />
     );
   }
 
-
-  // =========================================================
-  // LIST
-  // =========================================================
-
   return (
     <View>
-
-      {subjects.map(
-        (
-          subject,
-          index,
-        ) => (
-
-          <SubjectCard
-            key={
-              subject.id
-            }
-
-            subject={
-              subject
-            }
-
-            accent={
-              subjectPalette[
-                index %
-                subjectPalette.length
-              ]
-            }
-
-            busy={
-              isSubjectBusy(
-                subject.id,
-              )
-            }
-
-            onPress={() =>
-              onOpenSubject(
-                subject,
-              )
-            }
-
-            onOptionsPress={
-              onOptionsPress
-            }
-          />
-
-        ),
-      )}
-
+      {subjects.map((subject, index) => (
+        <SubjectCard
+          key={subject.id}
+          subject={subject}
+          accent={subjectPalette[index % subjectPalette.length]}
+          busy={isSubjectBusy(subject.id)}
+          onPress={() => onOpenSubject(subject)}
+          onOptionsPress={onOptionsPress}
+        />
+      ))}
     </View>
   );
 };
-
 
 export default SubjectsList;

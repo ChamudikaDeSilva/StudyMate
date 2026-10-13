@@ -3,8 +3,8 @@ import {
 } from 'react';
 
 import {
-  Alert,
-} from 'react-native';
+  useAppAlert,
+} from './useAppAlert';
 
 import {
   useNetwork,
@@ -12,6 +12,10 @@ import {
 
 
 export const useOnlineGuard = () => {
+
+  const {
+    alert,
+  } = useAppAlert();
 
   const {
     isOnline,
@@ -38,9 +42,13 @@ export const useOnlineGuard = () => {
           !initialized
         ) {
 
-          Alert.alert(
+          alert(
             'Checking connection',
             'Please wait a moment while LearnLoop checks your internet connection.',
+
+            undefined,
+
+            { tone: 'info', icon: 'connection' },
           );
 
 
@@ -56,9 +64,13 @@ export const useOnlineGuard = () => {
           !isOnline
         ) {
 
-          Alert.alert(
+          alert(
             'Internet connection required',
             `${featureName} needs an internet connection. Please reconnect and try again.`,
+
+            undefined,
+
+            { tone: 'warning', icon: 'connection' },
           );
 
 
@@ -74,6 +86,7 @@ export const useOnlineGuard = () => {
 
       },
       [
+        alert,
         initialized,
         isOnline,
       ],

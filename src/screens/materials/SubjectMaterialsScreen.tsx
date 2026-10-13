@@ -1,352 +1,144 @@
 import React from 'react';
 
-import {
-  SafeAreaView,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 
-import {
-  BookOpen,
-} from 'lucide-react-native';
+import { BookOpen } from 'lucide-react-native';
 
-import {
-  NativeStackScreenProps,
-} from '@react-navigation/native-stack';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import BottomActionBar
-  from '../../components/common/BottomActionBar';
+import BottomActionBar from '../../components/common/BottomActionBar';
 
-import OverviewCard
-  from '../../components/common/OverviewCard';
+import OverviewCard from '../../components/common/OverviewCard';
 
-import ScreenHeader
-  from '../../components/common/ScreenHeader';
+import ScreenHeader from '../../components/common/ScreenHeader';
 
-import SearchBar
-  from '../../components/common/SearchBar';
+import SearchBar from '../../components/common/SearchBar';
+import ScreenContainer from '../../components/common/ScreenContainer';
 
-import MaterialFilters
-  from '../../components/materials/MaterialFilters';
+import MaterialFilters from '../../components/materials/MaterialFilters';
 
-import MaterialsList
-  from '../../components/materials/MaterialsList';
+import MaterialsList from '../../components/materials/MaterialsList';
 
-import {
-  useSubjectMaterialsScreen,
-} from '../../hooks/useSubjectMaterialsScreen';
+import { useSubjectMaterialsScreen } from '../../hooks/useSubjectMaterialsScreen';
 
-import {
-  SubjectsStackParamList,
-} from '../../navigation/navigationTypes';
+import { SubjectsStackParamList } from '../../navigation/navigationTypes';
 
+type Props = NativeStackScreenProps<SubjectsStackParamList, 'SubjectMaterials'>;
 
-type Props =
-  NativeStackScreenProps<
-    SubjectsStackParamList,
-    'SubjectMaterials'
-  >;
+const SubjectMaterialsScreen = ({ navigation, route }: Props) => {
+  const { subjectId, subjectName } = route.params;
 
+  const screen = useSubjectMaterialsScreen(subjectId);
 
-const SubjectMaterialsScreen = ({
-  navigation,
-  route,
-}: Props) => {
+  const openAddMaterial = () => {
+    navigation.navigate(
+      'AddMaterial',
 
-  const {
-    subjectId,
-    subjectName,
-  } = route.params;
-
-
-  const screen =
-    useSubjectMaterialsScreen(
-      subjectId,
+      {
+        subjectId,
+        subjectName,
+      },
     );
-
-
-  // =========================================================
-  // NAVIGATION
-  // =========================================================
-
-  const openAddMaterial =
-    () => {
-
-      navigation.navigate(
-        'AddMaterial',
-
-        {
-          subjectId,
-          subjectName,
-        },
-      );
-    };
-
-
-  // =========================================================
-  // UI
-  // =========================================================
+  };
 
   return (
-
-    <SafeAreaView
-      className="
-        flex-1
-        bg-slate-50
-      ">
-
-      <View
-        className="
-          flex-1
-        ">
-
-        {/* ===================================================
-            CONTENT
-        ==================================================== */}
-
+    <ScreenContainer>
+      <View className="flex-1">
         <ScrollView
-          className="
-            flex-1
-          "
-
-          showsVerticalScrollIndicator={
-            false
-          }
-
-          keyboardShouldPersistTaps="handled">
-
-          <View
-            className="
-              px-6
-              pb-6
-              pt-6
-            ">
-
+          className="flex-1"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View className="w-full max-w-[680px] self-center px-6 pb-6 pt-6">
             {/* Header */}
 
             <ScreenHeader
-              title={
-                subjectName
-              }
-
-              subtitle="Learning materials"
-
-              onBack={() =>
-                navigation.goBack()
-              }
+              eyebrow="Learning library"
+              title={subjectName}
+              subtitle="Everything you need to study this subject."
+              onBack={() => navigation.goBack()}
             />
-
 
             {/* Overview */}
 
-            <View
-              className="
-                mb-6
-              ">
-
+            <View className="mb-6">
               <OverviewCard
-                kicker="MATERIALS"
-
-                value={
-                  screen
-                    .materials
-                    .length
-                }
-
+                kicker="YOUR STUDY COLLECTION"
+                value={screen.materials.length}
                 description={
-                  screen
-                    .materials
-                    .length ===
-                  1
-
+                  screen.materials.length === 1
                     ? 'material saved in this subject'
-
                     : 'materials saved in this subject'
                 }
-
-                icon={
-                  BookOpen
-                }
+                icon={BookOpen}
               />
-
             </View>
-
 
             {/* Search */}
 
-            <View
-              className="
-                mb-4
-              ">
-
+            <View className="mb-4">
               <SearchBar
-                value={
-                  screen.searchText
-                }
-
-                onChangeText={
-                  screen.setSearchText
-                }
-
+                value={screen.searchText}
+                onChangeText={screen.setSearchText}
                 placeholder="Search materials..."
               />
-
             </View>
-
 
             {/* Filters */}
 
-            <View
-              className="
-                mb-8
-              ">
-
+            <View className="mb-8">
               <MaterialFilters
-                activeFilter={
-                  screen.activeFilter
-                }
-
-                onChange={
-                  screen.setActiveFilter
-                }
+                activeFilter={screen.activeFilter}
+                onChange={screen.setActiveFilter}
               />
-
             </View>
-
 
             {/* Heading */}
 
-            <View
-              className="
-                mb-4
-                flex-row
-                items-center
-              ">
-
-              <Text
-                className="
-                  text-lg
-                  font-bold
-                  text-slate-900
-                ">
-
-                Your materials
-
-              </Text>
-
+            <View className="mb-4 flex-row items-center">
+              <Text className="text-lg font-bold text-ink">Your materials</Text>
 
               {!screen.loading && (
-
-                <View
-                  className="
-                    ml-2
-                    min-w-[28px]
-                    items-center
-                    rounded-full
-                    bg-indigo-50
-                    px-2
-                    py-1
-                  ">
-
-                  <Text
-                    className="
-                      text-xs
-                      font-bold
-                      text-indigo-600
-                    ">
-
-                    {
-                      screen
-                        .filteredMaterials
-                        .length
-                    }
-
+                <View className="ml-2 min-w-[28px] items-center rounded-full bg-brand-100 px-2 py-1">
+                  <Text className="text-xs font-bold text-brand-600">
+                    {screen.filteredMaterials.length}
                   </Text>
-
                 </View>
-
               )}
-
             </View>
-
 
             {/* Materials */}
 
             <MaterialsList
-              materials={
-                screen.filteredMaterials
-              }
+              materials={screen.filteredMaterials}
+              loading={screen.loading}
+              showLoadError={screen.showLoadError}
+              emptyTitle={screen.emptyTitle}
+              emptyDescription={screen.emptyDescription}
+              hasSearch={screen.hasSearch}
+              hasActiveFilter={screen.hasActiveFilter}
+              onRetry={screen.loadMaterials}
+              onOpenMaterial={material => {
+                navigation.navigate(
+                  'MaterialDetails',
 
-              loading={
-                screen.loading
-              }
+                  {
+                    materialId: material.id,
 
-              showLoadError={
-                screen.showLoadError
-              }
+                    subjectId,
 
-              emptyTitle={
-                screen.emptyTitle
-              }
-
-              emptyDescription={
-                screen.emptyDescription
-              }
-
-              hasSearch={
-                screen.hasSearch
-              }
-
-              hasActiveFilter={
-                screen.hasActiveFilter
-              }
-
-              onRetry={
-                screen.loadMaterials
-              }
-
-              onOpenMaterial={
-                material => {
-
-                  navigation.navigate(
-                    'MaterialDetails',
-
-                    {
-                      materialId:
-                        material.id,
-
-                      subjectId,
-
-                      subjectName,
-                    },
-                  );
-                }
-              }
+                    subjectName,
+                  },
+                );
+              }}
             />
-
           </View>
-
         </ScrollView>
 
-
-        {/* ===================================================
-            PRIMARY ACTION
-        ==================================================== */}
-
-        <BottomActionBar
-          title="Add material"
-
-          onPress={
-            openAddMaterial
-          }
-        />
-
+        <BottomActionBar title="Add material" onPress={openAddMaterial} />
       </View>
-
-    </SafeAreaView>
+    </ScreenContainer>
   );
 };
-
 
 export default SubjectMaterialsScreen;

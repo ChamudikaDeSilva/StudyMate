@@ -1,17 +1,18 @@
-import React, {ReactNode} from 'react';
-import {Text, View} from 'react-native';
+import React, { ReactNode } from 'react';
+import { Text } from 'react-native';
+import SectionCard from '../common/SectionCard';
 
 interface MaterialFormCardProps {
   title: string;
   children: ReactNode;
 }
 
-const MaterialFormCard = ({title, children}: MaterialFormCardProps) => {
+const MaterialFormCard = ({ title, children }: MaterialFormCardProps) => {
   return (
-    <View className="rounded-3xl border border-slate-200 bg-white p-5">
-      <Text className="mb-6 text-lg font-bold text-slate-900">{title}</Text>
+    <SectionCard>
+      <Text className="mb-5 text-lg font-bold text-ink">{title}</Text>
       {children}
-    </View>
+    </SectionCard>
   );
 };
 

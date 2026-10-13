@@ -1,449 +1,112 @@
 import React from 'react';
-
-import {
-  Text,
-  View,
-} from 'react-native';
-
+import { Platform, StyleSheet } from 'react-native';
+import { RouteProp } from '@react-navigation/native';
 import {
   createNativeStackNavigator,
+  NativeStackHeaderProps,
+  NativeStackNavigationOptions,
 } from '@react-navigation/native-stack';
-
-import BackButton
-  from '../components/common/BackButton';
-
-import SubjectsScreen
-  from '../screens/subjects/SubjectsScreen';
-
-import SubjectMaterialsScreen
-  from '../screens/materials/SubjectMaterialsScreen';
-
-import AddMaterialScreen
-  from '../screens/materials/AddMaterialScreen';
-
-import MaterialDetailsScreen
-  from '../screens/materials/MaterialDetailsScreen';
-
-import PdfPreviewScreen
-  from '../screens/materials/PdfPreviewScreen';
-
-import ImagePreviewScreen
-  from '../screens/materials/ImagePreviewScreen';
-
-import MaterialSummaryScreen
-  from '../screens/ai/MaterialSummaryScreen';
-
-import MaterialFlashcardsScreen
-  from '../screens/ai/MaterialFlashcardsScreen';
-
-import MaterialQuizScreen
-  from '../screens/ai/MaterialQuizScreen';
-
-import MaterialQuizResultScreen
-  from '../screens/ai/MaterialQuizResultScreen';
-
-import {
-  SubjectsStackParamList,
-} from './navigationTypes';
-
-
-// ============================================================
-// STACK
-// ============================================================
-
-const Stack =
-  createNativeStackNavigator<
-    SubjectsStackParamList
-  >();
-
-
-// ============================================================
-// SUBJECTS NAVIGATOR
-// ============================================================
-
-const SubjectsNavigator =
-  () => {
-
-    return (
-
-      <Stack.Navigator
-        initialRouteName="SubjectsHome"
-
-        screenOptions={{
-          headerShown:
-            false,
-        }}>
-
-        {/* ===================================================
-            SUBJECTS
-        ==================================================== */}
-
-        <Stack.Screen
-          name="SubjectsHome"
-
-          component={
-            SubjectsScreen
-          }
-        />
-
-
-        {/* ===================================================
-            SUBJECT MATERIALS
-        ==================================================== */}
-
-        <Stack.Screen
-          name="SubjectMaterials"
-
-          component={
-            SubjectMaterialsScreen
-          }
-        />
-
-
-        {/* ===================================================
-            ADD MATERIAL
-        ==================================================== */}
-
-        <Stack.Screen
-          name="AddMaterial"
-
-          component={
-            AddMaterialScreen
-          }
-        />
-
-
-        {/* ===================================================
-            MATERIAL DETAILS
-        ==================================================== */}
-
-        <Stack.Screen
-          name="MaterialDetails"
-
-          component={
-            MaterialDetailsScreen
-          }
-        />
-
-
-        {/* ===================================================
-            AI MATERIAL SUMMARY
-        ==================================================== */}
-
-        <Stack.Screen
-          name="MaterialSummary"
-
-          component={
-            MaterialSummaryScreen
-          }
-        />
-
-
-        {/* ===================================================
-            AI MATERIAL FLASHCARDS
-        ==================================================== */}
-
-        <Stack.Screen
-          name="MaterialFlashcards"
-
-          component={
-            MaterialFlashcardsScreen
-          }
-        />
-
-
-        {/* ===================================================
-            AI MATERIAL QUIZ
-        ==================================================== */}
-
-        <Stack.Screen
-          name="MaterialQuiz"
-
-          component={
-            MaterialQuizScreen
-          }
-        />
-
-
-        {/* ===================================================
-            AI QUIZ RESULT
-        ==================================================== */}
-
-        <Stack.Screen
-          name="MaterialQuizResult"
-
-          component={
-            MaterialQuizResultScreen
-          }
-        />
-
-
-        {/* ===================================================
-            PDF PREVIEW
-        ==================================================== */}
-
-        <Stack.Screen
-          name="PdfPreview"
-
-          component={
-            PdfPreviewScreen
-          }
-
-          options={({
-            navigation,
-            route,
-          }) => ({
-
-            headerShown:
-              true,
-
-            headerBackVisible:
-              false,
-
-            headerShadowVisible:
-              true,
-
-            headerStyle: {
-              backgroundColor:
-                '#FFFFFF',
-            },
-
-
-            // ===============================================
-            // BACK BUTTON
-            // ===============================================
-
-            headerLeft:
-              () => (
-
-                <View
-                  className="
-                    mr-3
-                  ">
-
-                  <BackButton
-                    onPress={() => {
-
-                      if (
-                        navigation.canGoBack()
-                      ) {
-
-                        navigation.goBack();
-
-                        return;
-                      }
-
-
-                      navigation.replace(
-                        'MaterialDetails',
-                        {
-                          materialId:
-                            route.params
-                              .materialId,
-
-                          subjectId:
-                            route.params
-                              .subjectId,
-
-                          subjectName:
-                            route.params
-                              .subjectName,
-                        },
-                      );
-                    }}
-                  />
-
-                </View>
-              ),
-
-
-            // ===============================================
-            // HEADER TITLE
-            // ===============================================
-
-            headerTitle:
-              () => (
-
-                <View>
-
-                  <Text
-                    numberOfLines={
-                      1
-                    }
-
-                    className="
-                      max-w-[240px]
-                      text-base
-                      font-bold
-                      text-slate-900
-                    ">
-
-                    {
-                      route.params
-                        .title
-                    }
-
-                  </Text>
-
-
-                  <Text
-                    numberOfLines={
-                      1
-                    }
-
-                    className="
-                      mt-0.5
-                      text-xs
-                      text-slate-500
-                    ">
-
-                    {
-                      route.params
-                        .subjectName
-                    }
-
-                  </Text>
-
-                </View>
-              ),
-          })}
-        />
-
-
-        {/* ===================================================
-            IMAGE PREVIEW
-        ==================================================== */}
-
-        <Stack.Screen
-          name="ImagePreview"
-
-          component={
-            ImagePreviewScreen
-          }
-
-          options={({
-            navigation,
-            route,
-          }) => ({
-
-            headerShown:
-              true,
-
-            headerBackVisible:
-              false,
-
-            headerShadowVisible:
-              true,
-
-            headerStyle: {
-              backgroundColor:
-                '#FFFFFF',
-            },
-
-
-            // ===============================================
-            // BACK BUTTON
-            // ===============================================
-
-            headerLeft:
-              () => (
-
-                <View
-                  className="
-                    mr-3
-                  ">
-
-                  <BackButton
-                    onPress={() => {
-
-                      if (
-                        navigation.canGoBack()
-                      ) {
-
-                        navigation.goBack();
-
-                        return;
-                      }
-
-
-                      navigation.replace(
-                        'MaterialDetails',
-                        {
-                          materialId:
-                            route.params
-                              .materialId,
-
-                          subjectId:
-                            route.params
-                              .subjectId,
-
-                          subjectName:
-                            route.params
-                              .subjectName,
-                        },
-                      );
-                    }}
-                  />
-
-                </View>
-              ),
-
-
-            // ===============================================
-            // HEADER TITLE
-            // ===============================================
-
-            headerTitle:
-              () => (
-
-                <View>
-
-                  <Text
-                    numberOfLines={
-                      1
-                    }
-
-                    className="
-                      max-w-[240px]
-                      text-base
-                      font-bold
-                      text-slate-900
-                    ">
-
-                    {
-                      route.params
-                        .title
-                    }
-
-                  </Text>
-
-
-                  <Text
-                    numberOfLines={
-                      1
-                    }
-
-                    className="
-                      mt-0.5
-                      text-xs
-                      text-slate-500
-                    ">
-
-                    {
-                      route.params
-                        .subjectName
-                    }
-
-                  </Text>
-
-                </View>
-              ),
-          })}
-        />
-
-      </Stack.Navigator>
-    );
+import { SafeAreaView } from 'react-native-safe-area-context';
+import MaterialPreviewHeader from '../components/materials/MaterialPreviewHeader';
+import { colors } from '../constants/colors';
+import SubjectsScreen from '../screens/subjects/SubjectsScreen';
+import SubjectMaterialsScreen from '../screens/materials/SubjectMaterialsScreen';
+import AddMaterialScreen from '../screens/materials/AddMaterialScreen';
+import MaterialDetailsScreen from '../screens/materials/MaterialDetailsScreen';
+import PdfPreviewScreen from '../screens/materials/PdfPreviewScreen';
+import ImagePreviewScreen from '../screens/materials/ImagePreviewScreen';
+import MaterialSummaryScreen from '../screens/ai/MaterialSummaryScreen';
+import MaterialFlashcardsScreen from '../screens/ai/MaterialFlashcardsScreen';
+import MaterialQuizScreen from '../screens/ai/MaterialQuizScreen';
+import MaterialQuizResultScreen from '../screens/ai/MaterialQuizResultScreen';
+import { SubjectsStackParamList } from './navigationTypes';
+
+const Stack = createNativeStackNavigator<SubjectsStackParamList>();
+
+const PreviewHeader = ({ navigation, route }: NativeStackHeaderProps) => {
+  const previewRoute = route as RouteProp<
+    SubjectsStackParamList,
+    'PdfPreview' | 'ImagePreview'
+  >;
+  const { materialId, subjectId, subjectName, title } = previewRoute.params;
+  const image = previewRoute.name === 'ImagePreview';
+
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.replace('MaterialDetails', {
+      materialId,
+      subjectId,
+      subjectName,
+    });
   };
 
+  return (
+    <SafeAreaView
+      edges={['top', 'left', 'right']}
+      style={image ? styles.darkHeader : styles.header}
+    >
+      <MaterialPreviewHeader
+        title={title}
+        subjectName={subjectName}
+        sourceType={image ? 'image' : 'pdf'}
+        tone={image ? 'dark' : 'light'}
+        onBack={handleBack}
+      />
+    </SafeAreaView>
+  );
+};
+
+const previewOptions: NativeStackNavigationOptions = {
+  headerShown: true,
+  header: PreviewHeader,
+  headerShadowVisible: false,
+};
+const imageOptions: NativeStackNavigationOptions = {
+  ...previewOptions,
+  statusBarStyle: Platform.OS === 'android' ? 'light' : undefined,
+  contentStyle: { backgroundColor: colors.darkBackground },
+};
+const stackOptions: NativeStackNavigationOptions = {
+  headerShown: false,
+  statusBarStyle: Platform.OS === 'android' ? 'dark' : undefined,
+  contentStyle: { backgroundColor: colors.background },
+};
+
+const SubjectsNavigator = () => (
+  <Stack.Navigator initialRouteName="SubjectsHome" screenOptions={stackOptions}>
+    <Stack.Screen name="SubjectsHome" component={SubjectsScreen} />
+    <Stack.Screen name="SubjectMaterials" component={SubjectMaterialsScreen} />
+    <Stack.Screen name="AddMaterial" component={AddMaterialScreen} />
+    <Stack.Screen name="MaterialDetails" component={MaterialDetailsScreen} />
+    <Stack.Screen name="MaterialSummary" component={MaterialSummaryScreen} />
+    <Stack.Screen
+      name="MaterialFlashcards"
+      component={MaterialFlashcardsScreen}
+    />
+    <Stack.Screen name="MaterialQuiz" component={MaterialQuizScreen} />
+    <Stack.Screen
+      name="MaterialQuizResult"
+      component={MaterialQuizResultScreen}
+    />
+    <Stack.Screen
+      name="PdfPreview"
+      component={PdfPreviewScreen}
+      options={previewOptions}
+    />
+    <Stack.Screen
+      name="ImagePreview"
+      component={ImagePreviewScreen}
+      options={imageOptions}
+    />
+  </Stack.Navigator>
+);
+
+const styles = StyleSheet.create({
+  header: { backgroundColor: colors.surface },
+  darkHeader: { backgroundColor: colors.darkBackground },
+});
 
 export default SubjectsNavigator;

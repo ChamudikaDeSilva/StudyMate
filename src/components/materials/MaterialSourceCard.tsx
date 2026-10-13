@@ -1,8 +1,10 @@
 import React from 'react';
-import {ActivityIndicator, Pressable, Text, View} from 'react-native';
-import {CheckCircle2} from 'lucide-react-native';
-import {materialPresentation} from '../../constants/materialPresentation';
-import {MaterialSourceType} from '../../domain/models/Material';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { CheckCircle2 } from 'lucide-react-native';
+import { materialPresentation } from '../../constants/materialPresentation';
+import { MaterialSourceType } from '../../domain/models/Material';
+import { colors } from '../../constants/colors';
+import { shadows } from '../../constants/shadows';
 
 interface MaterialSourceCardProps {
   sourceType: MaterialSourceType;
@@ -27,17 +29,26 @@ const MaterialSourceCard = ({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{selected, disabled}}
+      accessibilityLabel={config.label}
+      accessibilityHint={description}
+      accessibilityState={{ selected, disabled, busy: loading }}
       disabled={disabled}
       onPress={onPress}
-      className="mb-4 flex-row items-center rounded-[20px] border bg-white p-4"
-      style={({pressed}) => ({
-        borderColor: selected ? config.foreground : '#E2E8F0',
-        opacity: disabled ? 0.6 : pressed ? 0.82 : 1,
-      })}>
+      className={`min-h-[160px] flex-1 rounded-[24px] border p-4 ${
+        disabled ? 'opacity-60' : 'active:opacity-75'
+      }`}
+      style={[
+        shadows.sm,
+        {
+          borderColor: selected ? colors.primary : colors.border,
+          backgroundColor: selected ? colors.primaryLight : colors.surface,
+        },
+      ]}
+    >
       <View
-        className="mr-4 h-[54px] w-[54px] items-center justify-center rounded-[16px]"
-        style={{backgroundColor: config.background}}>
+        className="mb-3 h-11 w-11 items-center justify-center rounded-[14px]"
+        style={{ backgroundColor: config.background }}
+      >
         {loading ? (
           <ActivityIndicator color={config.foreground} />
         ) : (
@@ -45,12 +56,18 @@ const MaterialSourceCard = ({
         )}
       </View>
 
-      <View className="flex-1">
-        <Text className="text-base font-bold text-slate-900">{config.label}</Text>
-        <Text className="mt-1 text-xs text-slate-500">{description}</Text>
+      <View>
+        <Text className="text-base font-bold text-ink">{config.label}</Text>
+        <Text className="mt-1 text-xs leading-[18px] text-muted">
+          {description}
+        </Text>
       </View>
 
-      {selected && <CheckCircle2 size={21} color={config.foreground} />}
+      {selected && (
+        <View className="absolute right-3 top-3">
+          <CheckCircle2 size={19} color={colors.primary} />
+        </View>
+      )}
     </Pressable>
   );
 };

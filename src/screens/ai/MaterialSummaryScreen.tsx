@@ -1,269 +1,60 @@
-import React, {
-  useCallback,
-} from 'react';
+import React, { useCallback } from 'react';
+import { View } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import AiSummaryErrorState from '../../components/ai/AiSummaryErrorState';
+import AiSummaryLoadingState from '../../components/ai/AiSummaryLoadingState';
+import AiSummaryResult from '../../components/ai/AiSummaryResult';
+import ScreenContainer from '../../components/common/ScreenContainer';
+import ScreenHeader from '../../components/common/ScreenHeader';
+import { useMaterialSummaryScreen } from '../../hooks/useMaterialSummaryScreen';
+import { SubjectsStackParamList } from '../../navigation/navigationTypes';
 
-import {
-  SafeAreaView,
-  View,
-} from 'react-native';
+type Props = NativeStackScreenProps<SubjectsStackParamList, 'MaterialSummary'>;
 
-import {
-  BrainCircuit,
-} from 'lucide-react-native';
+const MaterialSummaryScreen = ({ navigation, route }: Props) => {
+  const { materialId, subjectId, subjectName, materialTitle } = route.params;
+  const screen = useMaterialSummaryScreen({ materialId });
 
-import {
-  NativeStackScreenProps,
-} from '@react-navigation/native-stack';
-
-import AiSummaryErrorState
-  from '../../components/ai/AiSummaryErrorState';
-
-import AiSummaryLoadingState
-  from '../../components/ai/AiSummaryLoadingState';
-
-import AiSummaryResult
-  from '../../components/ai/AiSummaryResult';
-
-import ScreenHeader
-  from '../../components/common/ScreenHeader';
-
-import {
-  useMaterialSummaryScreen,
-} from '../../hooks/useMaterialSummaryScreen';
-
-import {
-  SubjectsStackParamList,
-} from '../../navigation/navigationTypes';
-
-
-type Props =
-  NativeStackScreenProps<
-    SubjectsStackParamList,
-    'MaterialSummary'
-  >;
-
-
-const MaterialSummaryScreen = ({
-  navigation,
-  route,
-}: Props) => {
-
-  const {
-
-    materialId,
-
-    subjectId,
-
-    subjectName,
-
-    materialTitle,
-
-  } = route.params;
-
-
-  // =========================================================
-  // SCREEN STATE
-  // =========================================================
-
-  const screen =
-    useMaterialSummaryScreen({
+  const handleBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.replace('MaterialDetails', {
       materialId,
+      subjectId,
+      subjectName,
     });
-
-
-  // =========================================================
-  // BACK
-  // =========================================================
-
-  const handleBack =
-    useCallback(
-      () => {
-
-        if (
-          navigation
-            .canGoBack()
-        ) {
-
-          navigation.goBack();
-
-          return;
-        }
-
-
-        navigation.replace(
-          'MaterialDetails',
-          {
-
-            materialId,
-
-            subjectId,
-
-            subjectName,
-          },
-        );
-
-      },
-      [
-        navigation,
-        materialId,
-        subjectId,
-        subjectName,
-      ],
-    );
-
-
-  // =========================================================
-  // UI
-  // =========================================================
+  }, [navigation, materialId, subjectId, subjectName]);
 
   return (
-
-    <SafeAreaView
-      className="
-        flex-1
-        bg-slate-50
-      ">
-
-      {/* =====================================================
-          HEADER
-      ====================================================== */}
-
-      <View
-        className="
-          px-6
-          pt-6
-        ">
-
+    <ScreenContainer>
+      <View className="px-6 pt-5">
         <ScreenHeader
-
-          title="AI Summary"
-
-          subtitle={
-            subjectName
-          }
-
-          onBack={
-            handleBack
-          }
-
-          right={
-
-            <View
-              className="
-                h-11
-                w-11
-                items-center
-                justify-center
-                rounded-xl
-                bg-indigo-50
-              ">
-
-              <BrainCircuit
-                size={21}
-                color="#4F46E5"
-                strokeWidth={2.1}
-              />
-
-            </View>
-
-          }
+          eyebrow="READ & UNDERSTAND"
+          title="AI summary"
+          subtitle={subjectName}
+          onBack={handleBack}
         />
-
       </View>
-
-
-      {/* =====================================================
-          INITIAL LOADING
-
-          This may mean:
-
-          - checking saved summary
-          OR
-          - generating first summary
-      ====================================================== */}
-
-      {
-        screen.initializing
-        &&
-        !screen.summary
-          ? (
-
-            <AiSummaryLoadingState />
-
-          )
-
-          : null
-      }
-
-
-      {/* =====================================================
-          ERROR
-      ====================================================== */}
-
-      {
-        !screen.initializing
-        &&
-        !screen.summary
-        &&
-        screen.error
-          ? (
-
-            <AiSummaryErrorState
-
-              error={
-                screen.error
-              }
-
-              generating={
-                screen.busy
-              }
-
-              onRetry={
-                screen.retry
-              }
-            />
-
-          )
-
-          : null
-      }
-
-
-      {/* =====================================================
-          RESULT
-      ====================================================== */}
-
-      {
-        screen.summary
-          ? (
-
-            <AiSummaryResult
-
-              summary={
-                screen.summary
-              }
-
-              materialTitle={
-                materialTitle
-              }
-
-              generating={
-                screen.generating
-              }
-
-              onGenerateAgain={
-                screen.generateSummary
-              }
-            />
-
-          )
-
-          : null
-      }
-
-    </SafeAreaView>
+      {screen.initializing && !screen.summary && <AiSummaryLoadingState />}
+      {!screen.initializing && !screen.summary && screen.error && (
+        <AiSummaryErrorState
+          error={screen.error}
+          generating={screen.busy}
+          onRetry={screen.retry}
+        />
+      )}
+      {screen.summary && (
+        <AiSummaryResult
+          summary={screen.summary}
+          materialTitle={materialTitle}
+          generating={screen.generating}
+          onGenerateAgain={screen.generateSummary}
+        />
+      )}
+    </ScreenContainer>
   );
 };
-
 
 export default MaterialSummaryScreen;

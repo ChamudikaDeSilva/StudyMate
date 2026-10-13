@@ -1,3 +1,5 @@
+import type {NavigatorScreenParams} from '@react-navigation/native';
+
 import type {
   QuizSubmissionResult,
 } from '../domain/models/MaterialQuiz';
@@ -27,10 +29,7 @@ export type MainTabParamList = {
     undefined;
 
   Subjects:
-    undefined;
-
-  Quiz:
-    undefined;
+    NavigatorScreenParams<SubjectsStackParamList> | undefined;
 
   Profile:
     undefined;

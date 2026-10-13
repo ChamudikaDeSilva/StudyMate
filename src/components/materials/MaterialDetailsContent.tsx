@@ -1,159 +1,70 @@
 import React from 'react';
 
-import {
-  ActivityIndicator,
-  Text,
-  View,
-} from 'react-native';
+import { Text, View } from 'react-native';
 
-import {
-  FileImage,
-  FileText,
-  Trash2,
-} from 'lucide-react-native';
+import { FileImage, FileText, Trash2 } from 'lucide-react-native';
 
-import {
-  Material,
-} from '../../domain/models/Material';
+import { Material } from '../../domain/models/Material';
+import { colors } from '../../constants/colors';
+import { materialPresentation } from '../../constants/materialPresentation';
 
-import AiSummaryActionCard
-  from '../ai/AiSummaryActionCard';
+import AiSummaryActionCard from '../ai/AiSummaryActionCard';
 
-import FlashcardsActionCard
-  from '../ai/FlashcardsActionCard';
+import FlashcardsActionCard from '../ai/FlashcardsActionCard';
 
-import QuizActionCard
-  from '../ai/QuizActionCard';
+import QuizActionCard from '../ai/QuizActionCard';
 
-import AppButton
-  from '../common/AppButton';
+import AppButton from '../common/AppButton';
 
-import SectionCard
-  from '../common/SectionCard';
+import SectionCard from '../common/SectionCard';
 
-import MaterialEditForm
-  from './MaterialEditForm';
+import MaterialEditForm from './MaterialEditForm';
 
-import MaterialFileActionCard
-  from './MaterialFileActionCard';
+import MaterialFileActionCard from './MaterialFileActionCard';
 
-import MaterialTypeBanner
-  from './MaterialTypeBanner';
-
+import MaterialTypeBanner from './MaterialTypeBanner';
 
 interface MaterialDetailsContentProps {
+  material: Material;
 
-  // ========================================================
-  // MATERIAL
-  // ========================================================
+  editing: boolean;
 
-  material:
-    Material;
+  title: string;
 
+  content: string;
 
-  // ========================================================
-  // EDIT STATE
-  // ========================================================
+  busy: boolean;
 
-  editing:
-    boolean;
+  isUpdating: boolean;
 
-  title:
-    string;
+  isDeleting: boolean;
 
-  content:
-    string;
+  onTitleChange: (value: string) => void;
 
+  onContentChange: (value: string) => void;
 
-  // ========================================================
-  // BUSY STATES
-  // ========================================================
+  onCancelEdit: () => void;
 
-  busy:
-    boolean;
+  onSave: () => void;
 
-  isUpdating:
-    boolean;
+  onPreviewPdf: () => void;
 
-  isDeleting:
-    boolean;
+  onPreviewImage: () => void;
 
+  onGenerateSummary: () => void;
 
-  // ========================================================
-  // FORM CALLBACKS
-  // ========================================================
+  aiSummaryDisabled?: boolean;
 
-  onTitleChange:
-    (
-      value:
-        string,
-    ) => void;
+  onGenerateFlashcards: () => void;
 
-  onContentChange:
-    (
-      value:
-        string,
-    ) => void;
+  aiFlashcardsDisabled?: boolean;
 
-  onCancelEdit:
-    () => void;
+  onOpenQuiz: () => void;
 
-  onSave:
-    () => void;
+  aiQuizDisabled?: boolean;
 
-
-  // ========================================================
-  // PREVIEW CALLBACKS
-  // ========================================================
-
-  onPreviewPdf:
-    () => void;
-
-  onPreviewImage:
-    () => void;
-
-
-  // ========================================================
-  // AI SUMMARY
-  // ========================================================
-
-  onGenerateSummary:
-    () => void;
-
-  aiSummaryDisabled?:
-    boolean;
-
-
-  // ========================================================
-  // AI FLASHCARDS
-  // ========================================================
-
-  onGenerateFlashcards:
-    () => void;
-
-  aiFlashcardsDisabled?:
-    boolean;
-
-
-  // ========================================================
-  // AI QUIZ
-  // ========================================================
-
-  onOpenQuiz:
-    () => void;
-
-  aiQuizDisabled?:
-    boolean;
-
-
-  // ========================================================
-  // DELETE
-  // ========================================================
-
-  onDelete:
-    () => void;
+  onDelete: () => void;
 }
-
 
 const MaterialDetailsContent = ({
   material,
@@ -185,30 +96,12 @@ const MaterialDetailsContent = ({
   aiQuizDisabled,
 
   onDelete,
-
 }: MaterialDetailsContentProps) => {
-
-
-  // =========================================================
-  // MATERIAL TYPES
-  // =========================================================
-
-  const isPdf =
-    material.sourceType ===
-    'pdf';
-
+  const isPdf = material.sourceType === 'pdf';
 
   const isImage =
-    material.sourceType ===
-      'image'
-    ||
-    material.sourceType ===
-      'camera';
+    material.sourceType === 'image' || material.sourceType === 'camera';
 
-
-  // =========================================================
-  // IMAGE / CAMERA PREVIEW
-  // =========================================================
   //
   // Image and camera files now support permanent local storage.
   // Therefore preview must NOT be guarded by connectivity.
@@ -220,10 +113,6 @@ const MaterialDetailsContent = ({
   // no local copy + offline -> show friendly unavailable state
   // =========================================================
 
-
-  // =========================================================
-  // AI SUMMARY
-  // =========================================================
   //
   // Opening the Summary screen is allowed offline.
   //
@@ -231,10 +120,6 @@ const MaterialDetailsContent = ({
   // FastAPI, or online Gemini generation.
   // =========================================================
 
-
-  // =========================================================
-  // AI FLASHCARDS
-  // =========================================================
   //
   // Opening the Flashcards screen is allowed offline now.
   //
@@ -245,338 +130,108 @@ const MaterialDetailsContent = ({
   // screen hook.
   // =========================================================
 
-
-  // =========================================================
-  // UI
-  // =========================================================
-
   return (
-
     <>
+      <MaterialTypeBanner material={material} />
 
-      {/* =====================================================
-          MATERIAL TYPE
-      ====================================================== */}
+      {editing ? (
+        <MaterialEditForm
+          material={material}
+          title={title}
+          content={content}
+          busy={busy}
+          isUpdating={isUpdating}
+          onTitleChange={onTitleChange}
+          onContentChange={onContentChange}
+          onCancel={onCancelEdit}
+          onSave={onSave}
+        />
+      ) : (
+        <>
+          <SectionCard label="Your material" className="mb-5">
+            <Text className="text-[22px] font-bold leading-8 tracking-tight text-ink">
+              {material.title}
+            </Text>
+          </SectionCard>
 
-      <MaterialTypeBanner
-        material={
-          material
-        }
-      />
+          {material.sourceType === 'text' && (
+            <SectionCard label="Study content" className="mb-5">
+              <Text selectable className="text-[15px] leading-7 text-ink">
+                {material.content}
+              </Text>
+            </SectionCard>
+          )}
 
+          {isPdf && (
+            <MaterialFileActionCard
+              label="PDF document"
+              fileName={material.fileName ?? 'PDF document'}
+              icon={FileText}
+              color={materialPresentation.pdf.foreground}
+              background={materialPresentation.pdf.background}
+              actionTitle="Preview PDF"
+              disabled={busy}
+              onPreview={onPreviewPdf}
+            />
+          )}
 
-      {/* =====================================================
-          EDIT MODE
-      ====================================================== */}
-
-      {
-        editing
-          ? (
-
-            <MaterialEditForm
-              material={
-                material
+          {isImage && (
+            <MaterialFileActionCard
+              label={
+                material.sourceType === 'camera' ? 'Camera image' : 'Image file'
               }
-
-              title={
-                title
+              fileName={
+                material.fileName ??
+                (material.sourceType === 'camera'
+                  ? 'Camera material'
+                  : 'Image material')
               }
+              icon={FileImage}
+              color={materialPresentation[material.sourceType].foreground}
+              background={materialPresentation[material.sourceType].background}
+              actionTitle="Preview image"
+              disabled={busy}
+              onPreview={onPreviewImage}
+            />
+          )}
 
-              content={
-                content
-              }
+          <Text className="mb-1 text-xl font-bold text-ink">
+            Study your way
+          </Text>
+          <Text className="mb-4 text-sm leading-5 text-muted">
+            Review the key ideas, practice recall, or test what you know.
+          </Text>
 
-              busy={
-                busy
-              }
-
-              isUpdating={
-                isUpdating
-              }
-
-              onTitleChange={
-                onTitleChange
-              }
-
-              onContentChange={
-                onContentChange
-              }
-
-              onCancel={
-                onCancelEdit
-              }
-
-              onSave={
-                onSave
-              }
+          <View className="mb-5 gap-3">
+            <AiSummaryActionCard
+              onPress={onGenerateSummary}
+              disabled={aiSummaryDisabled || busy}
             />
 
-          )
-          : (
-
-            <>
-
-              {/* =================================================
-                  TITLE
-              ================================================== */}
-
-              <SectionCard
-                label="Title"
-
-                className="
-                  mb-4
-                ">
-
-                <Text
-                  className="
-                    text-base
-                    font-bold
-                    text-slate-900
-                  ">
-
-                  {
-                    material.title
-                  }
-
-                </Text>
-
-              </SectionCard>
-
-
-              {/* =================================================
-                  TEXT CONTENT
-              ================================================== */}
-
-              {
-                material.sourceType ===
-                  'text'
-                &&
-                (
-
-                  <SectionCard
-                    label="Study content"
-
-                    className="
-                      mb-4
-                    ">
-
-                    <Text
-                      selectable
-
-                      className="
-                        leading-6
-                        text-slate-700
-                      ">
-
-                      {
-                        material.content
-                      }
-
-                    </Text>
-
-                  </SectionCard>
-
-                )
-              }
-
-
-              {/* =================================================
-                  PDF
-              ================================================== */}
-
-              {
-                isPdf
-                &&
-                (
-
-                  <MaterialFileActionCard
-                    label="PDF document"
-
-                    fileName={
-                      material.fileName
-                      ??
-                      'PDF document'
-                    }
-
-                    icon={
-                      FileText
-                    }
-
-                    color="#E11D48"
-
-                    background="#FFF1F2"
-
-                    actionTitle="Preview PDF"
-
-                    tone="danger"
-
-                    onPreview={
-                      onPreviewPdf
-                    }
-                  />
-
-                )
-              }
-
-
-              {/* =================================================
-                  IMAGE / CAMERA
-              ================================================== */}
-
-              {
-                isImage
-                &&
-                (
-
-                  <MaterialFileActionCard
-                    label={
-                      material.sourceType ===
-                        'camera'
-                        ? 'Camera image'
-                        : 'Image file'
-                    }
-
-                    fileName={
-                      material.fileName
-                      ??
-                      (
-                        material.sourceType ===
-                          'camera'
-                          ? 'Camera material'
-                          : 'Image material'
-                      )
-                    }
-
-                    icon={
-                      FileImage
-                    }
-
-                    color="#0284C7"
-
-                    background="#E0F2FE"
-
-                    actionTitle="Preview image"
-
-                    tone="info"
-
-                    onPreview={
-                      onPreviewImage
-                    }
-                  />
-
-                )
-              }
-
-
-              {/* =================================================
-                  AI STUDY TOOLS
-              ================================================== */}
-
-              <View
-                className="
-                  mb-4
-                ">
-
-                {/* ===============================================
-                    AI SUMMARY
-                ================================================ */}
-
-                <AiSummaryActionCard
-                  onPress={
-                    onGenerateSummary
-                  }
-
-                  disabled={
-                    aiSummaryDisabled
-                    ||
-                    busy
-                  }
-                />
-
-
-                {/* ===============================================
-                    AI FLASHCARDS
-                ================================================ */}
-
-                <FlashcardsActionCard
-                  onPress={
-                    onGenerateFlashcards
-                  }
-
-                  disabled={
-                    aiFlashcardsDisabled
-                    ||
-                    busy
-                  }
-                />
-
-
-                {/* ===============================================
-                    AI QUIZ
-                ================================================ */}
-
-                <QuizActionCard
-                  onPress={
-                    onOpenQuiz
-                  }
-
-                  disabled={
-                    aiQuizDisabled
-                    ||
-                    busy
-                  }
-                />
-
-              </View>
-
-
-              {/* =================================================
-                  DELETE
-              ================================================== */}
-
-              <AppButton
-                title="Delete material"
-
-                icon={
-                  isDeleting
-                    ? (
-
-                      <ActivityIndicator
-                        color="#DC2626"
-                      />
-
-                    )
-                    : (
-
-                      <Trash2
-                        size={18}
-                        color="#DC2626"
-                      />
-
-                    )
-                }
-
-                tone="danger"
-
-                variant="soft"
-
-                disabled={
-                  busy
-                }
-
-                onPress={
-                  onDelete
-                }
-              />
-
-            </>
-
-          )
-      }
-
+            <FlashcardsActionCard
+              onPress={onGenerateFlashcards}
+              disabled={aiFlashcardsDisabled || busy}
+            />
+
+            <QuizActionCard
+              onPress={onOpenQuiz}
+              disabled={aiQuizDisabled || busy}
+            />
+          </View>
+
+          <AppButton
+            title="Delete material"
+            icon={<Trash2 size={18} color={colors.danger} />}
+            loading={isDeleting}
+            tone="danger"
+            variant="ghost"
+            disabled={busy}
+            onPress={onDelete}
+          />
+        </>
+      )}
     </>
   );
 };
-
 
 export default MaterialDetailsContent;

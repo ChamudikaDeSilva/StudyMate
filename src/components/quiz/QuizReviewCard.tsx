@@ -1,261 +1,82 @@
 import React from 'react';
-
-import {
-  Text,
-  View,
-} from 'react-native';
-
-import {
-  QuizAnswerResult,
-} from '../../domain/models/MaterialQuiz';
-
+import { Text, View } from 'react-native';
+import { CheckCircle2, CircleMinus, XCircle } from 'lucide-react-native';
+import { QuizAnswerResult } from '../../domain/models/MaterialQuiz';
+import SectionCard from '../common/SectionCard';
+import QuizOption from './QuizOption';
 
 interface Props {
-
-  answer:
-    QuizAnswerResult;
+  answer: QuizAnswerResult;
 }
 
-
-const optionLabels = [
-  'A',
-  'B',
-  'C',
-  'D',
-];
-
-
-const QuizReviewCard = ({
-  answer,
-}: Props) => {
+const QuizReviewCard = ({ answer }: Props) => {
+  const skipped = answer.selectedIndex === null;
+  const status = skipped
+    ? 'Not answered'
+    : answer.isCorrect
+    ? 'Correct'
+    : 'Review';
+  const color = skipped ? '#98621D' : answer.isCorrect ? '#18704A' : '#B62C4D';
+  const StatusIcon = skipped
+    ? CircleMinus
+    : answer.isCorrect
+    ? CheckCircle2
+    : XCircle;
 
   return (
-
-    <View
-      className="
-        mb-4
-        rounded-[22px]
-        border
-        border-slate-200
-        bg-white
-        p-5
-      ">
-
-      <Text
-        className="
-          text-xs
-          font-bold
-          uppercase
-          tracking-wider
-          text-slate-400
-        ">
-
-        Question {answer.position}
-
-      </Text>
-
-
-      <Text
-        className="
-          mt-2
-          text-base
-          font-bold
-          leading-6
-          text-slate-900
-        ">
-
+    <SectionCard className="mb-4">
+      <View className="flex-row items-center justify-between gap-3">
+        <Text className="text-[11px] font-extrabold uppercase tracking-[2px] text-muted">
+          Question {answer.position}
+        </Text>
+        <View className="flex-row items-center gap-1.5">
+          <StatusIcon size={15} color={color} />
+          <Text className="text-xs font-bold" style={{ color }}>
+            {status}
+          </Text>
+        </View>
+      </View>
+      <Text className="mt-3 text-base font-bold leading-6 text-ink">
         {answer.question}
-
       </Text>
-
-
-      <View
-        className="
-          mt-4
-        ">
-
-        {
-          answer.options.map(
-            (
-              option,
-              index,
-            ) => {
-
-              const correct =
-                index ===
-                answer.correctIndex;
-
-
-              const selected =
-                index ===
-                answer.selectedIndex;
-
-
-              const selectedWrong =
-                selected
-                &&
-                !correct;
-
-
-              return (
-
-                <View
-                  key={
-                    `${answer.questionId}-${index}`
-                  }
-
-                  className="
-                    mb-2
-                    rounded-xl
-                    border
-                    px-4
-                    py-3
-                  "
-
-                  style={{
-
-                    borderColor:
-                      correct
-                        ? '#86EFAC'
-                        : selectedWrong
-                          ? '#FDA4AF'
-                          : '#E2E8F0',
-
-                    backgroundColor:
-                      correct
-                        ? '#F0FDF4'
-                        : selectedWrong
-                          ? '#FFF1F2'
-                          : '#FFFFFF',
-                  }}>
-
-                  <Text
-                    className="
-                      text-sm
-                      font-semibold
-                      leading-5
-                    "
-                    style={{
-
-                      color:
-                        correct
-                          ? '#15803D'
-                          : selectedWrong
-                            ? '#BE123C'
-                            : '#475569',
-                    }}>
-
-                    {optionLabels[index]}. {option}
-
-                  </Text>
-
-
-                  {
-                    correct
-                      ? (
-
-                        <Text
-                          className="
-                            mt-1
-                            text-xs
-                            font-bold
-                            text-emerald-600
-                          ">
-
-                          Correct answer
-
-                        </Text>
-
-                      )
-                      : selectedWrong
-                        ? (
-
-                          <Text
-                            className="
-                              mt-1
-                              text-xs
-                              font-bold
-                              text-rose-600
-                            ">
-
-                            Your answer
-
-                          </Text>
-
-                        )
-                        : null
-                  }
-
-                </View>
-              );
-            },
-          )
-        }
-
+      <View className="mt-5">
+        {answer.options.map((option, index) => {
+          const correct = index === answer.correctIndex;
+          const selected = index === answer.selectedIndex;
+          return (
+            <QuizOption
+              key={`${answer.questionId}-${index}`}
+              index={index}
+              text={option}
+              state={correct ? 'correct' : selected ? 'incorrect' : 'default'}
+              caption={
+                correct
+                  ? selected
+                    ? 'Your answer · Correct'
+                    : 'Correct answer'
+                  : selected
+                  ? 'Your answer'
+                  : undefined
+              }
+            />
+          );
+        })}
       </View>
-
-
-      {
-        answer.selectedIndex ===
-          null
-          ? (
-
-            <Text
-              className="
-                mt-1
-                text-sm
-                font-semibold
-                text-amber-600
-              ">
-
-              You did not answer this question.
-
-            </Text>
-
-          )
-          : null
-      }
-
-
-      <View
-        className="
-          mt-3
-          rounded-xl
-          bg-slate-50
-          p-4
-        ">
-
-        <Text
-          className="
-            text-xs
-            font-bold
-            uppercase
-            tracking-wider
-            text-slate-400
-          ">
-
-          Explanation
-
+      {skipped ? (
+        <Text className="mb-3 text-sm font-semibold text-amber-700">
+          You did not answer this question.
         </Text>
-
-
-        <Text
-          className="
-            mt-2
-            text-sm
-            leading-5
-            text-slate-600
-          ">
-
+      ) : null}
+      <View className="rounded-2xl bg-brand-50 p-4">
+        <Text className="text-[10px] font-extrabold uppercase tracking-[2px] text-brand-600">
+          Why this answer?
+        </Text>
+        <Text className="mt-2 text-sm leading-[22px] text-muted">
           {answer.explanation}
-
         </Text>
-
       </View>
-
-    </View>
+    </SectionCard>
   );
 };
-
 
 export default QuizReviewCard;

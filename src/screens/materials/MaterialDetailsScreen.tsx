@@ -1,590 +1,235 @@
-import React, {
-  useCallback,
-} from 'react';
+import React, { useCallback } from 'react';
 
 import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   View,
 } from 'react-native';
 
-import {
-  Pencil,
-} from 'lucide-react-native';
+import { Pencil } from 'lucide-react-native';
 
-import {
-  NativeStackScreenProps,
-} from '@react-navigation/native-stack';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import ScreenHeader
-  from '../../components/common/ScreenHeader';
+import ScreenHeader from '../../components/common/ScreenHeader';
 
-import ScreenState
-  from '../../components/common/ScreenState';
+import ScreenState from '../../components/common/ScreenState';
+import ScreenContainer from '../../components/common/ScreenContainer';
+import { colors } from '../../constants/colors';
 
-import MaterialDetailsContent
-  from '../../components/materials/MaterialDetailsContent';
+import MaterialDetailsContent from '../../components/materials/MaterialDetailsContent';
 
-import {
-  useMaterialDetailsScreen,
-} from '../../hooks/useMaterialDetailsScreen';
+import { useMaterialDetailsScreen } from '../../hooks/useMaterialDetailsScreen';
 
-import {
-  SubjectsStackParamList,
-} from '../../navigation/navigationTypes';
+import { SubjectsStackParamList } from '../../navigation/navigationTypes';
 
+type Props = NativeStackScreenProps<SubjectsStackParamList, 'MaterialDetails'>;
 
-type Props =
-  NativeStackScreenProps<
-    SubjectsStackParamList,
-    'MaterialDetails'
-  >;
+const MaterialDetailsScreen = ({ navigation, route }: Props) => {
+  const { materialId, subjectId, subjectName } = route.params;
 
+  const handleDeleted = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
 
-const MaterialDetailsScreen = ({
-  navigation,
-  route,
-}: Props) => {
-
-  const {
+  const screen = useMaterialDetailsScreen({
     materialId,
     subjectId,
-    subjectName,
-  } = route.params;
 
+    onDeleted: handleDeleted,
+  });
 
-  // =========================================================
-  // DELETE CALLBACK
-  // =========================================================
-
-  const handleDeleted =
-    useCallback(
-      () => {
-
-        navigation.goBack();
-
-      },
-      [
-        navigation,
-      ],
-    );
-
-
-  // =========================================================
-  // SCREEN STATE
-  // =========================================================
-
-  const screen =
-    useMaterialDetailsScreen({
-      materialId,
-      subjectId,
-
-      onDeleted:
-        handleDeleted,
-    });
-
-
-  // =========================================================
-  // LOADING
-  // =========================================================
-
-  if (
-    screen.loading
-  ) {
-
+  if (screen.loading) {
     return (
-
-      <SafeAreaView
-        className="
-          flex-1
-          bg-slate-50
-        ">
-
-        <ScreenState
-          loading
-
-          title="Loading material"
-
-          description="Preparing material details..."
-        />
-
-      </SafeAreaView>
+      <ScreenContainer>
+        <View className="flex-1 px-6 pt-6">
+          <ScreenHeader
+            eyebrow="Learning library"
+            title="Material"
+            subtitle={subjectName}
+            onBack={() => navigation.goBack()}
+          />
+          <ScreenState
+            loading
+            title="Loading material"
+            description="Preparing material details..."
+          />
+        </View>
+      </ScreenContainer>
     );
   }
 
-
-  // =========================================================
-  // NOT FOUND
-  // =========================================================
-
-  if (
-    !screen.material
-  ) {
-
+  if (!screen.material) {
     return (
-
-      <SafeAreaView
-        className="
-          flex-1
-          bg-slate-50
-        ">
-
-        <View
-          className="
-            flex-1
-            px-6
-            pt-6
-          ">
-
+      <ScreenContainer>
+        <View className="flex-1 px-6 pt-6">
           <ScreenHeader
+            eyebrow="Learning library"
             title="Material"
-
-            subtitle={
-              subjectName
-            }
-
-            onBack={() =>
-              navigation.goBack()
-            }
+            subtitle={subjectName}
+            onBack={() => navigation.goBack()}
           />
-
 
           <ScreenState
             title="Material not found"
-
-            description={
-              screen.error
-              ??
-              'The material may have been removed.'
-            }
-
+            description={screen.error ?? 'The material may have been removed.'}
             actionTitle="Try again"
-
-            onAction={
-              screen.loadMaterials
-            }
+            onAction={screen.loadMaterials}
           />
-
         </View>
-
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
+  const material = screen.material;
 
-  const material =
-    screen.material;
+  const handleGenerateSummary = () => {
+    if (screen.busy) {
+      return;
+    }
 
+    navigation.navigate('MaterialSummary', {
+      materialId: material.id,
 
-  // =========================================================
-  // OPEN AI SUMMARY
-  // =========================================================
+      subjectId,
 
-  const handleGenerateSummary =
-    () => {
+      subjectName,
 
-      if (
-        screen.busy
-      ) {
+      materialTitle: material.title,
+    });
+  };
 
-        return;
-      }
+  const handleGenerateFlashcards = () => {
+    if (screen.busy) {
+      return;
+    }
 
+    navigation.navigate('MaterialFlashcards', {
+      materialId: material.id,
 
-      navigation.navigate(
-        'MaterialSummary',
-        {
-          materialId:
-            material.id,
+      subjectId,
 
-          subjectId,
+      subjectName,
 
-          subjectName,
+      materialTitle: material.title,
+    });
+  };
 
-          materialTitle:
-            material.title,
-        },
-      );
-    };
+  const handleOpenQuiz = () => {
+    if (screen.busy) {
+      return;
+    }
 
+    navigation.navigate('MaterialQuiz', {
+      materialId: material.id,
 
-  // =========================================================
-  // OPEN AI FLASHCARDS
-  // =========================================================
+      subjectId,
 
-  const handleGenerateFlashcards =
-    () => {
+      subjectName,
 
-      if (
-        screen.busy
-      ) {
+      materialTitle: material.title,
+    });
+  };
 
-        return;
-      }
+  const handlePreviewPdf = () => {
+    if (screen.busy || material.sourceType !== 'pdf') {
+      return;
+    }
 
+    navigation.navigate('PdfPreview', {
+      materialId: material.id,
 
-      navigation.navigate(
-        'MaterialFlashcards',
-        {
-          materialId:
-            material.id,
+      subjectId,
 
-          subjectId,
+      subjectName,
 
-          subjectName,
+      title: material.title,
+    });
+  };
 
-          materialTitle:
-            material.title,
-        },
-      );
-    };
+  const handlePreviewImage = () => {
+    if (
+      screen.busy ||
+      (material.sourceType !== 'image' && material.sourceType !== 'camera')
+    ) {
+      return;
+    }
 
+    navigation.navigate('ImagePreview', {
+      materialId: material.id,
 
-  // =========================================================
-  // OPEN AI QUIZ
-  // =========================================================
+      subjectId,
 
-  const handleOpenQuiz =
-    () => {
+      subjectName,
 
-      if (
-        screen.busy
-      ) {
-
-        return;
-      }
-
-
-      navigation.navigate(
-        'MaterialQuiz',
-        {
-          materialId:
-            material.id,
-
-          subjectId,
-
-          subjectName,
-
-          materialTitle:
-            material.title,
-        },
-      );
-    };
-
-
-  // =========================================================
-  // PDF PREVIEW
-  // =========================================================
-
-  const handlePreviewPdf =
-    () => {
-
-      if (
-        screen.busy
-        ||
-        material.sourceType !==
-          'pdf'
-      ) {
-
-        return;
-      }
-
-
-      navigation.navigate(
-        'PdfPreview',
-        {
-          materialId:
-            material.id,
-
-          subjectId,
-
-          subjectName,
-
-          title:
-            material.title,
-        },
-      );
-    };
-
-
-  // =========================================================
-  // IMAGE PREVIEW
-  // =========================================================
-
-  const handlePreviewImage =
-    () => {
-
-      if (
-        screen.busy
-        ||
-        (
-          material.sourceType !==
-            'image'
-          &&
-          material.sourceType !==
-            'camera'
-        )
-      ) {
-
-        return;
-      }
-
-
-      navigation.navigate(
-        'ImagePreview',
-        {
-          materialId:
-            material.id,
-
-          subjectId,
-
-          subjectName,
-
-          title:
-            material.title,
-        },
-      );
-    };
-
-
-  // =========================================================
-  // UI
-  // =========================================================
+      title: material.title,
+    });
+  };
 
   return (
-
-    <SafeAreaView
-      className="
-        flex-1
-        bg-slate-50
-      ">
-
+    <ScreenContainer>
       <KeyboardAvoidingView
-        className="
-          flex-1
-        "
-
-        behavior={
-          Platform.OS ===
-          'ios'
-            ? 'padding'
-            : undefined
-        }>
-
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <ScrollView
-          className="
-            flex-1
-          "
-
-          contentContainerStyle={{
-            paddingBottom:
-              120,
-          }}
-
+          className="flex-1"
+          contentContainerClassName="pb-10"
           keyboardShouldPersistTaps="handled"
-
-          showsVerticalScrollIndicator={
-            false
-          }>
-
-          <View
-            className="
-              px-6
-              pt-6
-            ">
-
-            {/* =================================================
-                HEADER
-            ================================================== */}
-
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="w-full max-w-[680px] self-center px-6 pt-6">
             <ScreenHeader
-              title="Material"
-
-              subtitle={
-                subjectName
-              }
-
-              onBack={() =>
-                navigation.goBack()
-              }
-
+              eyebrow="Learning library"
+              title={screen.editing ? 'Edit material' : 'Material'}
+              subtitle={subjectName}
+              onBack={() => navigation.goBack()}
               right={
-                !screen.editing
-                &&
-                screen.canEdit
-                  ? (
-
-                    <Pressable
-                      accessibilityRole="button"
-
-                      accessibilityLabel="Edit material"
-
-                      disabled={
-                        screen.busy
-                      }
-
-                      onPress={
-                        screen.startEditing
-                      }
-
-                      className="
-                        ml-3
-                        h-11
-                        w-11
-                        items-center
-                        justify-center
-                        rounded-xl
-                        bg-indigo-50
-                      "
-
-                      style={({
-                        pressed,
-                      }) => ({
-
-                        opacity:
-                          screen.busy
-                            ? 0.4
-                            : pressed
-                              ? 0.65
-                              : 1,
-                      })}>
-
-                      <Pencil
-                        size={20}
-                        color="#4F46E5"
-                      />
-
-                    </Pressable>
-
-                  )
-                  : undefined
+                !screen.editing && screen.canEdit ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit material"
+                    accessibilityState={{ disabled: screen.busy }}
+                    disabled={screen.busy}
+                    onPress={screen.startEditing}
+                    className={`h-11 w-11 items-center justify-center rounded-2xl border border-brand-100 bg-brand-50 ${
+                      screen.busy ? 'opacity-40' : 'active:opacity-60'
+                    }`}
+                  >
+                    <Pencil size={20} color={colors.primary} />
+                  </Pressable>
+                ) : undefined
               }
             />
-
-
-            {/* =================================================
-                MATERIAL CONTENT
-            ================================================== */}
 
             <MaterialDetailsContent
-              material={
-                material
-              }
-
-              editing={
-                screen.editing
-              }
-
-              title={
-                screen.title
-              }
-
-              content={
-                screen.content
-              }
-
-              busy={
-                screen.busy
-              }
-
-              isUpdating={
-                screen.isUpdating
-              }
-
-              isDeleting={
-                screen.isDeleting
-              }
-
-              onTitleChange={
-                screen.setTitle
-              }
-
-              onContentChange={
-                screen.setContent
-              }
-
-              onCancelEdit={
-                screen.cancelEditing
-              }
-
-              onSave={
-                screen.saveMaterial
-              }
-
-              onDelete={
-                screen.deleteCurrentMaterial
-              }
-
-
-              // ===============================================
-              // AI SUMMARY
-              // ===============================================
-
-              onGenerateSummary={
-                handleGenerateSummary
-              }
-
-              aiSummaryDisabled={
-                !screen.canGenerateSummary
-              }
-
-
-              // ===============================================
-              // AI FLASHCARDS
-              // ===============================================
-
-              onGenerateFlashcards={
-                handleGenerateFlashcards
-              }
-
-              aiFlashcardsDisabled={
-                !screen.canGenerateSummary
-              }
-
-
-              // ===============================================
-              // AI QUIZ
-              // ===============================================
-
-              onOpenQuiz={
-                handleOpenQuiz
-              }
-
-              aiQuizDisabled={
-                !screen.canGenerateSummary
-              }
-
-
-              // ===============================================
-              // PDF PREVIEW
-              // ===============================================
-
-              onPreviewPdf={
-                handlePreviewPdf
-              }
-
-
-              // ===============================================
-              // IMAGE PREVIEW
-              // ===============================================
-
-              onPreviewImage={
-                handlePreviewImage
-              }
+              material={material}
+              editing={screen.editing}
+              title={screen.title}
+              content={screen.content}
+              busy={screen.busy}
+              isUpdating={screen.isUpdating}
+              isDeleting={screen.isDeleting}
+              onTitleChange={screen.setTitle}
+              onContentChange={screen.setContent}
+              onCancelEdit={screen.cancelEditing}
+              onSave={screen.saveMaterial}
+              onDelete={screen.deleteCurrentMaterial}
+              onGenerateSummary={handleGenerateSummary}
+              aiSummaryDisabled={!screen.canGenerateSummary}
+              onGenerateFlashcards={handleGenerateFlashcards}
+              aiFlashcardsDisabled={!screen.canGenerateSummary}
+              onOpenQuiz={handleOpenQuiz}
+              aiQuizDisabled={!screen.canGenerateSummary}
+              onPreviewPdf={handlePreviewPdf}
+              onPreviewImage={handlePreviewImage}
             />
-
           </View>
-
         </ScrollView>
-
       </KeyboardAvoidingView>
-
-    </SafeAreaView>
+    </ScreenContainer>
   );
 };
-
 
 export default MaterialDetailsScreen;
