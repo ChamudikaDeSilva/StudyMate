@@ -77,6 +77,7 @@ const AccountMenu = ({ displayName, onProfile }: AccountMenuProps) => {
     }
 
     confirmingLogout.current = true;
+    closeMenu();
     alert(
       'Sign out?',
       'Sign in again whenever you’re ready to keep learning.',

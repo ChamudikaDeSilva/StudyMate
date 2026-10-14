@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal } from 'react-native';
+import { Modal, Platform } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import AccountMenu from '../../src/components/home/AccountMenu';
 import ActionButton from '../../src/components/common/ActionButton';
@@ -26,6 +26,8 @@ jest.mock('lucide-react-native', () => {
 
 const logout = jest.fn<Promise<void>, []>();
 const mounted: ReactTestRenderer.ReactTestRenderer[] = [];
+let platform = 'ios';
+const initialPlatform = Object.getOwnPropertyDescriptor(Platform, 'OS')!;
 const renderMenu = () => {
   const onProfile = jest.fn();
   let renderer!: ReactTestRenderer.ReactTestRenderer;
@@ -47,6 +49,10 @@ const avatar = (renderer: ReactTestRenderer.ReactTestRenderer) =>
   );
 const sheet = (renderer: ReactTestRenderer.ReactTestRenderer) =>
   renderer.root.findByType(AppModal);
+const rootModal = (renderer: ReactTestRenderer.ReactTestRenderer) =>
+  renderer.root
+    .findAllByType(Modal)
+    .find(node => node.props.testID === 'app-dialog-modal')!;
 const action = (renderer: ReactTestRenderer.ReactTestRenderer, title: string) =>
   sheet(renderer)
     .findAllByType(ActionButton)
@@ -74,6 +80,14 @@ const open = (renderer: ReactTestRenderer.ReactTestRenderer) => {
 const requestLogout = (renderer: ReactTestRenderer.ReactTestRenderer) => {
   const previousCalls = logout.mock.calls.length;
   act(() => action(renderer, 'Sign out').props.onPress());
+  expect(sheet(renderer).props.visible).toBe(false);
+  expect(sheet(renderer).findByType(Modal).props.visible).toBe(false);
+  if (platform === 'ios') {
+    expect(rootModal(renderer).props.visible).toBe(false);
+    expect(renderer.root.findAllByType(AppDialog)).toHaveLength(0);
+    completeSheetDismissal(renderer);
+  }
+  expect(rootModal(renderer).props.visible).toBe(true);
   expect(dialog(renderer).props.title).toBe('Sign out?');
   expect(logout).toHaveBeenCalledTimes(previousCalls);
 };
@@ -82,8 +96,18 @@ const completeSheetDismissal = (
 ) => {
   act(() => sheet(renderer).findByType(Modal).props.onDismiss?.());
 };
+const completeRootDismissal = (
+  renderer: ReactTestRenderer.ReactTestRenderer,
+) => {
+  act(() => rootModal(renderer).props.onDismiss());
+};
 
 beforeEach(() => {
+  platform = 'ios';
+  Object.defineProperty(Platform, 'OS', {
+    configurable: true,
+    get: () => platform,
+  });
   jest.clearAllMocks();
   logout.mockResolvedValue(undefined);
   jest.mocked(useAuth).mockReturnValue({
@@ -100,6 +124,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   act(() => mounted.splice(0).forEach(renderer => renderer.unmount()));
+  Object.defineProperty(Platform, 'OS', initialPlatform);
 });
 
 test('view profile closes the shared account sheet and navigates once', () => {
@@ -120,6 +145,21 @@ test('closing the account sheet leaves the session intact', () => {
   expect(logout).not.toHaveBeenCalled();
 });
 
+test.each(['ios', 'android'])(
+  'sign-out confirmation replaces the account sheet on %s',
+  os => {
+    platform = os;
+    const { renderer } = renderMenu();
+    open(renderer);
+    requestLogout(renderer);
+    expect(sheet(renderer).findAllByType(AppDialog)).toHaveLength(0);
+    expect(rootModal(renderer).findAllByType(AppDialog)).toHaveLength(1);
+    act(() => dialogAction(renderer, 'Cancel')());
+    expect(logout).not.toHaveBeenCalled();
+    expect(sheet(renderer).props.visible).toBe(false);
+  },
+);
+
 test.each(['Cancel', 'backdrop', 'back'])(
   '%s dismisses the themed confirmation and allows another attempt',
   mode => {
@@ -132,12 +172,13 @@ test.each(['Cancel', 'backdrop', 'back'])(
       } else if (mode === 'backdrop') {
         dialog(renderer).props.onDismiss();
       } else {
-        sheet(renderer).findByType(Modal).props.onRequestClose();
+        rootModal(renderer).props.onRequestClose();
       }
     });
     expect(logout).not.toHaveBeenCalled();
     expect(sheet(renderer).props.visible).toBe(false);
-    completeSheetDismissal(renderer);
+    expect(rootModal(renderer).props.visible).toBe(false);
+    completeRootDismissal(renderer);
     open(renderer);
     requestLogout(renderer);
   },
@@ -158,6 +199,9 @@ test('confirmation and pending logout block repeated actions', async () => {
     request();
     profile();
   });
+  expect(sheet(renderer).props.visible).toBe(false);
+  expect(renderer.root.findAllByType(AppDialog)).toHaveLength(0);
+  completeSheetDismissal(renderer);
   expect(renderer.root.findAllByType(AppDialog)).toHaveLength(1);
   expect(onProfile).not.toHaveBeenCalled();
   const confirm = dialogAction(renderer, 'Sign out');
@@ -187,17 +231,13 @@ test('failed logout shows a themed error and permits a retry', async () => {
   await act(async () => {
     dialogAction(renderer, 'Sign out')();
   });
-  completeSheetDismissal(renderer);
+  expect(rootModal(renderer).props.visible).toBe(false);
+  completeRootDismissal(renderer);
   expect(dialog(renderer).props.title).toBe('Sign out failed');
   expect(dialog(renderer).props.options.tone).toBe('danger');
   act(() => dialogAction(renderer, 'OK')());
   // Complete the root native dialog dismissal before opening the next sheet.
-  act(() =>
-    renderer.root
-      .findAllByType(Modal)
-      .filter(node => !sheet(renderer).findAllByType(Modal).includes(node))
-      .forEach(node => node.props.onDismiss?.()),
-  );
+  completeRootDismissal(renderer);
   open(renderer);
   requestLogout(renderer);
   await act(async () => {
