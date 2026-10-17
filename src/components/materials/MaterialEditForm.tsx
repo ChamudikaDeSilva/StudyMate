@@ -64,7 +64,11 @@ const MaterialEditForm = ({
         value={title}
         onChangeText={onTitleChange}
         editable={!busy}
+        maxLength={200}
         placeholder="Material title"
+        helperText={material.sourceType !== 'text'
+          ? 'Update the title in your library. The attached file stays the same.'
+          : undefined}
       />
 
       {material.sourceType === 'text' && (

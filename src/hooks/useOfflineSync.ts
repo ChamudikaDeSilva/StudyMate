@@ -7,6 +7,7 @@ import {
 
 import {
   getPendingSyncCount,
+  subscribeToSyncQueue,
 } from '../data/local/sync/pendingSyncQueue';
 
 import {
@@ -55,6 +56,7 @@ export const useOfflineSync = () => {
   const syncingRef =
     useRef(false);
   const syncNowRef = useRef<(() => Promise<OfflineSyncResult | null>) | null>(null);
+  const queuedDuringSync = useRef(false);
 
 
   const userId =
@@ -93,6 +95,7 @@ export const useOfflineSync = () => {
         try {
           syncingRef.current =
             true;
+          queuedDuringSync.current = false;
 
           setSyncing(
             true,
@@ -158,7 +161,11 @@ export const useOfflineSync = () => {
           );
 
           const currentSession = getSyncSession();
-          if (!session.isCurrent() && currentSession?.isCurrent()) {
+          if (
+            currentSession?.isCurrent() &&
+            (!session.isCurrent() || queuedDuringSync.current)
+          ) {
+            queuedDuringSync.current = false;
             syncNowRef.current?.();
           }
         }
@@ -173,6 +180,14 @@ export const useOfflineSync = () => {
     );
 
   syncNowRef.current = syncNow;
+
+  useEffect(() => subscribeToSyncQueue(queuedUserId => {
+    if (queuedUserId !== userId) {
+      return;
+    }
+    queuedDuringSync.current = true;
+    syncNowRef.current?.();
+  }), [userId]);
 
   useEffect(() => {
     setLastResult(null);

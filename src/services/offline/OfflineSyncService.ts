@@ -11,6 +11,7 @@ import {
   saveSubjectsCache,
   getMaterialsCache,
   saveMaterialsCache,
+  updateMaterialsCache,
   removeMaterialsCache,
 } from '../../data/local/storage/offlineCache';
 
@@ -36,6 +37,7 @@ import {
   offlineFileStorageService,
 } from './OfflineFileStorageService';
 import {SyncSession} from '../../domain/models/SyncSession';
+import {Material} from '../../domain/models/Material';
 
 
 // ============================================================
@@ -776,6 +778,52 @@ class OfflineSyncRun {
   // TEXT MATERIAL CREATE
   // =========================================================
 
+  private async cacheCreatedMaterial(
+    userId: string,
+    operation: PendingSyncOperation,
+    createdMaterial: Material,
+  ): Promise<void> {
+    const payload = operation.payload as MaterialCreatePayload | MaterialFileCreatePayload;
+    await updateMaterialsCache(userId, payload.subjectId, async cachedMaterials => {
+      const pending = await getPendingSyncOperations(userId);
+      let material: Material = {...createdMaterial, syncStatus: 'synced'};
+      let deleted = false;
+
+      // Upload/create may finish before later edits can be sent. The local row
+      // must retain those changes even if the following request needs a retry.
+      for (const queued of pending) {
+        if (
+          queued.id === operation.id ||
+          queued.entity !== 'material' ||
+          !('materialId' in queued.payload) ||
+          (queued.payload.materialId !== payload.localId &&
+            queued.payload.materialId !== createdMaterial.id)
+        ) {
+          continue;
+        }
+        if (queued.action === 'delete') {
+          deleted = true;
+        } else if (queued.action === 'update') {
+          const update = queued.payload as MaterialUpdatePayload;
+          material = {
+            ...material,
+            title: update.title,
+            ...(update.kind === 'title' ? {} : {content: update.content}),
+            syncStatus: 'pending',
+          };
+        }
+      }
+
+      const withoutServerRow = cachedMaterials.filter(item => item.id !== createdMaterial.id);
+      if (deleted) {
+        return withoutServerRow.filter(item => item.id !== payload.localId);
+      }
+      return withoutServerRow.some(item => item.id === payload.localId)
+        ? withoutServerRow.map(item => item.id === payload.localId ? material : item)
+        : [material, ...withoutServerRow];
+    });
+  }
+
   private async createMaterial(
     userId:
       string,
@@ -789,13 +837,7 @@ class OfflineSyncRun {
         MaterialCreatePayload;
 
 
-    /*
-     * Offline queue currently supports
-     * TEXT materials only.
-     *
-     * PDF / Image / Camera remain
-     * online-only.
-     */
+    // File creates are handled separately by createFileMaterial().
 
     const createdMaterial =
       await this
@@ -827,51 +869,7 @@ class OfflineSyncRun {
     // UPDATE MATERIAL CACHE
     // ========================================================
 
-    const cachedMaterials =
-      await getMaterialsCache(
-        userId,
-        payload.subjectId,
-      );
-
-
-    const hasLocalMaterial =
-      cachedMaterials.some(
-        material =>
-          material.id ===
-          payload.localId,
-      );
-
-
-    const syncedMaterial = {
-      ...createdMaterial,
-
-      syncStatus:
-        'synced' as const,
-    };
-
-
-    const updatedMaterials =
-      hasLocalMaterial
-
-        ? cachedMaterials.map(
-            material =>
-              material.id ===
-              payload.localId
-                ? syncedMaterial
-                : material,
-          )
-
-        : [
-            syncedMaterial,
-            ...cachedMaterials,
-          ];
-
-
-    await saveMaterialsCache(
-      userId,
-      payload.subjectId,
-      updatedMaterials,
-    );
+    await this.cacheCreatedMaterial(userId, operation, createdMaterial);
 
 
     // ========================================================
@@ -992,51 +990,7 @@ class OfflineSyncRun {
     // UPDATE MATERIAL CACHE
     // ========================================================
 
-    const cachedMaterials =
-      await getMaterialsCache(
-        userId,
-        payload.subjectId,
-      );
-
-
-    const hasLocalMaterial =
-      cachedMaterials.some(
-        material =>
-          material.id ===
-          payload.localId,
-      );
-
-
-    const syncedMaterial = {
-      ...createdMaterial,
-
-      syncStatus:
-        'synced' as const,
-    };
-
-
-    const updatedMaterials =
-      hasLocalMaterial
-
-        ? cachedMaterials.map(
-            material =>
-              material.id ===
-              payload.localId
-                ? syncedMaterial
-                : material,
-          )
-
-        : [
-            syncedMaterial,
-            ...cachedMaterials,
-          ];
-
-
-    await saveMaterialsCache(
-      userId,
-      payload.subjectId,
-      updatedMaterials,
-    );
+    await this.cacheCreatedMaterial(userId, operation, createdMaterial);
 
 
     // ========================================================
@@ -1140,7 +1094,7 @@ class OfflineSyncRun {
 
 
   // =========================================================
-  // TEXT MATERIAL UPDATE
+  // MATERIAL UPDATE
   // =========================================================
 
   private async updateMaterial(
@@ -1156,56 +1110,63 @@ class OfflineSyncRun {
         MaterialUpdatePayload;
 
 
-    await this
-      .materialRepository
-      .updateMaterial(
-        payload.materialId,
-        {
-          title:
-            payload.title,
-
-          content:
-            payload.content,
-        },
-      );
+    if (payload.kind === 'title') {
+      await this.materialRepository.updateMaterialTitle(payload.materialId, payload.title);
+    } else {
+      // Existing stored text updates have no kind field.
+      await this.materialRepository.updateMaterial(payload.materialId, {
+        title: payload.title,
+        content: payload.content,
+      });
+    }
 
 
-    const cachedMaterials =
-      await getMaterialsCache(
-        userId,
-        payload.subjectId,
-      );
+    await updateMaterialsCache(userId, payload.subjectId, async cachedMaterials => {
+      // A user can make another offline change while this request is in flight.
+      // Completing an earlier edit must not roll that later change back locally.
+      const pending = await getPendingSyncOperations(userId);
+      const laterUpdates: MaterialUpdatePayload[] = [];
+      let laterDelete = false;
+      for (const queued of pending) {
+        if (
+          queued.id === operation.id ||
+          queued.entity !== 'material' ||
+          !('materialId' in queued.payload) ||
+          queued.payload.materialId !== payload.materialId
+        ) {
+          continue;
+        }
+        if (queued.action === 'delete') {
+          laterDelete = true;
+        } else if (queued.action === 'update') {
+          laterUpdates.push(queued.payload as MaterialUpdatePayload);
+        }
+      }
 
+      return laterDelete
+        ? cachedMaterials.filter(material => material.id !== payload.materialId)
+        : cachedMaterials.map(material => {
+            if (material.id !== payload.materialId) {
+              return material;
+            }
 
-    const updatedMaterials =
-      cachedMaterials.map(
-        material =>
-          material.id ===
-          payload.materialId
-            ? {
-                ...material,
-
-                title:
-                  payload.title,
-
-                content:
-                  payload.content,
-
-                updatedAt:
-                  Date.now(),
-
-                syncStatus:
-                  'synced' as const,
-              }
-            : material,
-      );
-
-
-    await saveMaterialsCache(
-      userId,
-      payload.subjectId,
-      updatedMaterials,
-    );
+            let updated = {
+              ...material,
+              title: payload.title,
+              ...(payload.kind === 'title' ? {} : {content: payload.content}),
+              updatedAt: Date.now(),
+              syncStatus: laterUpdates.length ? 'pending' as const : 'synced' as const,
+            };
+            for (const later of laterUpdates) {
+              updated = {
+                ...updated,
+                title: later.title,
+                ...(later.kind === 'title' ? {} : {content: later.content}),
+              };
+            }
+            return updated;
+          });
+    });
 
 
     console.log(
@@ -1235,32 +1196,19 @@ class OfflineSyncRun {
         MaterialDeletePayload;
 
 
-    await this
-      .materialRepository
-      .deleteMaterial(
-        payload.materialId,
-      );
+    try {
+      await this.materialRepository.deleteMaterial(payload.materialId);
+    } catch (error) {
+      // A previous attempt may have reached the server before its response was
+      // lost. Already absent is the requested result; other failures must retry.
+      if (!(error instanceof Error && 'status' in error && error.status === 404)) {
+        throw error;
+      }
+    }
 
 
-    const cachedMaterials =
-      await getMaterialsCache(
-        userId,
-        payload.subjectId,
-      );
-
-
-    const updatedMaterials =
-      cachedMaterials.filter(
-        material =>
-          material.id !==
-          payload.materialId,
-      );
-
-
-    await saveMaterialsCache(
-      userId,
-      payload.subjectId,
-      updatedMaterials,
+    await updateMaterialsCache(userId, payload.subjectId, cachedMaterials =>
+      cachedMaterials.filter(material => material.id !== payload.materialId),
     );
 
 

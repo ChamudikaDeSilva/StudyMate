@@ -9,6 +9,36 @@ import {
   Material,
 } from '../../../domain/models/Material';
 
+const materialWrites = new Map<string, Promise<Material[]>>();
+
+/** Keep material read/modify/write operations ordered across screen instances. */
+export const updateMaterialsCache = async (
+  userId: string | number,
+  subjectId: string | number,
+  update: (current: Material[]) => Material[] | Promise<Material[]>,
+): Promise<Material[]> => {
+  const key = materialsKey(userId, subjectId);
+  const previous = materialWrites.get(key) ?? Promise.resolve([]);
+  const writing = previous.catch(() => []).then(async () => {
+    const stored = await readValue<Material[]>(key, true);
+    const current = stored ? stored.data : [];
+    if (!Array.isArray(current)) {
+      throw new Error('Saved materials could not be read. Please try again.');
+    }
+    const next = await update(current);
+    await saveMaterialsCache(userId, subjectId, next);
+    return next;
+  });
+  materialWrites.set(key, writing);
+  try {
+    return await writing;
+  } finally {
+    if (materialWrites.get(key) === writing) {
+      materialWrites.delete(key);
+    }
+  }
+};
+
 
 // ============================================================
 // TYPES
@@ -108,6 +138,8 @@ const readValue =
   async <T>(
     key:
       string,
+
+    strict = false,
   ): Promise<
     CacheEnvelope<T> | null
   > => {
@@ -140,6 +172,9 @@ const readValue =
           parsed
         )
       ) {
+        if (strict) {
+          throw new Error('Saved materials could not be read. Please try again.');
+        }
         return null;
       }
 
@@ -152,6 +187,10 @@ const readValue =
         'Offline cache read failed:',
         error,
       );
+
+      if (strict) {
+        throw error;
+      }
 
 
       return null;
@@ -288,6 +327,8 @@ export const saveMaterialsCache =
         'Unable to save materials cache:',
         error,
       );
+
+      throw error;
     }
   };
 

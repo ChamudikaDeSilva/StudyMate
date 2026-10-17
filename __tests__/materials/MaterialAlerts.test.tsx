@@ -83,6 +83,7 @@ const makeMaterials = () => ({
   createPdfMaterial: jest.fn(),
   createImageMaterial: jest.fn(),
   updateTextMaterial: jest.fn(),
+  updateMaterialTitle: jest.fn(),
   updateImageTitle: jest.fn(),
   deleteMaterial: jest.fn(),
 });
@@ -201,6 +202,87 @@ test('empty material edits show warnings and never call update', async () => {
     { tone: 'warning' },
   );
   expect(materials.updateTextMaterial).not.toHaveBeenCalled();
+});
+
+test.each(['pdf', 'image', 'camera'] as const)(
+  '%s materials expose editing and save a title without requiring text content',
+  async sourceType => {
+    const materials = makeMaterials();
+    materials.materials = [{
+      ...material,
+      sourceType,
+      content: undefined,
+      fileName: sourceType === 'pdf' ? 'stacks.pdf' : 'stacks.jpg',
+    }];
+    jest.mocked(useMaterials).mockReturnValue(materials as unknown as ReturnType<typeof useMaterials>);
+    const screen = mountHook(() => useMaterialDetailsScreen({
+      subjectId: material.subjectId,
+      materialId: material.id,
+      onDeleted: jest.fn(),
+    }));
+
+    expect(screen.current.canEdit).toBe(true);
+    act(() => screen.current.startEditing());
+    expect(screen.current.editing).toBe(true);
+    expect(screen.current.title).toBe('Stacks');
+    expect(screen.current.content).toBe('');
+    act(() => screen.current.setTitle('  Revised stacks material  '));
+    await act(async () => screen.current.saveMaterial());
+
+    expect(materials.updateMaterialTitle).toHaveBeenCalledWith(material.id, 'Revised stacks material');
+    expect(materials.updateTextMaterial).not.toHaveBeenCalled();
+    expect(materials.updateImageTitle).not.toHaveBeenCalled();
+    expect(mockAlert).not.toHaveBeenCalled();
+    expect(screen.current.editing).toBe(false);
+  },
+);
+
+test('text editing continues to save both title and study content', async () => {
+  const materials = makeMaterials();
+  jest.mocked(useMaterials).mockReturnValue(materials as unknown as ReturnType<typeof useMaterials>);
+  const screen = mountHook(() => useMaterialDetailsScreen({
+    subjectId: material.subjectId,
+    materialId: material.id,
+    onDeleted: jest.fn(),
+  }));
+  act(() => screen.current.startEditing());
+  act(() => {
+    screen.current.setTitle('  Revised stacks  ');
+    screen.current.setContent('  Pop removes the most recently added item.  ');
+  });
+
+  await act(async () => screen.current.saveMaterial());
+
+  expect(materials.updateTextMaterial).toHaveBeenCalledWith(
+    material.id, 'Revised stacks', 'Pop removes the most recently added item.',
+  );
+  expect(materials.updateMaterialTitle).not.toHaveBeenCalled();
+  expect(screen.current.editing).toBe(false);
+});
+
+test('a failed file-title save keeps the form open and presents the storage error', async () => {
+  const materials = makeMaterials();
+  materials.materials = [{ ...material, sourceType: 'pdf', content: undefined, fileName: 'stacks.pdf' }];
+  materials.updateMaterialTitle.mockRejectedValue(new Error('Device storage is full.'));
+  jest.mocked(useMaterials).mockReturnValue(materials as unknown as ReturnType<typeof useMaterials>);
+  const screen = mountHook(() => useMaterialDetailsScreen({
+    subjectId: material.subjectId,
+    materialId: material.id,
+    onDeleted: jest.fn(),
+  }));
+  act(() => screen.current.startEditing());
+  act(() => screen.current.setTitle('Unsaved title'));
+
+  await act(async () => screen.current.saveMaterial());
+
+  expect(mockAlert).toHaveBeenCalledWith(
+    'Unable to update material', 'Device storage is full.', undefined, { tone: 'danger' },
+  );
+  expect(screen.current.editing).toBe(true);
+  expect(screen.current.title).toBe('Unsaved title');
+  act(() => screen.current.cancelEditing());
+  expect(screen.current.title).toBe(material.title);
+  expect(screen.current.editing).toBe(false);
 });
 
 test('oversized PDFs show a warning and leave selection ready for another file', async () => {

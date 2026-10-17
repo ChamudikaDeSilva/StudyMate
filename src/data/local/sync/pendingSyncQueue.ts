@@ -65,12 +65,17 @@ export interface MaterialFileCreatePayload {
 }
 
 
-export interface MaterialUpdatePayload {
+interface MaterialUpdateBase {
   materialId: string;
   subjectId: string;
   title: string;
-  content: string;
 }
+
+// Older saved text updates have no kind, so retain that queue format.
+export type MaterialUpdatePayload = MaterialUpdateBase & (
+  | { kind?: 'text'; content: string }
+  | { kind: 'title'; content?: never }
+);
 
 
 export interface MaterialDeletePayload {
@@ -167,6 +172,55 @@ const queueKey =
     );
   };
 
+// Read-modify-write operations for one account must finish in their requested
+// order. Another account has its own chain and can continue independently.
+const pendingMutations = new Map<string, Promise<void>>();
+const queueListeners = new Set<(userId: string) => void>();
+
+/** Observe persisted additions so an online sync run can pick up new work. */
+export const subscribeToSyncQueue = (
+  listener: (userId: string) => void,
+): (() => void) => {
+  queueListeners.add(listener);
+  return () => {
+    queueListeners.delete(listener);
+  };
+};
+
+const notifyQueueAddition = (userId: string): void => {
+  for (const listener of [...queueListeners]) {
+    try {
+      listener(userId);
+    } catch (error) {
+      // A subscriber cannot undo an already persisted operation or prevent the
+      // remaining subscribers from learning about it.
+      console.warn('Unable to notify a sync queue subscriber:', error);
+    }
+  }
+};
+
+const withQueueMutation = <T>(
+  userId: string | number,
+  mutation: () => Promise<T>,
+): Promise<T> => {
+  const accountId = String(userId);
+  const previous = pendingMutations.get(accountId) ?? Promise.resolve();
+  const result = previous.then(mutation);
+  // A rejected storage operation must reject its caller without blocking the
+  // next queued change or creating an unhandled rejection on the shared chain.
+  const settled = result.then(
+    () => {},
+    () => {},
+  );
+  pendingMutations.set(accountId, settled);
+  settled.then(() => {
+    if (pendingMutations.get(accountId) === settled) {
+      pendingMutations.delete(accountId);
+    }
+  });
+  return result;
+};
+
 
 // ============================================================
 // RANDOM ID HELPER
@@ -250,71 +304,34 @@ export const isLocalEntityId =
 // READ QUEUE
 // ============================================================
 
-export const getPendingSyncOperations =
-  async (
-    userId:
-      string | number,
-  ): Promise<
-    PendingSyncOperation[]
-  > => {
+const readPendingSyncOperations = async (
+  userId: string | number,
+): Promise<PendingSyncOperation[]> => {
+  const raw = await AsyncStorage.getItem(queueKey(userId));
+  if (!raw) {
+    return [];
+  }
 
-    try {
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed)) {
+    throw new Error('The saved sync queue is invalid.');
+  }
 
-      const raw =
-        await AsyncStorage.getItem(
-          queueKey(
-            userId,
-          ),
-        );
+  return (parsed as PendingSyncOperation[]).sort(
+    (a, b) => a.createdAt - b.createdAt,
+  );
+};
 
-
-      if (
-        !raw
-      ) {
-
-        return [];
-      }
-
-
-      const parsed =
-        JSON.parse(
-          raw,
-        );
-
-
-      if (
-        !Array.isArray(
-          parsed,
-        )
-      ) {
-
-        return [];
-      }
-
-
-      return (
-        parsed as PendingSyncOperation[]
-      ).sort(
-        (
-          a,
-          b,
-        ) =>
-          a.createdAt
-          -
-          b.createdAt,
-      );
-
-    } catch (error) {
-
-      console.warn(
-        'Unable to read sync queue:',
-        error,
-      );
-
-
-      return [];
-    }
-  };
+export const getPendingSyncOperations = async (
+  userId: string | number,
+): Promise<PendingSyncOperation[]> => {
+  try {
+    return await readPendingSyncOperations(userId);
+  } catch (error) {
+    console.warn('Unable to read sync queue:', error);
+    return [];
+  }
+};
 
 
 // ============================================================
@@ -368,7 +385,7 @@ export const enqueueSyncOperation =
       EnqueueSyncOperationInput,
   ): Promise<
     PendingSyncOperation
-  > => {
+  > => withQueueMutation(userId, async () => {
 
     const normalizedUserId =
       String(
@@ -377,7 +394,7 @@ export const enqueueSyncOperation =
 
 
     const current =
-      await getPendingSyncOperations(
+      await readPendingSyncOperations(
         normalizedUserId,
       );
 
@@ -419,6 +436,8 @@ export const enqueueSyncOperation =
       next,
     );
 
+    notifyQueueAddition(normalizedUserId);
+
 
     console.log(
       '[SYNC QUEUE] Added',
@@ -436,7 +455,7 @@ export const enqueueSyncOperation =
 
 
     return operation;
-  };
+  });
 
 
 // ============================================================
@@ -450,10 +469,10 @@ export const removeSyncOperation =
 
     operationId:
       string,
-  ): Promise<void> => {
+  ): Promise<void> => withQueueMutation(userId, async () => {
 
     const current =
-      await getPendingSyncOperations(
+      await readPendingSyncOperations(
         userId,
       );
 
@@ -476,7 +495,7 @@ export const removeSyncOperation =
       '[SYNC QUEUE] Removed',
       operationId,
     );
-  };
+  });
 
 
 // ============================================================
@@ -497,10 +516,10 @@ export const updateSyncOperation =
           PendingSyncOperation,
       ) =>
         PendingSyncOperation,
-  ): Promise<void> => {
+  ): Promise<void> => withQueueMutation(userId, async () => {
 
     const current =
-      await getPendingSyncOperations(
+      await readPendingSyncOperations(
         userId,
       );
 
@@ -529,7 +548,7 @@ export const updateSyncOperation =
       userId,
       next,
     );
-  };
+  });
 
 
 // ============================================================
@@ -703,10 +722,10 @@ export const replaceLocalEntityIdInQueue =
 
     serverId:
       string,
-  ): Promise<void> => {
+  ): Promise<void> => withQueueMutation(userId, async () => {
 
     const current =
-      await getPendingSyncOperations(
+      await readPendingSyncOperations(
         userId,
       );
 
@@ -789,7 +808,7 @@ export const replaceLocalEntityIdInQueue =
         serverId,
       },
     );
-  };
+  });
 
 
 // ============================================================
@@ -820,10 +839,10 @@ export const removeLocalEntityOperations =
 
     localId:
       string,
-  ): Promise<void> => {
+  ): Promise<void> => withQueueMutation(userId, async () => {
 
     const current =
-      await getPendingSyncOperations(
+      await readPendingSyncOperations(
         userId,
       );
 
@@ -890,7 +909,7 @@ export const removeLocalEntityOperations =
       '[SYNC QUEUE] Local entity operations removed',
       localId,
     );
-  };
+  });
 
 
 // ============================================================
@@ -901,7 +920,7 @@ export const clearPendingSyncQueue =
   async (
     userId:
       string | number,
-  ): Promise<void> => {
+  ): Promise<void> => withQueueMutation(userId, async () => {
 
     try {
 
@@ -923,8 +942,10 @@ export const clearPendingSyncQueue =
         'Unable to clear sync queue:',
         error,
       );
+
+      throw error;
     }
-  };
+  });
 
 
 // ============================================================

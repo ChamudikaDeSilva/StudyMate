@@ -15,15 +15,17 @@ import {
 
 import {
   getMaterialsCache,
-  saveMaterialsCache,
+  updateMaterialsCache,
 } from '../data/local/storage/offlineCache';
 
 import {
   createLocalEntityId,
   enqueueSyncOperation,
+  getPendingSyncOperations,
   isLocalEntityId,
   removeLocalEntityOperations,
 } from '../data/local/sync/pendingSyncQueue';
+import { reconcileMaterials } from '../data/local/sync/reconcileMaterials';
 
 import {
   useAuth,
@@ -116,37 +118,16 @@ export const useMaterials = (
       ? String(user.id)
       : null;
 
-
-  // =========================================================
-  // ONLINE-ONLY CHECK
-  // =========================================================
-  //
-  // Used only for:
-  //
-  // Image upload
-  // Camera upload
-  //
-  // Text and PDF materials are allowed offline.
-  //
-
-  const requireOnline =
-    useCallback(() => {
-
-      if (
-        networkInitialized
-        &&
-        !isOnline
-      ) {
-
-        throw new Error(
-          'This action requires an internet connection.',
-        );
+  const commitMaterials = useCallback(
+    async (update: (current: Material[]) => Material[] | Promise<Material[]>) => {
+      if (!userId) {
+        return;
       }
-
-    }, [
-      networkInitialized,
-      isOnline,
-    ]);
+      const next = await updateMaterialsCache(userId, subjectId, update);
+      setMaterials(next);
+    },
+    [userId, subjectId],
+  );
 
 
   // =========================================================
@@ -263,6 +244,8 @@ export const useMaterials = (
 
           try {
 
+            const operationsBefore = await getPendingSyncOperations(userId);
+
             const result =
               await repository
                 .getMaterials(
@@ -271,16 +254,18 @@ export const useMaterials = (
                 );
 
 
-            setMaterials(
-              result,
+            const next = await updateMaterialsCache(userId, subjectId, async cachedNow =>
+              reconcileMaterials({
+                userId,
+                subjectId,
+                remote: result,
+                cachedBefore: cachedMaterials,
+                cachedNow,
+                operationsBefore,
+                operationsNow: await getPendingSyncOperations(userId),
+              }),
             );
-
-
-            await saveMaterialsCache(
-              userId,
-              subjectId,
-              result,
-            );
+            setMaterials(next);
 
           } catch (
             remoteError
@@ -292,14 +277,25 @@ export const useMaterials = (
             );
 
 
-            if (
-              cachedMaterials.length > 0
-            ) {
-
-              setMaterials(
-                cachedMaterials,
+            let hasPendingChanges = false;
+            const fallback = await updateMaterialsCache(userId, subjectId, async current => {
+              const operations = await getPendingSyncOperations(userId);
+              hasPendingChanges = operations.some(operation =>
+                operation.entity === 'material' &&
+                'subjectId' in operation.payload && operation.payload.subjectId === subjectId,
               );
-
+              return reconcileMaterials({
+                userId,
+                subjectId,
+                remote: current,
+                cachedBefore: current,
+                cachedNow: current,
+                operationsBefore: [],
+                operationsNow: operations,
+              });
+            });
+            if (fallback.length > 0 || cachedMaterials.length > 0 || hasPendingChanges) {
+              setMaterials(fallback);
               return;
             }
 
@@ -347,7 +343,7 @@ export const useMaterials = (
   useEffect(
     () => {
 
-      void loadMaterials();
+      loadMaterials();
 
     },
     [
@@ -360,80 +356,16 @@ export const useMaterials = (
   // ADD MATERIAL TO STATE + CACHE
   // =========================================================
 
-  const addMaterialToState =
-    useCallback(
-      async (
-        material: Material,
-      ): Promise<void> => {
+  const addMaterialToState = useCallback(
+    async (material: Material): Promise<void> => {
+      await commitMaterials(current => [
+        material,
+        ...current.filter(item => item.id !== material.id),
+      ]);
+    },
+    [commitMaterials],
+  );
 
-        if (!userId) {
-          return;
-        }
-
-
-        /*
-         * Read the shared cache first.
-         *
-         * This is important because
-         * AddMaterialScreen and
-         * SubjectMaterialsScreen each
-         * have their own useMaterials()
-         * instance.
-         */
-        const cachedMaterials =
-          await getMaterialsCache(
-            userId,
-            subjectId,
-          );
-
-
-        /*
-         * Prevent accidental duplicate
-         * entries if this material already
-         * exists in the cache.
-         */
-        const withoutExisting =
-          cachedMaterials.filter(
-            item =>
-              item.id !==
-              material.id,
-          );
-
-
-        const next = [
-          material,
-          ...withoutExisting,
-        ];
-
-
-        /*
-         * IMPORTANT:
-         *
-         * Await the cache write before
-         * returning.
-         *
-         * AddMaterialScreen calls
-         * navigation.goBack() only after
-         * createTextMaterial() completes,
-         * so the Materials screen will now
-         * read the newly saved material.
-         */
-        await saveMaterialsCache(
-          userId,
-          subjectId,
-          next,
-        );
-
-
-        setMaterials(
-          next,
-        );
-      },
-      [
-        userId,
-        subjectId,
-      ],
-    );
 
   // =========================================================
   // CREATE TEXT MATERIAL
@@ -1320,329 +1252,93 @@ export const useMaterials = (
     );
 
 
-  // =========================================================
-  // UPDATE TEXT MATERIAL
-  // =========================================================
+  // Text edits and file-title edits share the same persistence and replay path.
+  const updateMaterial = useCallback(
+    async (materialId: string, title: string, content?: string) => {
+      if (!userId) {
+        throw new Error('You must be logged in.');
+      }
+      const cleanTitle = title.trim();
+      const cleanContent = content?.trim();
+      if (!cleanTitle) {
+        throw new Error('Material title is required.');
+      }
+      if (cleanTitle.length > 200) {
+        throw new Error('Material title must be 200 characters or fewer.');
+      }
+      if (content !== undefined && !cleanContent) {
+        throw new Error('Text material content is required.');
+      }
 
-  const updateTextMaterial =
-    useCallback(
-      async (
-        materialId: string,
-        title: string,
-        content: string,
-      ) => {
-
-        if (!userId) {
-
-          throw new Error(
-            'You must be logged in.',
-          );
-        }
-
-
-        try {
-
-          setUpdatingMaterialId(
-            materialId,
-          );
-
-
-          setError(
-            null,
-          );
-
-
-          /*
-           * Queue when:
-           *
-           * Offline
-           *
-           * OR material still has local ID
-           *
-           * OR parent Subject still has local ID
-           */
-
-          const shouldQueue =
-            (
-              networkInitialized
-              &&
-              !isOnline
-            )
-            ||
-            isLocalEntityId(
-              materialId,
-            )
-            ||
-            isLocalEntityId(
-              subjectId,
-            );
-
-
-          // ===================================================
-          // OFFLINE UPDATE
-          // ===================================================
-
-          if (
-            shouldQueue
-          ) {
-
-            await enqueueSyncOperation(
-              userId,
-              {
-                entity:
-                  'material',
-
-                action:
-                  'update',
-
-                payload: {
-                  materialId,
-
-                  subjectId,
-
-                  title,
-
-                  content,
-                },
-              },
-            );
-
-
-            setMaterials(
-              current => {
-
-                const next:
-                  Material[] =
-                  current.map(
-                    material =>
-                      material.id ===
-                      materialId
-                        ? {
-                            ...material,
-
-                            title,
-
-                            content,
-
-                            updatedAt:
-                              Date.now(),
-
-                            syncStatus:
-                              'pending' as const,
-                          }
-                        : material,
-                  );
-
-
-                void saveMaterialsCache(
-                  userId,
-                  subjectId,
-                  next,
-                );
-
-
-                return next;
-              },
-            );
-
-
-            console.log(
-              '[OFFLINE MATERIAL] Update queued',
-              {
-                materialId,
-                subjectId,
-              },
-            );
-
-
-            return;
-          }
-
-
-          // ===================================================
-          // ONLINE UPDATE
-          // ===================================================
-
-          await repository
-            .updateMaterial(
-              materialId,
-              {
-                title,
-
-                content,
-              },
-            );
-
-
-          await loadMaterials();
-
-        } catch (
-          updateError
-        ) {
-
-          console.warn(
-            'Update text material error:',
-            updateError,
-          );
-
-
-          setError(
-            updateError instanceof Error
-              ? updateError.message
-              : 'Unable to update material.',
-          );
-
-
-          throw updateError;
-
-        } finally {
-
-          setUpdatingMaterialId(
-            null,
-          );
-        }
-      },
-      [
-        repository,
-        userId,
-        subjectId,
-        networkInitialized,
-        isOnline,
-        loadMaterials,
-      ],
-    );
-
-
-  // =========================================================
-  // BACKWARD-COMPATIBLE UPDATE
-  // =========================================================
-
-  const updateMaterial =
-    useCallback(
-      async (
-        materialId: string,
-        title: string,
-        content?: string,
-      ) => {
-
-        if (
-          !content
-        ) {
-
-          throw new Error(
-            'Text material content is required.',
-          );
-        }
-
-
-        return updateTextMaterial(
-          materialId,
-          title,
-          content,
+      try {
+        setUpdatingMaterialId(materialId);
+        setError(null);
+        const pending = await getPendingSyncOperations(userId);
+        const hasPendingWork = pending.some(operation =>
+          operation.entity === 'material' &&
+          (('materialId' in operation.payload && operation.payload.materialId === materialId) ||
+            ('localId' in operation.payload && operation.payload.localId === materialId)),
         );
-      },
-      [
-        updateTextMaterial,
-      ],
-    );
+        const shouldQueue =
+          !networkInitialized || !isOnline ||
+          isLocalEntityId(materialId) || isLocalEntityId(subjectId) || hasPendingWork;
+        const changes = {
+          title: cleanTitle,
+          ...(cleanContent === undefined ? {} : { content: cleanContent }),
+        };
 
-
-  // =========================================================
-  // UPDATE IMAGE TITLE
-  // =========================================================
-  //
-  // Still online-only.
-  //
-
-  const updateImageTitle =
-    useCallback(
-      async (
-        materialId: string,
-        title: string,
-      ) => {
-
-        if (!userId) {
-
-          throw new Error(
-            'You must be logged in.',
-          );
-        }
-
-
-        requireOnline();
-
-
-        if (
-          isLocalEntityId(
-            materialId,
-          )
-          ||
-          isLocalEntityId(
-            subjectId,
-          )
-        ) {
-
-          throw new Error(
-            'Please reconnect before updating this image.',
-          );
-        }
-
-
-        try {
-
-          setUpdatingMaterialId(
-            materialId,
-          );
-
-
-          setError(
-            null,
-          );
-
-
-          await repository
-            .updateImageTitle(
-              materialId,
-              title,
+        if (shouldQueue) {
+          await commitMaterials(async current => {
+            if (!current.some(material => material.id === materialId)) {
+              throw new Error('Material not found in the saved library.');
+            }
+            await enqueueSyncOperation(userId, {
+              entity: 'material',
+              action: 'update',
+              payload: cleanContent === undefined
+                ? { materialId, subjectId, title: cleanTitle, kind: 'title' }
+                : { materialId, subjectId, title: cleanTitle, content: cleanContent },
+            });
+            return current.map(material => material.id === materialId
+              ? { ...material, ...changes, updatedAt: Date.now(), syncStatus: 'pending' }
+              : material,
             );
-
-
+          });
+        } else {
+          if (cleanContent === undefined) {
+            await repository.updateMaterialTitle(materialId, cleanTitle);
+          } else {
+            await repository.updateMaterial(materialId, { title: cleanTitle, content: cleanContent });
+          }
+          await commitMaterials(current => current.map(material => material.id === materialId
+            ? { ...material, ...changes, updatedAt: Date.now(), syncStatus: 'synced' }
+            : material,
+          ));
           await loadMaterials();
-
-        } catch (
-          updateError
-        ) {
-
-          console.warn(
-            'Update image title error:',
-            updateError,
-          );
-
-
-          setError(
-            updateError instanceof Error
-              ? updateError.message
-              : 'Unable to update image title.',
-          );
-
-
-          throw updateError;
-
-        } finally {
-
-          setUpdatingMaterialId(
-            null,
-          );
         }
-      },
-      [
-        repository,
-        userId,
-        subjectId,
-        requireOnline,
-        loadMaterials,
-      ],
-    );
+      } catch (updateError) {
+        console.warn('Update material error:', updateError);
+        setError(updateError instanceof Error ? updateError.message : 'Unable to update material.');
+        throw updateError;
+      } finally {
+        setUpdatingMaterialId(null);
+      }
+    },
+    [repository, userId, subjectId, networkInitialized, isOnline, loadMaterials, commitMaterials],
+  );
+
+  const updateTextMaterial = useCallback(
+    (materialId: string, title: string, content: string) => updateMaterial(materialId, title, content),
+    [updateMaterial],
+  );
+
+  const updateMaterialTitle = useCallback(
+    (materialId: string, title: string) => updateMaterial(materialId, title),
+    [updateMaterial],
+  );
+
+  // Retained for callers that previously used the image-specific method.
+  const updateImageTitle = updateMaterialTitle;
 
 
   // =========================================================
@@ -1683,39 +1379,25 @@ export const useMaterials = (
           // before ever reaching FastAPI.
           //
 
-          if (
-            isLocalEntityId(
-              materialId,
-            )
-          ) {
-
-            await removeLocalEntityOperations(
-              userId,
-              materialId,
+          if (isLocalEntityId(materialId) && (!networkInitialized || !isOnline)) {
+            const previous = (await getMaterialsCache(userId, subjectId))
+              .find(material => material.id === materialId);
+            // Persist removal before cancelling upload, so a failed cache write
+            // cannot leave a visible local note without its queued creation.
+            await commitMaterials(current =>
+              current.filter(material => material.id !== materialId),
             );
-
-
-            setMaterials(
-              current => {
-
-                const next =
-                  current.filter(
-                    material =>
-                      material.id !==
-                      materialId,
-                  );
-
-
-                void saveMaterialsCache(
-                  userId,
-                  subjectId,
-                  next,
-                );
-
-
-                return next;
-              },
-            );
+            try {
+              await removeLocalEntityOperations(userId, materialId);
+            } catch (queueError) {
+              if (previous) {
+                await commitMaterials(current => [
+                  previous,
+                  ...current.filter(material => material.id !== materialId),
+                ]);
+              }
+              throw queueError;
+            }
 
 
             console.log(
@@ -1734,51 +1416,22 @@ export const useMaterials = (
           // OFFLINE DELETE
           // ===================================================
 
-          if (
-            networkInitialized
-            &&
-            !isOnline
-          ) {
+          const pending = await getPendingSyncOperations(userId);
+          const hasPendingWork = pending.some(operation =>
+            operation.entity === 'material' &&
+            (('materialId' in operation.payload && operation.payload.materialId === materialId) ||
+              ('localId' in operation.payload && operation.payload.localId === materialId)),
+          );
+          if (!networkInitialized || !isOnline || isLocalEntityId(materialId) || hasPendingWork) {
 
-            await enqueueSyncOperation(
-              userId,
-              {
-                entity:
-                  'material',
-
-                action:
-                  'delete',
-
-                payload: {
-                  materialId,
-
-                  subjectId,
-                },
-              },
-            );
-
-
-            setMaterials(
-              current => {
-
-                const next =
-                  current.filter(
-                    material =>
-                      material.id !==
-                      materialId,
-                  );
-
-
-                void saveMaterialsCache(
-                  userId,
-                  subjectId,
-                  next,
-                );
-
-
-                return next;
-              },
-            );
+            await commitMaterials(async current => {
+              await enqueueSyncOperation(userId, {
+                entity: 'material',
+                action: 'delete',
+                payload: { materialId, subjectId },
+              });
+              return current.filter(material => material.id !== materialId);
+            });
 
 
             console.log(
@@ -1804,26 +1457,8 @@ export const useMaterials = (
             );
 
 
-          setMaterials(
-            current => {
-
-              const next =
-                current.filter(
-                  material =>
-                    material.id !==
-                    materialId,
-                );
-
-
-              void saveMaterialsCache(
-                userId,
-                subjectId,
-                next,
-              );
-
-
-              return next;
-            },
+          await commitMaterials(current =>
+            current.filter(material => material.id !== materialId),
           );
 
         } catch (
@@ -1858,6 +1493,7 @@ export const useMaterials = (
         subjectId,
         networkInitialized,
         isOnline,
+        commitMaterials,
       ],
     );
 
@@ -1886,6 +1522,7 @@ export const useMaterials = (
     createImageMaterial,
 
     updateTextMaterial,
+    updateMaterialTitle,
     updateMaterial,
     updateImageTitle,
 

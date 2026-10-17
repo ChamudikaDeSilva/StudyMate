@@ -118,16 +118,20 @@ export class MaterialApiRepositoryImpl implements MaterialRepository {
     });
   }
 
-  async updateImageTitle(materialId: string, title: string): Promise<void> {
+  async updateMaterialTitle(materialId: string, title: string): Promise<void> {
     const cleanTitle = title.trim();
     if (!cleanTitle) throw new Error('Material title is required.');
 
-    await apiRequest<MaterialApiResponse>(`/materials/${materialId}/image-title`, {
+    await apiRequest<MaterialApiResponse>(`/materials/${materialId}/title`, {
       method: 'PATCH',
       authenticated: true,
       accessToken: this.accessToken,
       body: JSON.stringify({title: cleanTitle}),
     });
+  }
+
+  async updateImageTitle(materialId: string, title: string): Promise<void> {
+    return this.updateMaterialTitle(materialId, title);
   }
 
   async deleteMaterial(materialId: string): Promise<void> {

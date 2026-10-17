@@ -3,6 +3,7 @@ import { MaterialApiRepositoryImpl } from '../../src/data/repositories/MaterialA
 import * as queue from '../../src/data/local/sync/pendingSyncQueue';
 import { PendingSyncOperation } from '../../src/data/local/sync/pendingSyncQueue';
 import { SyncSession } from '../../src/domain/models/SyncSession';
+import { Material } from '../../src/domain/models/Material';
 import { OfflineSyncService } from '../../src/services/offline/OfflineSyncService';
 
 jest.mock('../../src/data/repositories/SubjectApiRepositoryImpl', () => ({
@@ -16,6 +17,11 @@ jest.mock('../../src/data/local/storage/offlineCache', () => ({
   saveSubjectsCache: jest.fn(),
   getMaterialsCache: jest.fn(async () => []),
   saveMaterialsCache: jest.fn(),
+  updateMaterialsCache: jest.fn(async (
+    _userId: string | number,
+    _subjectId: string | number,
+    update: (materials: Material[]) => Material[] | Promise<Material[]>,
+  ) => update([])),
   removeMaterialsCache: jest.fn(),
 }));
 jest.mock('../../src/data/local/sync/pendingSyncQueue', () => ({

@@ -38,6 +38,7 @@ export interface MaterialRepository {
   createImageMaterial(input: CreateImageMaterialInput): Promise<Material>;
 
   updateMaterial(materialId: string, input: UpdateMaterialInput): Promise<void>;
+  updateMaterialTitle(materialId: string, title: string): Promise<void>;
   updateImageTitle(materialId: string, title: string): Promise<void>;
   deleteMaterial(materialId: string): Promise<void>;
 }

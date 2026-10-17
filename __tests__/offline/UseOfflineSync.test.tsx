@@ -1,6 +1,9 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { getPendingSyncCount } from '../../src/data/local/sync/pendingSyncQueue';
+import {
+  getPendingSyncCount,
+  subscribeToSyncQueue,
+} from '../../src/data/local/sync/pendingSyncQueue';
 import { SyncSession } from '../../src/domain/models/SyncSession';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useNetwork } from '../../src/hooks/useNetwork';
@@ -11,6 +14,7 @@ jest.mock('../../src/hooks/useAuth', () => ({ useAuth: jest.fn() }));
 jest.mock('../../src/hooks/useNetwork', () => ({ useNetwork: jest.fn() }));
 jest.mock('../../src/data/local/sync/pendingSyncQueue', () => ({
   getPendingSyncCount: jest.fn(),
+  subscribeToSyncQueue: jest.fn(),
 }));
 jest.mock('../../src/services/offline/OfflineSyncService', () => ({
   offlineSyncService: { sync: jest.fn() },
@@ -37,6 +41,7 @@ let syncState!: ReturnType<typeof useOfflineSync>;
 let currentSession: SyncSession | null;
 const getSyncSession = jest.fn(() => currentSession);
 const mounted: ReactTestRenderer.ReactTestRenderer[] = [];
+const queueListeners = new Set<(userId: string) => void>();
 
 const ObserveSync = () => {
   syncState = useOfflineSync();
@@ -70,9 +75,19 @@ const makeSession = (userId: string, accessToken: string): SyncSession => {
   };
   return session;
 };
+const notifyQueue = async (userId: string) => {
+  await act(async () => {
+    queueListeners.forEach(listener => listener(userId));
+  });
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
+  queueListeners.clear();
+  jest.mocked(subscribeToSyncQueue).mockImplementation(listener => {
+    queueListeners.add(listener);
+    return () => queueListeners.delete(listener);
+  });
   currentSession = makeSession('1', 'token-a');
   authState = {
     user,
@@ -256,6 +271,89 @@ test('a validated account does not sync while network state is unavailable or of
   });
   await rerender(renderer);
 
+  expect(getPendingSyncCount).not.toHaveBeenCalled();
+  expect(offlineSyncService.sync).not.toHaveBeenCalled();
+});
+
+test('new work queued for the current account starts syncing without a network transition', async () => {
+  jest.mocked(getPendingSyncCount).mockResolvedValueOnce(0);
+  await renderHook();
+  expect(offlineSyncService.sync).not.toHaveBeenCalled();
+
+  await notifyQueue('1');
+
+  expect(subscribeToSyncQueue).toHaveBeenCalled();
+  expect(offlineSyncService.sync).toHaveBeenCalledTimes(1);
+  expect(offlineSyncService.sync).toHaveBeenCalledWith('1', currentSession);
+  expect(syncState.lastResult).toEqual(successfulResult);
+});
+
+test('another account queue notification does not read or upload the current account queue', async () => {
+  jest.mocked(getPendingSyncCount).mockResolvedValueOnce(0);
+  await renderHook();
+  jest.mocked(getPendingSyncCount).mockClear();
+
+  await notifyQueue('2');
+
+  expect(getPendingSyncCount).not.toHaveBeenCalled();
+  expect(offlineSyncService.sync).not.toHaveBeenCalled();
+});
+
+test.each(['offline', 'unvalidated'] as const)(
+  'a queue notification cannot upload while the account is %s',
+  async condition => {
+    if (condition === 'offline') {
+      jest.mocked(useNetwork).mockReturnValue({
+        initialized: true,
+        isOnline: false,
+        isConnected: false,
+        isInternetReachable: false,
+        connectionType: 'none',
+      });
+    } else {
+      authState = { ...authState, sessionValidated: false };
+    }
+    await renderHook();
+
+    await notifyQueue('1');
+
+    expect(getPendingSyncCount).not.toHaveBeenCalled();
+    expect(offlineSyncService.sync).not.toHaveBeenCalled();
+  },
+);
+
+test('work added during a running sync triggers one follow-up pass after it finishes', async () => {
+  const completing = deferred<typeof successfulResult>();
+  jest.mocked(offlineSyncService.sync).mockReturnValueOnce(completing.promise);
+  await renderHook();
+  expect(offlineSyncService.sync).toHaveBeenCalledTimes(1);
+  expect(syncState.syncing).toBe(true);
+
+  await notifyQueue('1');
+  await notifyQueue('1');
+  expect(offlineSyncService.sync).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    // The old snapshot may report no remaining work despite the new enqueues.
+    completing.resolve(successfulResult);
+    await completing.promise;
+  });
+
+  expect(offlineSyncService.sync).toHaveBeenCalledTimes(2);
+  expect(getPendingSyncCount).toHaveBeenCalledTimes(2);
+  expect(syncState.lastResult).toEqual(successfulResult);
+  expect(syncState.syncing).toBe(false);
+});
+
+test('unmounting removes the queue subscription and stops reacting to new work', async () => {
+  jest.mocked(getPendingSyncCount).mockResolvedValueOnce(0);
+  const renderer = await renderHook();
+  expect(queueListeners.size).toBe(1);
+  act(() => renderer.unmount());
+  jest.mocked(getPendingSyncCount).mockClear();
+
+  await notifyQueue('1');
+
+  expect(queueListeners.size).toBe(0);
   expect(getPendingSyncCount).not.toHaveBeenCalled();
   expect(offlineSyncService.sync).not.toHaveBeenCalled();
 });

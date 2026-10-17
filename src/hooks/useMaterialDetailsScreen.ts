@@ -52,7 +52,7 @@ export const useMaterialDetailsScreen = ({
 
     updateTextMaterial,
 
-    updateImageTitle,
+    updateMaterialTitle,
 
     deleteMaterial,
   } = useMaterials(
@@ -133,15 +133,7 @@ export const useMaterialDetailsScreen = ({
   // MATERIAL CAPABILITIES
   // =========================================================
 
-  const canEdit =
-
-    material?.sourceType ===
-      'text'
-
-    ||
-
-    material?.sourceType ===
-      'image';
+  const canEdit = !!material;
 
 
   const canGenerateSummary =
@@ -306,15 +298,15 @@ export const useMaterialDetailsScreen = ({
         try {
 
           // ===============================================
-          // IMAGE
+          // FILE TITLE
           // ===============================================
 
           if (
-            material.sourceType ===
-            'image'
+            material.sourceType !==
+            'text'
           ) {
 
-            await updateImageTitle(
+            await updateMaterialTitle(
               material.id,
               cleanTitle,
             );
@@ -332,15 +324,6 @@ export const useMaterialDetailsScreen = ({
           // ===============================================
           // TEXT
           // ===============================================
-
-          if (
-            material.sourceType !==
-            'text'
-          ) {
-
-            return;
-          }
-
 
           const cleanContent =
             content.trim();
@@ -402,7 +385,7 @@ export const useMaterialDetailsScreen = ({
         busy,
         title,
         content,
-        updateImageTitle,
+        updateMaterialTitle,
         updateTextMaterial,
       ],
     );
