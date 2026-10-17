@@ -80,7 +80,11 @@ const MainNavigator = () => {
     <ScreenContext.Provider value={ThemedNativeScreen}>
       <Tab.Navigator screenOptions={screenOptions}>
         <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="Subjects" component={SubjectsNavigator} />
+        <Tab.Screen
+          name="Subjects"
+          component={SubjectsNavigator}
+          options={{ popToTopOnBlur: true }}
+        />
         <Tab.Screen name="Profile" component={ProfileScreen} />
       </Tab.Navigator>
     </ScreenContext.Provider>

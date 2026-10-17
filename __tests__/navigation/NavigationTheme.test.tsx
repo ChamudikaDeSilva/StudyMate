@@ -36,13 +36,15 @@ jest.mock('@react-navigation/bottom-tabs', () => {
       Screen: ({
         name,
         component,
+        options,
       }: {
         name: string;
         component: React.ComponentType;
+        options?: object;
       }) =>
         ReactModule.createElement(
           require('react-native-screens').Screen,
-          { testID: `tab-${name}`, activityState: 2 },
+          { testID: `tab-${name}`, activityState: 2, ...options },
           ReactModule.createElement(component),
         ),
     }),
@@ -133,6 +135,13 @@ test('a nested dark image preview retains its explicit light icon override', () 
   expect(getNativeView(renderer, 'image-preview').props.statusBarStyle).toBe(
     'light',
   );
+});
+
+test('returning to Subjects opens its list without unmounting the whole tab', () => {
+  const renderer = render(<MainNavigator />);
+  const subjects = getNativeView(renderer, 'tab-Subjects');
+  expect(subjects.props.popToTopOnBlur).toBe(true);
+  expect(subjects.props.activityState).toBe(2);
 });
 
 test('iOS keeps focused React Native status bar ownership with the existing app configuration', () => {

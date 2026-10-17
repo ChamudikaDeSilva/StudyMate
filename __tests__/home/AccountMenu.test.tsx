@@ -9,6 +9,23 @@ import { AppAlertProvider } from '../../src/context/AppAlertContext';
 import { useAuth } from '../../src/hooks/useAuth';
 
 jest.mock('../../src/hooks/useAuth', () => ({ useAuth: jest.fn() }));
+const mockBlur = new Set<() => void>();
+jest.mock('@react-navigation/native', () => ({
+  useFocusEffect: (callback: () => (() => void) | undefined) => {
+    require('react').useEffect(() => {
+      const cleanup = callback();
+      if (cleanup) {
+        mockBlur.add(cleanup);
+      }
+      return () => {
+        if (cleanup) {
+          mockBlur.delete(cleanup);
+          cleanup();
+        }
+      };
+    }, [callback]);
+  },
+}));
 jest.mock('react-native-css-interop', () => ({
   createInteropElement: require('react').createElement,
 }));
@@ -77,6 +94,13 @@ const open = (renderer: ReactTestRenderer.ReactTestRenderer) => {
   act(() => avatar(renderer).props.onPress());
   expect(sheet(renderer).props.visible).toBe(true);
 };
+
+test('leaving the screen closes its account sheet before another tab is shown', () => {
+  const { renderer } = renderMenu();
+  open(renderer);
+  act(() => mockBlur.forEach(cleanup => cleanup()));
+  expect(sheet(renderer).props.visible).toBe(false);
+});
 const requestLogout = (renderer: ReactTestRenderer.ReactTestRenderer) => {
   const previousCalls = logout.mock.calls.length;
   act(() => action(renderer, 'Sign out').props.onPress());

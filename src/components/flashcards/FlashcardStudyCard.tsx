@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Layers, RotateCcw } from 'lucide-react-native';
 import { colors } from '../../constants/colors';
 import { Flashcard } from '../../domain/models/MaterialFlashcards';
@@ -11,7 +11,7 @@ interface Props {
 }
 
 const FlashcardStudyCard = ({ card, answerVisible, onToggle }: Props) => (
-  <Pressable
+  <TouchableOpacity
     accessibilityRole="button"
     accessibilityLabel={
       answerVisible ? 'Hide flashcard answer' : 'Reveal flashcard answer'
@@ -20,33 +20,19 @@ const FlashcardStudyCard = ({ card, answerVisible, onToggle }: Props) => (
     accessibilityState={{ expanded: answerVisible }}
     accessibilityValue={{ text: answerVisible ? card.back : card.front }}
     onPress={onToggle}
-    className={
-      answerVisible
-        ? 'min-h-[350px] rounded-[28px] border border-line bg-white p-6 active:opacity-90'
-        : 'min-h-[350px] overflow-hidden rounded-[28px] bg-brand-600 p-6 active:opacity-90'
-    }
+    activeOpacity={0.9}
+    style={[
+      styles.card,
+      answerVisible ? styles.answer : styles.question,
+    ]}
   >
-    {!answerVisible && (
-      <View
-        pointerEvents="none"
-        className="absolute -right-12 -top-16 h-48 w-48 rounded-full bg-white/10"
-      />
-    )}
-    <View className="flex-row items-center justify-between">
-      <View
-        className={
-          answerVisible
-            ? 'rounded-full bg-brand-50 px-3 py-2'
-            : 'rounded-full bg-white/15 px-3 py-2'
-        }
-      >
-        <Text
-          className={
-            answerVisible
-              ? 'text-[11px] font-bold uppercase tracking-wider text-brand-600'
-              : 'text-[11px] font-bold uppercase tracking-wider text-white'
-          }
-        >
+    <View
+      pointerEvents="none"
+      style={[styles.decoration, answerVisible && styles.hidden]}
+    />
+    <View style={styles.header}>
+      <View style={[styles.badge, answerVisible ? styles.answerBadge : styles.questionBadge]}>
+        <Text style={[styles.label, answerVisible ? styles.answerLabel : styles.questionLabel]}>
           {answerVisible ? 'The answer' : 'Recall the idea'}
         </Text>
       </View>
@@ -56,42 +42,56 @@ const FlashcardStudyCard = ({ card, answerVisible, onToggle }: Props) => (
         strokeWidth={1.8}
       />
     </View>
-    <View className="flex-1 items-center justify-center py-10">
+    <View style={styles.content}>
       <Text
         accessibilityLiveRegion="polite"
-        className={
-          answerVisible
-            ? 'text-center text-[22px] font-semibold leading-8 text-ink'
-            : 'text-center text-[24px] font-semibold leading-9 text-white'
-        }
+        style={[styles.text, answerVisible ? styles.answerText : styles.questionText]}
       >
         {answerVisible ? card.back : card.front}
       </Text>
     </View>
-    <View
-      className={
-        answerVisible
-          ? 'flex-row items-center justify-center border-t border-line pt-4'
-          : 'flex-row items-center justify-center border-t border-white/20 pt-4'
-      }
-    >
-      <View className="mr-2">
+    <View style={[styles.footer, answerVisible ? styles.answerFooter : styles.questionFooter]}>
+      <View style={styles.footerIcon}>
         <RotateCcw
           size={15}
           color={answerVisible ? colors.textSecondary : colors.white}
         />
       </View>
-      <Text
-        className={
-          answerVisible
-            ? 'text-center text-sm font-medium text-muted'
-            : 'text-center text-sm font-medium text-white/85'
-        }
-      >
+      <Text style={[styles.hint, answerVisible ? styles.answerHint : styles.questionHint]}>
         {answerVisible ? 'Tap to see the question' : 'Tap to reveal the answer'}
       </Text>
     </View>
-  </Pressable>
+  </TouchableOpacity>
 );
+
+// Keep the native view tree and clipping consistent through every flip.
+const styles = StyleSheet.create({
+  card: { minHeight: 350, borderRadius: 28, borderWidth: 1, overflow: 'hidden', padding: 24 },
+  question: { backgroundColor: colors.primary, borderColor: colors.primary },
+  answer: { backgroundColor: colors.surface, borderColor: colors.border },
+  decoration: {
+    position: 'absolute', right: -48, top: -64, width: 192, height: 192,
+    borderRadius: 96, backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  hidden: { opacity: 0 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  badge: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  answerBadge: { backgroundColor: colors.primaryLight },
+  questionBadge: { backgroundColor: 'rgba(255,255,255,0.15)' },
+  label: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.55 },
+  answerLabel: { color: colors.primary },
+  questionLabel: { color: colors.white },
+  content: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  text: { alignSelf: 'stretch', textAlign: 'center', fontWeight: '600' },
+  questionText: { color: colors.white, fontSize: 24, lineHeight: 36 },
+  answerText: { color: colors.textPrimary, fontSize: 22, lineHeight: 32 },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderTopWidth: 1, paddingTop: 16 },
+  questionFooter: { borderTopColor: 'rgba(255,255,255,0.2)' },
+  answerFooter: { borderTopColor: colors.border },
+  footerIcon: { marginRight: 8 },
+  hint: { flexShrink: 1, textAlign: 'center', fontSize: 14, fontWeight: '500', lineHeight: 20 },
+  answerHint: { color: colors.textSecondary },
+  questionHint: { color: 'rgba(255,255,255,0.85)' },
+});
 
 export default FlashcardStudyCard;

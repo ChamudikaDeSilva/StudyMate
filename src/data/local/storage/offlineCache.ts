@@ -10,6 +10,34 @@ import {
 } from '../../../domain/models/Material';
 
 const materialWrites = new Map<string, Promise<Material[]>>();
+const subjectWrites = new Map<string, Promise<Subject[]>>();
+
+/** Share subject writes between the dashboard and library screen. */
+export const updateSubjectsCache = async (
+  userId: string | number,
+  update: (current: Subject[]) => Subject[] | Promise<Subject[]>,
+): Promise<Subject[]> => {
+  const key = subjectsKey(userId);
+  const previous = subjectWrites.get(key) ?? Promise.resolve([]);
+  const writing = previous.catch(() => []).then(async () => {
+    const stored = await readValue<Subject[]>(key, true);
+    const current = stored ? stored.data : [];
+    if (!Array.isArray(current)) {
+      throw new Error('Saved subjects could not be read. Please try again.');
+    }
+    const next = await update(current);
+    await saveValue(key, next);
+    return next;
+  });
+  subjectWrites.set(key, writing);
+  try {
+    return await writing;
+  } finally {
+    if (subjectWrites.get(key) === writing) {
+      subjectWrites.delete(key);
+    }
+  }
+};
 
 /** Keep material read/modify/write operations ordered across screen instances. */
 export const updateMaterialsCache = async (

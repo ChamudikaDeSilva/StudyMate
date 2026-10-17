@@ -24,6 +24,7 @@ import PdfMaterialForm from '../../components/materials/add/PdfMaterialForm';
 import TextMaterialForm from '../../components/materials/add/TextMaterialForm';
 
 import { useAddMaterialScreen } from '../../hooks/useAddMaterialScreen';
+import { useSubjectTabDraftGuard } from '../../hooks/useSubjectTabDraftGuard';
 
 import { SubjectsStackParamList } from '../../navigation/navigationTypes';
 
@@ -41,6 +42,10 @@ const AddMaterialScreen = ({ navigation, route }: Props) => {
 
     onSaved: handleSaved,
   });
+  useSubjectTabDraftGuard(navigation, !!(
+    screen.title || screen.content || screen.selectedPdf ||
+    screen.selectedImage || screen.capturedImage || screen.busy
+  ));
 
   return (
     <ScreenContainer>

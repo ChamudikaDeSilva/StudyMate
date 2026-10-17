@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { ScrollView, Text, View } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import {
@@ -25,6 +26,9 @@ const ProfileScreen = ({ navigation }: Props) => {
   const { user, updateProfile, changePassword } = useAuth();
   const [editing, setEditing] = useState<'profile' | 'password' | null>(null);
   const [confirmation, setConfirmation] = useState('');
+  useFocusEffect(useCallback(() => () => {
+    setConfirmation('');
+  }, []));
   const displayName = getDisplayName(user);
   const openEditor = (editor: 'profile' | 'password') => {
     setConfirmation('');

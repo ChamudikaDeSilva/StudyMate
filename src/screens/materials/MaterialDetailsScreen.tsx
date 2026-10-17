@@ -21,6 +21,7 @@ import { colors } from '../../constants/colors';
 import MaterialDetailsContent from '../../components/materials/MaterialDetailsContent';
 
 import { useMaterialDetailsScreen } from '../../hooks/useMaterialDetailsScreen';
+import { useSubjectTabDraftGuard } from '../../hooks/useSubjectTabDraftGuard';
 
 import { SubjectsStackParamList } from '../../navigation/navigationTypes';
 
@@ -39,6 +40,7 @@ const MaterialDetailsScreen = ({ navigation, route }: Props) => {
 
     onDeleted: handleDeleted,
   });
+  useSubjectTabDraftGuard(navigation, screen.editing);
 
   if (screen.loading) {
     return (

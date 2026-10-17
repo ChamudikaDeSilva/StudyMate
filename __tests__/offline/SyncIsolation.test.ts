@@ -4,6 +4,7 @@ import * as queue from '../../src/data/local/sync/pendingSyncQueue';
 import { PendingSyncOperation } from '../../src/data/local/sync/pendingSyncQueue';
 import { SyncSession } from '../../src/domain/models/SyncSession';
 import { Material } from '../../src/domain/models/Material';
+import { Subject } from '../../src/domain/models/Subject';
 import { OfflineSyncService } from '../../src/services/offline/OfflineSyncService';
 
 jest.mock('../../src/data/repositories/SubjectApiRepositoryImpl', () => ({
@@ -15,6 +16,10 @@ jest.mock('../../src/data/repositories/MaterialApiRepositoryImpl', () => ({
 jest.mock('../../src/data/local/storage/offlineCache', () => ({
   getSubjectsCache: jest.fn(async () => []),
   saveSubjectsCache: jest.fn(),
+  updateSubjectsCache: jest.fn(async (
+    _userId: string | number,
+    update: (subjects: Subject[]) => Subject[] | Promise<Subject[]>,
+  ) => update([])),
   getMaterialsCache: jest.fn(async () => []),
   saveMaterialsCache: jest.fn(),
   updateMaterialsCache: jest.fn(async (

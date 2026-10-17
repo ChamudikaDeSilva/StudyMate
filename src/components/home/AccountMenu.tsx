@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { LogOut, UserRound, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,6 +31,10 @@ const AccountMenu = ({ displayName, onProfile }: AccountMenuProps) => {
       mounted.current = false;
     };
   }, []);
+
+  useFocusEffect(useCallback(() => () => {
+    setVisible(false);
+  }, []));
 
   const closeMenu = () => {
     if (mounted.current) {

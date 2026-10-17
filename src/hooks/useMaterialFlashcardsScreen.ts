@@ -1,605 +1,266 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-
-import {
-  useMaterialFlashcards,
-} from './useMaterialFlashcards';
-
-import {
-  useNetwork,
-} from './useNetwork';
-
-import {
-  useOnlineGuard,
-} from './useOnlineGuard';
-
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useMaterialFlashcards } from './useMaterialFlashcards';
+import { useNetwork } from './useNetwork';
+import { useOnlineGuard } from './useOnlineGuard';
 
 interface UseMaterialFlashcardsScreenParams {
-
-  materialId:
-    string;
+  materialId: string;
 }
 
-
-const DEFAULT_CARD_COUNT =
-  8;
-
+const DEFAULT_CARD_COUNT = 8;
 
 export const useMaterialFlashcardsScreen = ({
   materialId,
 }: UseMaterialFlashcardsScreenParams) => {
-
   const {
-
+    identity,
     deck,
-
     loading,
-
     generating,
-
     error,
-
     loadCached,
-
     loadSaved,
-
     generate,
-
     clearError,
+  } = useMaterialFlashcards(materialId);
+  const { isOnline, initialized: networkInitialized } = useNetwork();
+  const { runOnlineAction } = useOnlineGuard();
+  const [initialization, setInitialization] = useState({
+    identity,
+    pending: Boolean(identity),
+    error: null as string | null,
+  });
+  const [position, setPosition] = useState({
+    identity,
+    deckKey: '',
+    index: 0,
+    answerVisible: false,
+  });
+  const mounted = useRef(true);
+  const startedIdentity = useRef<string | null>(null);
+  const run = useRef({ identity, version: 0, pending: false });
 
-  } = useMaterialFlashcards();
+  if (run.current.identity !== identity) {
+    run.current = {
+      identity,
+      version: run.current.version + 1,
+      pending: false,
+    };
+    startedIdentity.current = null;
+  }
 
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      run.current.version += 1;
+      run.current.pending = false;
+      startedIdentity.current = null;
+    };
+  }, []);
 
-  const {
+  // A saved GET often returns the same deck just loaded from cache. Only a
+  // different set of cards should reset the current position and face.
+  const deckKey = deck
+    ? JSON.stringify([
+        deck.flashcardSetId,
+        deck.cards.map(card => [card.id, card.front, card.back]),
+      ])
+    : '';
+  useEffect(() => {
+    setPosition(current =>
+      current.identity === identity && current.deckKey === deckKey
+        ? current
+        : { identity, deckKey, index: 0, answerVisible: false },
+    );
+  }, [deckKey, identity]);
+  const totalCards = deck?.cards.length ?? 0;
+  const samePosition =
+    position.identity === identity && position.deckKey === deckKey;
+  const currentIndex = samePosition
+    ? Math.min(position.index, Math.max(0, totalCards - 1))
+    : 0;
+  const answerVisible = samePosition && position.answerVisible;
+  const currentCard = deck?.cards[currentIndex] ?? null;
+  const currentInitialization =
+    initialization.identity === identity
+      ? initialization
+      : { identity, pending: Boolean(identity), error: null };
+
+  const initialize = useCallback(async () => {
+    if (
+      !mounted.current ||
+      !networkInitialized ||
+      !identity ||
+      run.current.identity !== identity ||
+      run.current.pending
+    ) {
+      return;
+    }
+    const version = ++run.current.version;
+    run.current.pending = true;
+    const isCurrent = () =>
+      mounted.current &&
+      run.current.identity === identity &&
+      run.current.version === version;
+    setInitialization({ identity, pending: true, error: null });
+    clearError();
+    try {
+      const cached = await loadCached();
+      if (!isCurrent()) {
+        return;
+      }
+      if (!isOnline) {
+        if (!cached) {
+          setInitialization({
+            identity,
+            pending: true,
+            error:
+              'No cached flashcards are available offline. ' +
+              'Connect to the internet and open this deck ' +
+              'once to save an offline copy.',
+          });
+        }
+        return;
+      }
+      const saved = await loadSaved();
+      if (isCurrent() && !saved) {
+        await generate(DEFAULT_CARD_COUNT);
+      }
+    } catch {
+      // Keep cached cards usable; API errors never trigger a replacement AI call.
+    } finally {
+      if (isCurrent()) {
+        run.current.pending = false;
+        setInitialization(current => ({ ...current, pending: false }));
+      }
+    }
+  }, [
+    clearError,
+    generate,
+    identity,
     isOnline,
-
-    initialized:
-      networkInitialized,
-
-  } = useNetwork();
-
-
-  const {
-    runOnlineAction,
-  } = useOnlineGuard();
-
-
-  const [
-    screenError,
-    setScreenError,
-  ] = useState<
-    string | null
-  >(
-    null,
-  );
-
-
-  const [
-    initializing,
-    setInitializing,
-  ] = useState(
-    true,
-  );
-
-
-  const [
-    currentIndex,
-    setCurrentIndex,
-  ] = useState(
-    0,
-  );
-
-
-  const [
-    answerVisible,
-    setAnswerVisible,
-  ] = useState(
-    false,
-  );
-
-
-  const initialRequestStarted =
-    useRef(
-      false,
-    );
-
-
-  const currentCard =
-    useMemo(
-      () => {
-
-        if (
-          !deck
-          ||
-          deck.cards.length ===
-            0
-        ) {
-
-          return null;
-        }
-
-
-        return (
-          deck.cards[
-            currentIndex
-          ]
-          ??
-          null
-        );
-      },
-      [
-        deck,
-        currentIndex,
-      ],
-    );
-
-
-  const resetStudyPosition =
-    useCallback(
-      () => {
-
-        setCurrentIndex(
-          0,
-        );
-
-
-        setAnswerVisible(
-          false,
-        );
-      },
-      [],
-    );
-
-
-  // =========================================================
-  // INITIAL LOAD
-  // =========================================================
-  //
-  // 1. Read cached deck first.
-  //
-  // 2. Offline:
-  //      cached -> study normally
-  //      no cache -> friendly message
-  //
-  // 3. Online:
-  //      GET saved deck from FastAPI
-  //
-  // 4. If missing:
-  //      generate once
-  //
-  // Every successful GET/POST refreshes local cache.
-  // =========================================================
-
-  const initialize =
-    useCallback(
-      async () => {
-
-        if (
-          !networkInitialized
-        ) {
-
-          return;
-        }
-
-
-        let cachedDeckFound =
-          false;
-
-
-        try {
-
-          setInitializing(
-            true,
-          );
-
-
-          setScreenError(
-            null,
-          );
-
-
-          clearError();
-
-
-          const cached =
-            await loadCached(
-              materialId,
-            );
-
-
-          cachedDeckFound =
-            Boolean(
-              cached,
-            );
-
-
-          if (
-            cached
-          ) {
-
-            resetStudyPosition();
-          }
-
-
-          // ==================================================
-          // OFFLINE
-          // ==================================================
-
-          if (
-            !isOnline
-          ) {
-
-            if (
-              !cachedDeckFound
-            ) {
-
-              setScreenError(
-                'No cached flashcards are available offline. '
-                + 'Connect to the internet and open this deck '
-                + 'once to save an offline copy.',
-              );
-            }
-
-
-            return;
-          }
-
-
-          // ==================================================
-          // ONLINE - CHECK FASTAPI
-          // ==================================================
-
-          const saved =
-            await loadSaved(
-              materialId,
-            );
-
-
-          if (
-            saved
-          ) {
-
-            resetStudyPosition();
-
-            return;
-          }
-
-
-          // ==================================================
-          // ONLINE - GENERATE IF MISSING
-          // ==================================================
-
-          await generate(
-            materialId,
-            DEFAULT_CARD_COUNT,
-          );
-
-
-          resetStudyPosition();
-
-
-        } catch {
-
-          /*
-           * If online loading fails, do not automatically
-           * trigger another Gemini request.
-           *
-           * Any already-loaded cached deck remains usable.
-           */
-
-        } finally {
-
-          setInitializing(
-            false,
-          );
-        }
-
-      },
-      [
-        clearError,
-        generate,
-        isOnline,
-        loadCached,
-        loadSaved,
-        materialId,
-        networkInitialized,
-        resetStudyPosition,
-      ],
-    );
-
-
-  useEffect(
-    () => {
-
-      if (
-        !networkInitialized
-      ) {
-
-        return;
-      }
-
-
-      if (
-        initialRequestStarted
-          .current
-      ) {
-
-        return;
-      }
-
-
-      initialRequestStarted
-        .current =
-          true;
-
-
-      void initialize();
-
-    },
-    [
-      initialize,
-      networkInitialized,
-    ],
-  );
-
-
-  const toggleAnswer =
-    useCallback(
-      () => {
-
-        if (
-          !currentCard
-        ) {
-
-          return;
-        }
-
-
-        setAnswerVisible(
-          current =>
-            !current,
-        );
-      },
-      [
-        currentCard,
-      ],
-    );
-
-
-  const previous =
-    useCallback(
-      () => {
-
-        setCurrentIndex(
-          current => {
-
-            if (
-              current <=
-                0
-            ) {
-
-              return 0;
-            }
-
-
-            return (
-              current - 1
-            );
-          },
-        );
-
-
-        setAnswerVisible(
-          false,
-        );
-      },
-      [],
-    );
-
-
-  const next =
-    useCallback(
-      () => {
-
-        if (
-          !deck
-        ) {
-
-          return;
-        }
-
-
-        setCurrentIndex(
-          current => {
-
-            const finalIndex =
-              deck.cards.length
-              - 1;
-
-
-            if (
-              current >=
-                finalIndex
-            ) {
-
-              return finalIndex;
-            }
-
-
-            return (
-              current + 1
-            );
-          },
-        );
-
-
-        setAnswerVisible(
-          false,
-        );
-      },
-      [
-        deck,
-      ],
-    );
-
-
-  // =========================================================
-  // GENERATE AGAIN
-  // =========================================================
-  //
-  // Strictly online-only.
-  //
-  // If offline, the current cached deck stays visible.
-  // =========================================================
-
-  const generateAgain =
-    useCallback(
-      () => {
-
-        runOnlineAction(
-          'AI Flashcards',
-          async () => {
-
-            setScreenError(
-              null,
-            );
-
-
-            clearError();
-
-
-            try {
-
-              await generate(
-                materialId,
-                DEFAULT_CARD_COUNT,
-              );
-
-
-              resetStudyPosition();
-
-
-            } catch {
-
-              /*
-               * useMaterialFlashcards already owns API error
-               * state.
-               */
-            }
-          },
-        );
-
-      },
-      [
-        clearError,
-        generate,
-        materialId,
-        resetStudyPosition,
-        runOnlineAction,
-      ],
-    );
-
-
-  const retry =
-    useCallback(
-      async () => {
-
-        setScreenError(
-          null,
-        );
-
-
-        clearError();
-
-
-        await initialize();
-
-      },
-      [
-        clearError,
-        initialize,
-      ],
-    );
-
-
-  const totalCards =
-    deck?.cards.length
-    ??
-    0;
-
-
-  const displayPosition =
-    totalCards >
-      0
-      ? currentIndex + 1
-      : 0;
-
-
-  const canGoPrevious =
-    currentIndex >
-    0;
-
-
-  const canGoNext =
+    loadCached,
+    loadSaved,
+    networkInitialized,
+  ]);
+
+  useEffect(() => {
+    if (
+      !networkInitialized ||
+      !identity ||
+      startedIdentity.current === identity
+    ) {
+      return;
+    }
+    startedIdentity.current = identity;
+    initialize();
+  }, [identity, initialize, networkInitialized]);
+
+  const updatePosition = useCallback(
     (
-      totalCards >
-        0
-      &&
-      currentIndex
-        <
-      totalCards - 1
-    );
+      change: (current: { index: number; answerVisible: boolean }) => {
+        index: number;
+        answerVisible: boolean;
+      },
+    ) => {
+      setPosition(current => ({
+        identity,
+        deckKey,
+        ...change(
+          current.identity === identity && current.deckKey === deckKey
+            ? current
+            : { index: 0, answerVisible: false },
+        ),
+      }));
+    },
+    [deckKey, identity],
+  );
 
+  const toggleAnswer = useCallback(() => {
+    if (currentCard) {
+      updatePosition(current => ({
+        ...current,
+        answerVisible: !current.answerVisible,
+      }));
+    }
+  }, [currentCard, updatePosition]);
+  const previous = useCallback(() => {
+    updatePosition(current => ({
+      index: Math.max(0, current.index - 1),
+      answerVisible: false,
+    }));
+  }, [updatePosition]);
+  const next = useCallback(() => {
+    if (totalCards > 0) {
+      updatePosition(current => ({
+        index: Math.min(current.index + 1, totalCards - 1),
+        answerVisible: false,
+      }));
+    }
+  }, [totalCards, updatePosition]);
+
+  const generateAgain = useCallback(() => {
+    if (!identity || run.current.pending || loading || generating) {
+      return;
+    }
+    runOnlineAction('AI Flashcards', async () => {
+      if (run.current.pending || run.current.identity !== identity) {
+        return;
+      }
+      const version = ++run.current.version;
+      run.current.pending = true;
+      clearError();
+      setInitialization({ identity, pending: false, error: null });
+      try {
+        const generated = await generate(DEFAULT_CARD_COUNT);
+        if (
+          mounted.current &&
+          run.current.identity === identity &&
+          run.current.version === version
+        ) {
+          setPosition({
+            identity,
+            deckKey: JSON.stringify([
+              generated.flashcardSetId,
+              generated.cards.map(card => [card.id, card.front, card.back]),
+            ]),
+            index: 0,
+            answerVisible: false,
+          });
+        }
+      } catch {
+        // The data hook presents generation errors without discarding cache.
+      } finally {
+        if (
+          mounted.current &&
+          run.current.identity === identity &&
+          run.current.version === version
+        ) {
+          run.current.pending = false;
+        }
+      }
+    });
+  }, [clearError, generate, generating, identity, loading, runOnlineAction]);
 
   return {
-
     deck,
-
     currentCard,
-
     currentIndex,
-
-    displayPosition,
-
+    displayPosition: totalCards > 0 ? currentIndex + 1 : 0,
     totalCards,
-
     answerVisible,
-
-    initializing,
-
+    initializing: currentInitialization.pending,
     loading,
-
     generating,
-
-    busy:
-      initializing
-      ||
-      loading
-      ||
-      generating,
-
-    error:
-      screenError
-      ??
-      error,
-
-    canGoPrevious,
-
-    canGoNext,
-
+    busy: currentInitialization.pending || loading || generating,
+    error: currentInitialization.error ?? error,
+    canGoPrevious: currentIndex > 0,
+    canGoNext: currentIndex < totalCards - 1,
     toggleAnswer,
-
     previous,
-
     next,
-
     generateAgain,
-
-    retry,
+    retry: initialize,
   };
 };

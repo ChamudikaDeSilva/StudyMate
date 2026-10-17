@@ -15,6 +15,17 @@ jest.mock('../../src/hooks/useAuth', () => ({
 jest.mock('../../src/hooks/useSubjects', () => ({
   useSubjects: jest.fn(),
 }));
+let mockFocus: (() => (() => void) | undefined) | undefined;
+let mockBlur: (() => void) | undefined;
+jest.mock('@react-navigation/native', () => ({
+  useFocusEffect: (callback: () => (() => void) | undefined) => {
+    mockFocus = callback;
+    require('react').useEffect(() => {
+      mockBlur = callback();
+      return mockBlur;
+    }, [callback]);
+  },
+}));
 
 jest.mock('../../src/hooks/useAppAlert', () => ({
   __esModule: true,
@@ -85,6 +96,20 @@ test('required-name feedback keeps the form open and does not save', async () =>
   );
   expect(screen.formVisible).toBe(true);
   expect(createSubject).not.toHaveBeenCalled();
+});
+
+test('returning to the subject list refreshes data without restoring a stale search or actions sheet', () => {
+  expect(screen.loadSubjects).not.toHaveBeenCalled();
+  act(() => {
+    screen.setSearchText('old search');
+    screen.openActions(subject);
+  });
+  act(() => mockBlur?.());
+  expect(screen.searchText).toBe('');
+  expect(screen.actionsVisible).toBe(false);
+  expect(screen.selectedSubject).toBeNull();
+  act(() => { mockFocus?.(); });
+  expect(screen.loadSubjects).toHaveBeenCalledTimes(1);
 });
 
 test('save failure preserves entered values for correction and retry', async () => {

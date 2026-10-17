@@ -7,6 +7,7 @@ import {
 } from 'react';
 
 import { Platform } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import {
   Subject,
@@ -323,6 +324,23 @@ export const useSubjectsScreen = () => {
       },
       [],
     );
+
+  const loadSubjectsRef = useRef(loadSubjects);
+  const hasFocused = useRef(false);
+  loadSubjectsRef.current = loadSubjects;
+
+  useFocusEffect(useCallback(() => {
+    // The shared data hook handles the initial load and connection changes.
+    if (hasFocused.current) {
+      loadSubjectsRef.current();
+    } else {
+      hasFocused.current = true;
+    }
+    return () => {
+      setSearchText('');
+      closeActions();
+    };
+  }, [closeActions]));
 
 
   // =========================================================

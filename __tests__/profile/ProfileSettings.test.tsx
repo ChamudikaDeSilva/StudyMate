@@ -10,6 +10,23 @@ import ProfileScreen from '../../src/screens/profile/ProfileScreen';
 import { useAuth } from '../../src/hooks/useAuth';
 
 jest.mock('../../src/hooks/useAuth', () => ({ useAuth: jest.fn() }));
+const mockBlur = new Set<() => void>();
+jest.mock('@react-navigation/native', () => ({
+  useFocusEffect: (callback: () => (() => void) | undefined) => {
+    require('react').useEffect(() => {
+      const cleanup = callback();
+      if (cleanup) {
+        mockBlur.add(cleanup);
+      }
+      return () => {
+        if (cleanup) {
+          mockBlur.delete(cleanup);
+          cleanup();
+        }
+      };
+    }, [callback]);
+  },
+}));
 jest.mock('../../src/hooks/useAppAlert', () => ({
   useAppAlert: () => ({ alert: jest.fn() }),
 }));
@@ -429,6 +446,18 @@ test('successful profile save reflects context updates and reopens with the save
   expect(getInput(renderer, 'Email address').props.value).toBe(
     updatedUser.email,
   );
+});
+
+test('returning to Profile does not replay an earlier success message', () => {
+  const renderer = render(profileElement());
+  act(() => button(renderer, 'Edit profile').props.onPress());
+  act(() => renderer.root.findByType(EditProfileModal).props.onSaved(false));
+  expect(visibleText(renderer)).toContain('Your profile has been updated.');
+
+  act(() => mockBlur.forEach(cleanup => cleanup()));
+
+  expect(visibleText(renderer)).not.toContain('Your profile has been updated.');
+  expect(visibleText(renderer)).toContain(originalUser.email);
 });
 
 test('successful password changes close the modal and reopen with empty passwords', async () => {

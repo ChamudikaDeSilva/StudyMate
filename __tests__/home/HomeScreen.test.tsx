@@ -23,12 +23,21 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: require('react-native').View,
 }));
 
-let mockFocusEffect: (() => void) | undefined;
+const mockFocusEffects = new Set<() => void>();
+const mockFocusEffect = () => mockFocusEffects.forEach(callback => callback());
 jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => true,
-  useFocusEffect: (callback: () => void) => {
-    mockFocusEffect = callback;
-    require('react').useEffect(callback, [callback]);
+  useFocusEffect: (callback: () => void | (() => void)) => {
+    require('react').useEffect(() => {
+      mockFocusEffects.add(callback);
+      const cleanup = callback();
+      return () => {
+        mockFocusEffects.delete(callback);
+        if (typeof cleanup === 'function') {
+          cleanup();
+        }
+      };
+    }, [callback]);
   },
 }));
 
@@ -159,7 +168,7 @@ const visibleText = (renderer: ReactTestRenderer.ReactTestRenderer) => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockFocusEffect = undefined;
+  mockFocusEffects.clear();
   loadSubjects.mockResolvedValue(undefined);
   mockUseAuth.mockReturnValue({
     user: {

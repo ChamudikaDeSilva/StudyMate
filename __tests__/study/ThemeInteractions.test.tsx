@@ -183,28 +183,26 @@ afterEach(() => {
   act(() => mounted.splice(0).forEach(renderer => renderer.unmount()));
 });
 
-test('turning a flashcard shows one face and exposes the same content to accessibility', () => {
+test('repeated flashcard flips keep the visible face and accessibility content in sync', () => {
   const renderer = mount(<StudyCardHarness />);
 
-  expect(visibleText(renderer)).toContain(card.front);
-  expect(visibleText(renderer)).not.toContain(card.back);
-  expect(
-    labeledButton(renderer, 'Reveal flashcard answer').props.accessibilityValue,
-  ).toEqual({
-    text: card.front,
-  });
+  for (let cycle = 0; cycle < 12; cycle += 1) {
+    expect(visibleText(renderer)).toContain(card.front);
+    expect(visibleText(renderer)).not.toContain(card.back);
+    expect(
+      labeledButton(renderer, 'Reveal flashcard answer').props.accessibilityValue,
+    ).toEqual({ text: card.front });
 
-  act(() => labeledButton(renderer, 'Reveal flashcard answer').props.onPress());
+    act(() => labeledButton(renderer, 'Reveal flashcard answer').props.onPress());
 
-  expect(visibleText(renderer)).toContain(card.back);
-  expect(visibleText(renderer)).not.toContain(card.front);
-  expect(
-    labeledButton(renderer, 'Hide flashcard answer').props.accessibilityValue,
-  ).toEqual({
-    text: card.back,
-  });
+    expect(visibleText(renderer)).toContain(card.back);
+    expect(visibleText(renderer)).not.toContain(card.front);
+    expect(
+      labeledButton(renderer, 'Hide flashcard answer').props.accessibilityValue,
+    ).toEqual({ text: card.back });
 
-  act(() => labeledButton(renderer, 'Hide flashcard answer').props.onPress());
+    act(() => labeledButton(renderer, 'Hide flashcard answer').props.onPress());
+  }
 
   expect(visibleText(renderer)).toContain(card.front);
   expect(visibleText(renderer)).not.toContain(card.back);

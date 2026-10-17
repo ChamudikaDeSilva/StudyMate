@@ -7,8 +7,7 @@ import {
 } from '../../data/repositories/MaterialApiRepositoryImpl';
 
 import {
-  getSubjectsCache,
-  saveSubjectsCache,
+  updateSubjectsCache,
   getMaterialsCache,
   saveMaterialsCache,
   updateMaterialsCache,
@@ -515,49 +514,31 @@ class OfflineSyncRun {
     // UPDATE SUBJECT CACHE
     // ========================================================
 
-    const cachedSubjects =
-      await getSubjectsCache(
-        userId,
+    await updateSubjectsCache(userId, async current => {
+      const pending = await getPendingSyncOperations(userId);
+      const position = pending.findIndex(item => item.id === operation.id);
+      const later = pending.slice(position + 1).filter(item =>
+        item.entity === 'subject' && 'subjectId' in item.payload &&
+        (item.payload.subjectId === payload.localId || item.payload.subjectId === serverId),
       );
-
-
-    const hasLocalSubject =
-      cachedSubjects.some(
-        subject =>
-          subject.id ===
-          payload.localId,
+      const withoutLocal = current.filter(subject =>
+        subject.id !== payload.localId && subject.id !== serverId,
       );
-
-
-    const syncedSubject = {
-      ...createdSubject,
-
-      syncStatus:
-        'synced' as const,
-    };
-
-
-    const updatedSubjects =
-      hasLocalSubject
-
-        ? cachedSubjects.map(
-            subject =>
-              subject.id ===
-              payload.localId
-                ? syncedSubject
-                : subject,
-          )
-
-        : [
-            syncedSubject,
-            ...cachedSubjects,
-          ];
-
-
-    await saveSubjectsCache(
-      userId,
-      updatedSubjects,
-    );
+      if (later.some(item => item.action === 'delete')) {
+        return withoutLocal;
+      }
+      const local = current.find(subject => subject.id === payload.localId);
+      const syncedSubject = {
+        ...createdSubject,
+        ...(later.length && local ? {
+          name: local.name,
+          description: local.description,
+          updatedAt: local.updatedAt,
+        } : {}),
+        syncStatus: later.length ? 'pending' as const : 'synced' as const,
+      };
+      return [syncedSubject, ...withoutLocal];
+    });
 
 
     // ========================================================
@@ -668,40 +649,26 @@ class OfflineSyncRun {
       );
 
 
-    const cachedSubjects =
-      await getSubjectsCache(
-        userId,
+    await updateSubjectsCache(userId, async current => {
+      const pending = await getPendingSyncOperations(userId);
+      const position = pending.findIndex(item => item.id === operation.id);
+      const later = pending.slice(position + 1).filter(item =>
+        item.entity === 'subject' && 'subjectId' in item.payload &&
+        item.payload.subjectId === payload.subjectId,
       );
-
-
-    const updatedSubjects =
-      cachedSubjects.map(
-        subject =>
-          subject.id ===
-          payload.subjectId
-            ? {
-                ...subject,
-
-                name:
-                  payload.name,
-
-                description:
-                  payload.description,
-
-                updatedAt:
-                  Date.now(),
-
-                syncStatus:
-                  'synced' as const,
-              }
-            : subject,
-      );
-
-
-    await saveSubjectsCache(
-      userId,
-      updatedSubjects,
-    );
+      if (later.some(item => item.action === 'delete')) {
+        return current.filter(subject => subject.id !== payload.subjectId);
+      }
+      const lastUpdate = later.filter(item => item.action === 'update').at(-1);
+      const values = lastUpdate?.payload as SubjectUpdatePayload | undefined;
+      return current.map(subject => subject.id === payload.subjectId ? {
+        ...subject,
+        name: values?.name ?? payload.name,
+        description: values ? values.description : payload.description,
+        updatedAt: values ? subject.updatedAt : Date.now(),
+        syncStatus: values ? 'pending' as const : 'synced' as const,
+      } : subject);
+    });
 
 
     console.log(
@@ -738,23 +705,8 @@ class OfflineSyncRun {
       );
 
 
-    const cachedSubjects =
-      await getSubjectsCache(
-        userId,
-      );
-
-
-    const updatedSubjects =
-      cachedSubjects.filter(
-        subject =>
-          subject.id !==
-          payload.subjectId,
-      );
-
-
-    await saveSubjectsCache(
-      userId,
-      updatedSubjects,
+    await updateSubjectsCache(userId, current =>
+      current.filter(subject => subject.id !== payload.subjectId),
     );
 
 
